@@ -1,0 +1,170 @@
+LIST DICT INFO.USERS LPTR BY TYPE BY SORT.LOC TYPE LOC CONV NAME FORMAT SM ASSOC 0
+8:00:14 Apr 02 1997 1
+@ID............ TYP LOC............ CONV. NAME.......... FMT.. SM ASSOC.......
+ 
+@ID             D   0                     INFO.USERS     12L   S
+UNIX.GROUPS.SV  D   1                     UNIX.GROUPS    14L   S
+UNIX.GROUPS     D   1                     UNIX.GROUPS    14L   M
+OFFICE          D   2                                    4L    S
+OFFICE.NAME     D   3                                    24L   S
+SEC.GROUP       D   4                                    25L   S
+SEC.FILES       D   5                                    20L   M
+LAST.UPDATED.BY D   6                                    15L   S
+LAST.UPDATED.DA D   7               D2/                  8R    S
+TE
+COLL.USER.CODE  D   8                                    5L    S
+NON.ENV.PERMISS D   9                                    8L    M
+IONS
+ALLOWED.CODES   D   10                                   4L    M
+BATCH.CANCEL.US D   11                                   15L   M
+ERS
+LAST.LOGIN.DATE D   12              D2/   Last Login Dat 8R    S
+                                          e
+LAST.LOGIN.TIME D   13              MTH                  8L    S
+EXTENSION       D   14                                   4L    S
+VIEW.SPOOL      D   15                                   7L    S
+EDIT.SPOOL.QUEU D   16                                   1L    S
+E.OKAY
+PID.NO          D   17                                   7L    S
+DIVISION        D   18                                   2L    S
+NEW.LOGIN.NAME  D   19                                   8L    S
+NEW.PASSWORD    D   20                                   8L    S
+VIKING.PWD      D   21                    VIKING PWD     8L    S
+GENERATE.PASSWO I   IF NEW.PASSWORD                      6L    S
+RD                   = '' THEN OCON
+                    V(SUBR("GENERAT
+                    E.PASSWORD"),'M
+                    CL') ELSE NEW.P
+                    ASSWORD
+DOCS.DIR        I   IF PID.NO = ''        DOCS.DIR       30L   S
+                    OR PID.NO = '00
+                    00000' THEN ''
+                    ELSE '/':OCONV(
+                    SERVER,'MCL'):'
+                    /homedirs/':OCO
+                    NV(NETWORK.LOGI
+                    N.NAME,'MCL'):'
+                    /docs'
+ID.LEN          I   LEN(@ID)                             2R    S
+LEN.ID          I   LEN(@ID)                             3R    S
+NEW.KEY         I   OCONV(@ID,'MCL'       15L            S     I  OCONV(@ID,'M
+                    )                                             CL')
+BIRTH.MONTH.DAY I   OCONV(BIRTHDATE                      5L    S
+                    ,'D/MD[2,2]')
+DLR             I   OCONV(OFFICE,'M                      8L    S
+                    CL'):'off'
+GET.MAIL.NAME   I   SUBR("GET.MAIL.                      30L   M
+                    NAME",MAIL.NAME
+                    ,LAST,FIRST,MID
+                    DLE,TITLE,SUFFI
+                    X)
+NAME            I   SUBR("GET.NAME"       NAME           26L   S
+                    ,LAST,FIRST,MID
+                    DLE,SUFFIX,26)
+ON.MAIL.FILE    I   TRANS("MAIL.FIL                      20L   S
+                    E",@ID,"@ID",'X
+                    ')
+BIRTHDATE       I   TRANS("PEOPLE", D2/                  8R    S
+                    PID.NO,"BIRTHDA
+                    TE",'X')
+FIRST           I   TRANS("PEOPLE",                      16L   S
+                    PID.NO,"FIRST",
+                    'X')
+LAST            I   TRANS("PEOPLE",                      15L   S
+                    PID.NO,"LAST",'
+                    X')
+PEOPLE.LAST     I   TRANS("PEOPLE",                      15L   S
+                    PID.NO,"LAST",'
+                    X')
+MAIL.NAME       I   TRANS("PEOPLE",                      33L   S
+                    PID.NO,"MAIL.NA
+                    ME",'X')
+MIDDLE          I   TRANS("PEOPLE",                      16L   S
+                    PID.NO,"MIDDLE"
+                    ,'X')
+SUFFIX          I   TRANS("PEOPLE",                      15L   S
+                    PID.NO,"SUFFIX"
+                    ,"X")
+TITLE           I   TRANS("PEOPLE",                      15L   S
+                    PID.NO,"TITLE",
+                    'X')
+NETWORK.LOGIN.N I   TRANS('NETWORK.       LOGIN NAME     12L   S
+AME                 LOGINS',PID.NO,
+                    'LOGIN.NAME','X
+                    ')
+SERVER          I   TRANS('NETWORK.       SERVER         8L    S
+                    LOGINS',PID.NO,
+                    'SERVER','X')
+PER.TERM.DATE   I   TRANS('PERSONNE D4/   PER TERM.DATE  10R   S
+                    L',PID.NO,'TERM
+                    .DATE','X')
+@               PH  NAME OFFICE OFF
+                    ICE.NAME
+@UQ             PH  UNIX.GROUPS OFF
+                    ICE.NAME NAME
+@ENTRO          PHR @ID MAIL.NAME O
+                ASE FFICE OFFICE.NA
+                    ME SEC.GROUP SE
+                    C.FILES LAST.UP
+                    DATED.BY LAST.U
+                    PDATED.DATE COL
+                    L.USER.CODE SKI
+                    P.PASSWORD.ENTR
+                    Y
+
+
+47 records listed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

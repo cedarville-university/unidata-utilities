@@ -1,0 +1,38 @@
+The files contained in the 'unidata' subdirectories are BASIC
+programs which provide a variety of tools for use in a Unidata
+or Prime Information environment.  All programs are strictly
+AS IS...no warranty is offered.
+
+
+ae             Utilities to add custom commands to the AE editor
+
+download       Create merge files, HTML files, XML files, dbf files, XLSX files,
+               and ASCII files using LIST-style syntax.  Options include
+               adding control breaks, heading and footing records,
+               secondary file access without the use of I-descriptors 
+               or virtual fields.  Reference manual included.
+
+ewan           Sample configuration files for using EWAN
+
+print.page     Page-formatting routine which produces ASCII output
+               from Unidata files.  Useful for standard layout
+               documents like subscription notices, customer
+               information sheets, etc.
+
+subroutines    Various subroutines for use in virtual fields.
+               These subroutines provide sorting, run-time
+               prompting, handling of multi-value associations,
+               etc.
+
+utilities      Various programs for producting cross tabulations,
+               and histograms, viewing records, sorting lists,
+               etc.
+
+view.spool     User oriented lp spool control and modifcation program.
+               Requires adding C functions to UniData's cfuncdef and 
+               remaking udt.
+
+voc            Safe versions of CLEAR.FILE and DELETE.FILE
+
+webinterface   Sample files showing how Cedarville University connects
+               Unidata information to the Web

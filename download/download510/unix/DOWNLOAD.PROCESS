@@ -1,0 +1,975 @@
+      SUBROUTINE DOWNLOAD.PROCESS(OUTPUT.REC.CTR, BREAK.LEVEL, BY.EXP.VALUE.CTR, BY.EXP.SUBVALUE.CTR)
+*
+* INFO/BASIC SUBROUTINE
+* 11/27/90
+* DWS
+* TITLE ----- DOWNLOAD.PROCESS
+*
+*
+* PURPOSE: CREATE THE DOWNLOAD OUTPUT / HEADING, DETAIL & FOOTING RECORDS
+*
+* Stamped: pe rotmand, /disk1/coltest, user #12980, 01 Feb 01, 08:04AM.
+* Version 5.10
+*
+*************************************************************************
+*
+
+      $INCLUDE I_DOWNLOAD_MAX_COMMON
+      $INCLUDE I_DOWNLOAD_MAIN_COMMON
+      $INCLUDE I_DOWNLOAD_DATA_COMMON
+      $INCLUDE I_DOWNLOAD_WP_COMMON
+      $INCLUDE I_DOWNLOAD_OUT_REC_COMMON
+      $INCLUDE I_DOWNLOAD_WHEN_COMMON
+      $INCLUDE I_DBF_HEADER
+
+*
+* MAIN CONTROL
+*
+      GOSUB BUILD.DETAIL.LINES
+      GOSUB PRINT.DETAIL.LINES
+      RETURN
+
+
+*
+*
+* BUILD DETAIL LINES
+*
+BUILD.DETAIL.LINES: 
+      DETAIL.LINES = ''
+      BEGIN CASE
+         CASE DLMAIN.FORMAT = 'FIXED' OR DLMAIN.FORMAT = 'DBF'
+            GOSUB BUILD.FIXED.DETAIL.LINES
+            IF DLMAIN.FORMAT = 'FIXED' AND DLMAIN.RECORD.LENGTH # '' THEN
+               GOSUB DO.RECORD.LENGTH
+            END
+         CASE DLMAIN.FORMAT = 'HTML'
+            GOSUB BUILD.HTML.DETAIL.LINES
+         CASE DLMAIN.FORMAT = 'QUOTE' OR DLMAIN.FORMAT = 'COMMA'
+            GOSUB BUILD.COMMA.QUOTE.DETAIL.LINES
+         CASE DLMAIN.FORMAT = 'WP50' OR DLMAIN.FORMAT = 'WP51'
+            GOSUB BUILD.WORDPERFECT.DETAIL.LINES
+         CASE DLMAIN.FORMAT = 'DIF'
+            GOSUB BUILD.DIF.DETAIL.LINES
+      END CASE
+      IF DLMAIN.UPCASE THEN
+         GOSUB DO.UPCASE
+      END
+      RETURN
+
+
+
+*
+* CHANGE RECORD TO UPPER CASE
+*
+DO.UPCASE: 
+      DETAIL.LINES = OCONV(DETAIL.LINES,'MCU')
+      RETURN
+
+
+*
+* REMOVE PUNCTUATION (EG, FOR US POSTAL SERVICE)
+*
+DO.REMOVE.PUNCTUATION: 
+      X.CHARACTERS.TO.REMOVE = '"':"'":',.;`'
+      CONVERT X.CHARACTERS.TO.REMOVE TO '' IN DATA.FIELD
+      RETURN
+
+
+
+*
+* MAKE ALL RECORDS FIXED LENGTH
+*
+DO.RECORD.LENGTH: 
+      RECORD.FMT = DLMAIN.RECORD.LENGTH:'L'
+      NUM.DETAIL.LINES = COUNT(DETAIL.LINES,@FM) + 1
+      FOR LINE.CTR=1 TO NUM.DETAIL.LINES
+         DETAIL.LINES<LINE.CTR> = (DETAIL.LINES<LINE.CTR>:SPACE(DLMAIN.RECORD.LENGTH))[1,DLMAIN.RECORD.LENGTH]
+      NEXT LINE.CTR
+      RETURN
+
+*
+*
+* BUILD COMMA.QUOTE DETAIL LINES
+*
+BUILD.COMMA.QUOTE.DETAIL.LINES: 
+      NUM.FIELDS = 0
+      FOR FIELD.CTR=1 TO NUM.OUT.FIELDS(OUTPUT.REC.CTR)
+         GOSUB LOAD.FIELD.VALUES
+         IF OUT.TYPE # 'SUP' THEN
+            GOSUB GET.DATA.FIELD
+            IF BY.EXP.FIELD # '' AND PART.OF.ASSOC.VALUE THEN
+               GOSUB CHECK.BY.EXP
+               IF BY.EXP.OKAY THEN
+                  BUILD.DATA.VALUE.CTR = 1
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  GOSUB BUILD.COMMA.QUOTE.DATA.SUBVALUE
+               END
+            END ELSE
+               NUM.DATA.VALUES = COUNT(DATA.FIELD,@VM) + 1
+               NUM.DATA.VALUES.USED = 0
+               BUILD.DATA.VALUE.CTR = 1
+               DONE.VALUES = FALSE
+               FOR VALUE.CTR=1 TO NUM.DATA.VALUES UNTIL DONE.VALUES
+                  DATA.VALUE = DATA.FIELD<1,VALUE.CTR>
+                  NUM.DATA.SUBVALUES = COUNT(DATA.VALUE,@SM) + 1
+                  NUM.DATA.SUBVALUES.USED = 0
+                  DONE.SUBVALUES = FALSE
+                  USE.DATA.VALUE = FALSE
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  FOR SUBVALUE.CTR=1 TO NUM.DATA.SUBVALUES UNTIL DONE.SUBVALUES
+                     USE.DATA.SUBVALUE = TRUE
+                     IF PART.OF.ASSOC.VALUE AND WHEN.FIELD.LIST # '' THEN
+                        USE.DATA.SUBVALUE = WHEN.RESULT.LIST<VALUE.CTR,SUBVALUE.CTR>
+                     END
+                     IF USE.DATA.SUBVALUE THEN
+                        USE.DATA.VALUE = TRUE
+                        DATA.SUBVALUE = DATA.VALUE<1,1,SUBVALUE.CTR>
+                        NUM.DATA.SUBVALUES.USED += 1
+                        GOSUB BUILD.COMMA.QUOTE.DATA.SUBVALUE
+                        IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                           IF NUM.DATA.SUBVALUES.USED >= NUM.SUBVALUES.VALUE THEN
+                              DONE.SUBVALUES = TRUE
+                           END
+                        END
+                     END
+                  NEXT SUBVALUE.CTR
+                  IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     FOR SUBVALUE.CTR=(NUM.DATA.SUBVALUES.USED+1) TO NUM.SUBVALUES.VALUE
+                        DATA.SUBVALUE = ''
+                        GOSUB BUILD.COMMA.QUOTE.DATA.SUBVALUE
+                     NEXT SUBVALUE.CTR
+                  END
+                  IF USE.DATA.VALUE THEN
+                     NUM.DATA.VALUES.USED += 1
+                     IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+                        BUILD.DATA.VALUE.CTR += 1
+                     END
+                     IF NUM.VALUES.VALUE # 'ALL' THEN
+                        IF NUM.DATA.VALUES.USED >= NUM.VALUES.VALUE THEN
+                           DONE.VALUES = TRUE
+                        END
+                     END
+                  END
+               NEXT VALUE.CTR
+               IF NUM.VALUES.VALUE # 'ALL' THEN
+                  FOR VALUE.CTR=(NUM.DATA.VALUES.USED+1) TO NUM.VALUES.VALUE
+                     DATA.SUBVALUE = ''
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     GOSUB BUILD.COMMA.QUOTE.DATA.SUBVALUE
+                  NEXT VALUE.CTR
+               END
+            END
+         END
+*
+      NEXT FIELD.CTR
+      CONVERT @TM TO DLMAIN.COMMA IN DETAIL.LINES
+      RETURN
+
+
+*
+*
+* BUILD COMMA.QUOTE DATA.SUBVALUE
+*
+BUILD.COMMA.QUOTE.DATA.SUBVALUE: 
+      NUM.FIELDS += 1
+      IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+         BUILD.DATA.SUBVALUE.CTR += 1
+         IF BUILD.DATA.SUBVALUE.CTR > 1 OR BUILD.DATA.VALUE.CTR > 1 THEN
+            NUM.FIELDS -= 1
+         END
+      END ELSE
+         BUILD.DATA.SUBVALUE.CTR = 1
+      END
+      GOSUB CONV.DATA.SUBVALUE
+      IF FMT.VALUE THEN
+         GOSUB FMT.DATA.SUBVALUE
+      END
+      GOSUB LENGTH.DATA.SUBVALUE
+      BUILD.DATA.LINE.VALUE = LINE.VALUE + BUILD.DATA.VALUE.CTR - 1
+      W.DETAIL.LINE = DETAIL.LINES<BUILD.DATA.LINE.VALUE,BUILD.DATA.SUBVALUE.CTR>
+      IF NUMERIC.FLAG AND DLMAIN.FORMAT = 'COMMA' THEN
+         W.DETAIL.ITEM = DATA.SUBVALUE
+      END ELSE
+         CONVERT DLMAIN.QUOTE TO '' IN DATA.SUBVALUE
+         W.DETAIL.ITEM = DLMAIN.QUOTE:DATA.SUBVALUE:DLMAIN.QUOTE
+      END
+      IF DLMAIN.RECORD.ORIENTATION = 'VERTICAL' THEN
+         USE.FIELD.NUM = 1
+      END ELSE
+         USE.FIELD.NUM = NUM.FIELDS
+      END
+      W.DETAIL.LINE[@TM,USE.FIELD.NUM,1] = W.DETAIL.ITEM
+      DETAIL.LINES<BUILD.DATA.LINE.VALUE,BUILD.DATA.SUBVALUE.CTR> = W.DETAIL.LINE
+      RETURN
+
+
+BUILD.HTML.DETAIL.LINES: 
+      HTML.ROW.VALUE = OUT.HTML.ROW.LIST(OUTPUT.REC.CTR)
+      IF HTML.ROW.VALUE = '' THEN
+         DETAIL.LINES<-1> = '<TR>'
+      END ELSE
+         DETAIL.LINES<-1> = '<TR ':HTML.ROW.VALUE:'>'
+      END
+      NUM.FIELDS = 0
+      FOR FIELD.CTR=1 TO NUM.OUT.FIELDS(OUTPUT.REC.CTR)
+         NUM.VALUES.THIS.FIELD = 0
+         GOSUB LOAD.FIELD.VALUES
+         IF OUT.TYPE # 'SUP' THEN
+            IF HTML.CELL.VALUE = '' THEN
+               DETAIL.LINES := '<TD>'
+            END ELSE
+               DETAIL.LINES := '<TD ':HTML.CELL.VALUE:'>'
+            END
+            DETAIL.LINES := HTML.START.VALUE
+            GOSUB GET.DATA.FIELD
+            IF BY.EXP.FIELD # '' AND PART.OF.ASSOC.VALUE THEN
+               GOSUB CHECK.BY.EXP
+               IF BY.EXP.OKAY THEN
+                  BUILD.DATA.VALUE.CTR = 1
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  GOSUB BUILD.HTML.DATA.SUBVALUE
+               END
+            END ELSE
+               NUM.DATA.VALUES = COUNT(DATA.FIELD,@VM) + 1
+               NUM.DATA.VALUES.USED = 0
+               BUILD.DATA.VALUE.CTR = 1
+               DONE.VALUES = FALSE
+               FOR VALUE.CTR=1 TO NUM.DATA.VALUES UNTIL DONE.VALUES
+                  DATA.VALUE = DATA.FIELD<1,VALUE.CTR>
+                  NUM.DATA.SUBVALUES = COUNT(DATA.VALUE,@SM) + 1
+                  NUM.DATA.SUBVALUES.USED = 0
+                  DONE.SUBVALUES = FALSE
+                  USE.DATA.VALUE = FALSE
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  FOR SUBVALUE.CTR=1 TO NUM.DATA.SUBVALUES UNTIL DONE.SUBVALUES
+                     USE.DATA.SUBVALUE = TRUE
+                     IF PART.OF.ASSOC.VALUE AND WHEN.FIELD.LIST # '' THEN
+                        USE.DATA.SUBVALUE = WHEN.RESULT.LIST<VALUE.CTR,SUBVALUE.CTR>
+                     END
+                     IF USE.DATA.SUBVALUE THEN
+                        USE.DATA.VALUE = TRUE
+                        DATA.SUBVALUE = DATA.VALUE<1,1,SUBVALUE.CTR>
+                        NUM.DATA.SUBVALUES.USED += 1
+                        GOSUB BUILD.HTML.DATA.SUBVALUE
+                        IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                           IF NUM.DATA.SUBVALUES.USED >= NUM.SUBVALUES.VALUE THEN
+                              DONE.SUBVALUES = TRUE
+                           END
+                        END
+                     END
+                  NEXT SUBVALUE.CTR
+                  IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     FOR SUBVALUE.CTR=(NUM.DATA.SUBVALUES.USED+1) TO NUM.SUBVALUES.VALUE
+                        DATA.SUBVALUE = ''
+                        GOSUB BUILD.HTML.DATA.SUBVALUE
+                     NEXT SUBVALUE.CTR
+                  END
+                  IF USE.DATA.VALUE THEN
+                     NUM.DATA.VALUES.USED += 1
+                     IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+                        BUILD.DATA.VALUE.CTR += 1
+                     END
+                     IF NUM.VALUES.VALUE # 'ALL' THEN
+                        IF NUM.DATA.VALUES.USED >= NUM.VALUES.VALUE THEN
+                           DONE.VALUES = TRUE
+                        END
+                     END
+                  END
+               NEXT VALUE.CTR
+               IF NUM.VALUES.VALUE # 'ALL' THEN
+                  FOR VALUE.CTR=(NUM.DATA.VALUES.USED+1) TO NUM.VALUES.VALUE
+                     DATA.SUBVALUE = ''
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     GOSUB BUILD.HTML.DATA.SUBVALUE
+                  NEXT VALUE.CTR
+               END
+            END
+         END
+*
+         DETAIL.LINES := HTML.END.VALUE
+         DETAIL.LINES := '</TD>'
+      NEXT FIELD.CTR
+      DETAIL.LINES<-1> = '</TR>'
+      RETURN
+
+
+*
+*
+* BUILD HTML DATA.SUBVALUE
+*
+BUILD.HTML.DATA.SUBVALUE: 
+      NUM.VALUES.THIS.FIELD += 1
+      NUM.FIELDS += 1
+      IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+         BUILD.DATA.SUBVALUE.CTR += 1
+         IF BUILD.DATA.SUBVALUE.CTR > 1 OR BUILD.DATA.VALUE.CTR > 1 THEN
+            NUM.FIELDS -= 1
+         END
+      END ELSE
+         BUILD.DATA.SUBVALUE.CTR = 1
+      END
+      GOSUB CONV.DATA.SUBVALUE
+      IF FMT.VALUE THEN
+         GOSUB FMT.DATA.SUBVALUE
+      END
+      GOSUB LENGTH.DATA.SUBVALUE
+      IF NUM.VALUES.THIS.FIELD > 1 THEN
+         IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+            DETAIL.LINES := '<BR>'
+         END ELSE
+            DETAIL.LINES := '&nbsp;'
+         END
+      END
+      IF DATA.SUBVALUE = '' THEN
+         DETAIL.LINES := '&nbsp;'
+      END ELSE
+         DETAIL.LINES := DATA.SUBVALUE
+      END
+      RETURN
+
+
+LOAD.FIELD.VALUES: 
+      OUT.TYPE = OUT.TYPE.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      OUT.PREFIX = OUT.PREFIX.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      LINE.VALUE = OUT.LINE.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      LENGTH.VALUE = OUT.LENGTH.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      BEG.COL.VALUE = OUT.BEG.COL.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      END.COL.VALUE = OUT.END.COL.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      FMT.VALUE = OUT.FMT.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      FIELD.FMT = OUT.FIELD.FMT.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      CONV.VALUE = OUT.CONV.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      HTML.START.VALUE = OUT.HTML.START.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      HTML.END.VALUE = OUT.HTML.END.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      HTML.CELL.VALUE = OUT.HTML.CELL.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      FIELD.CONV = OUT.FIELD.CONV.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      NUM.VALUES.VALUE = OUT.NUM.VALUES.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      NUM.SUBVALUES.VALUE = OUT.NUM.SUBVALUES.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      MV.ORIENTATION.VALUE = OUT.MV.ORIENTATION.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      PART.OF.ASSOC.VALUE = OUT.PART.OF.ASSOC.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      OUT.CTR = OUT.CTR.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      NUMERIC.FLAG = OUT.NUMERIC.FLAG.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      DEFAULT.VALUE = OUT.DEFAULT.VALUE.LIST(OUTPUT.REC.CTR)<FIELD.CTR>
+      RETURN
+
+
+CHECK.BY.EXP: 
+      BY.EXP.OKAY = FALSE
+      IF SELECT.LIST.IS.BY.EXP THEN
+         IF WHEN.RESULT.LIST<BY.EXP.VALUE.CTR,BY.EXP.SUBVALUE.CTR> OR WHEN.FIELD.LIST = '' THEN
+            IF HAVE.GROUPED.FIELD THEN
+               DATA.SUBVALUE = DATA.FIELD
+            END ELSE
+               DATA.SUBVALUE = DATA.FIELD<1,BY.EXP.VALUE.CTR,BY.EXP.SUBVALUE.CTR>
+            END
+         END ELSE
+            DATA.SUBVALUE = ''
+         END
+         BY.EXP.OKAY = TRUE
+      END ELSE
+         IF WHEN.RESULT.LIST<BY.EXP.VALUE.CTR,BY.EXP.SUBVALUE.CTR> OR WHEN.FIELD.LIST = '' THEN
+            IF HAVE.GROUPED.FIELD THEN
+               DATA.SUBVALUE = DATA.FIELD
+            END ELSE
+               DATA.SUBVALUE = DATA.FIELD<1,BY.EXP.VALUE.CTR,BY.EXP.SUBVALUE.CTR>
+            END
+            BY.EXP.OKAY = TRUE
+         END
+      END
+      RETURN
+
+
+*
+*
+* BUILD DIF DETAIL LINES
+*
+BUILD.DIF.DETAIL.LINES: 
+      TUPLE.LIST = ''
+      GOSUB BUILD.DIF.TUPLE.LIST
+      CONVERT @VM:@SM TO @FM:@VM IN TUPLE.LIST
+      NUM.TUPLE.LIST = COUNT(TUPLE.LIST,@FM) + 1
+      FOR TUPLE.CTR=1 TO NUM.TUPLE.LIST
+         TUPLE = TUPLE.LIST<TUPLE.CTR>
+         NUM.ITEMS = COUNT(TUPLE,@VM) + (TUPLE # '')
+         DETAIL.LINES := 'BOT':@FM
+         FOR ITEM.CTR=1 TO NUM.ITEMS
+            TUPLE.ITEM = TUPLE<1,ITEM.CTR>
+            TUPLE.TYPE = FIELD(TUPLE.ITEM,',',1,1)
+            TUPLE.VALUE = FIELD(TUPLE.ITEM,',',2,99999)
+            BEGIN CASE
+               CASE TUPLE.TYPE = 'V'
+                  BEGIN CASE
+                     CASE TUPLE.VALUE = ''
+                        DETAIL.LINES := '0,0':@FM
+                        DETAIL.LINES := '""':@FM
+                     CASE NUM(TUPLE.VALUE)
+                        DETAIL.LINES := '0,':TUPLE.VALUE:@FM
+                        DETAIL.LINES := 'V':@FM
+                     CASE 1
+                        DETAIL.LINES := '1,0':@FM
+                        DETAIL.LINES := TUPLE.VALUE:@FM
+                  END CASE
+               CASE TUPLE.TYPE = 'L'
+                  DETAIL.LINES := '1,0':@FM
+                  DETAIL.LINES := TUPLE.VALUE:@FM
+               CASE 1
+                  DETAIL.LINES := '0,0':@FM
+                  DETAIL.LINES := '""':@FM
+            END CASE
+         NEXT ITEM.CTR
+         DETAIL.LINES := '-1,0'
+         IF TUPLE.CTR < NUM.TUPLE.LIST THEN
+            DETAIL.LINES := @FM
+         END
+      NEXT TUPLE.CTR
+      RETURN
+
+
+
+*
+*
+* BUILD DIF DETAIL ITEMS
+*
+BUILD.DIF.TUPLE.LIST: 
+      FOR FIELD.CTR=1 TO NUM.OUT.FIELDS(OUTPUT.REC.CTR)
+         GOSUB LOAD.FIELD.VALUES
+         IF OUT.TYPE # 'SUP' THEN
+            GOSUB GET.DATA.FIELD
+            IF BY.EXP.FIELD # '' AND PART.OF.ASSOC.VALUE THEN
+               GOSUB CHECK.BY.EXP
+               IF BY.EXP.OKAY THEN
+                  BUILD.DATA.VALUE.CTR = 1
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  GOSUB BUILD.DIF.DATA.SUBVALUE
+               END
+            END ELSE
+               NUM.DATA.VALUES = COUNT(DATA.FIELD,@VM) + 1
+               NUM.DATA.VALUES.USED = 0
+               BUILD.DATA.VALUE.CTR = 1
+               DONE.VALUES = FALSE
+               FOR VALUE.CTR=1 TO NUM.DATA.VALUES UNTIL DONE.VALUES
+                  DATA.VALUE = DATA.FIELD<1,VALUE.CTR>
+                  NUM.DATA.SUBVALUES = COUNT(DATA.VALUE,@SM) + 1
+                  NUM.DATA.SUBVALUES.USED = 0
+                  DONE.SUBVALUES = FALSE
+                  USE.DATA.VALUE = FALSE
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  FOR SUBVALUE.CTR=1 TO NUM.DATA.SUBVALUES UNTIL DONE.SUBVALUES
+                     USE.DATA.SUBVALUE = TRUE
+                     IF PART.OF.ASSOC.VALUE AND WHEN.FIELD.LIST # '' THEN
+                        USE.DATA.SUBVALUE = WHEN.RESULT.LIST<VALUE.CTR,SUBVALUE.CTR>
+                     END
+                     IF USE.DATA.SUBVALUE THEN
+                        USE.DATA.VALUE = TRUE
+                        DATA.SUBVALUE = DATA.VALUE<1,1,SUBVALUE.CTR>
+                        NUM.DATA.SUBVALUES.USED += 1
+                        GOSUB BUILD.DIF.DATA.SUBVALUE
+                        IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                           IF NUM.DATA.SUBVALUES.USED >= NUM.SUBVALUES.VALUE THEN
+                              DONE.SUBVALUES = TRUE
+                           END
+                        END
+                     END
+                  NEXT SUBVALUE.CTR
+                  IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                     FOR SUBVALUE.CTR=(NUM.DATA.SUBVALUES.USED+1) TO NUM.SUBVALUES.VALUE
+                        DATA.SUBVALUE = ''
+                        GOSUB BUILD.DIF.DATA.SUBVALUE
+                     NEXT SUBVALUE.CTR
+                  END
+                  IF USE.DATA.VALUE THEN
+                     NUM.DATA.VALUES.USED += 1
+                     IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+                        BUILD.DATA.VALUE.CTR += 1
+                     END
+                     IF NUM.VALUES.VALUE # 'ALL' THEN
+                        IF NUM.DATA.VALUES.USED >= NUM.VALUES.VALUE THEN
+                           DONE.VALUES = TRUE
+                        END
+                     END
+                  END
+               NEXT VALUE.CTR
+               IF NUM.VALUES.VALUE # 'ALL' THEN
+                  FOR VALUE.CTR=(NUM.DATA.VALUES.USED+1) TO NUM.VALUES.VALUE
+                     DATA.SUBVALUE = ''
+                     GOSUB BUILD.DIF.DATA.SUBVALUE
+                  NEXT VALUE.CTR
+               END
+            END
+         END
+*
+      NEXT FIELD.CTR
+      RETURN
+
+
+*
+*
+* BUILD DIF DATA.SUBVALUE
+*
+BUILD.DIF.DATA.SUBVALUE: 
+      IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+         BUILD.DATA.VALUE.CTR += 1
+      END ELSE
+         BUILD.DATA.VALUE.CTR = 1
+      END
+      GOSUB CONV.DATA.SUBVALUE
+      IF FMT.VALUE THEN
+         GOSUB FMT.DATA.SUBVALUE
+      END
+      GOSUB LENGTH.DATA.SUBVALUE
+      TUPLE = TUPLE.LIST<LINE.VALUE,BUILD.DATA.VALUE.CTR>
+      IF NUMERIC.FLAG THEN
+         TUPLE.ITEM = 'V,':DATA.SUBVALUE
+      END ELSE
+         TUPLE.ITEM = 'L,':DLMAIN.QUOTE:DATA.SUBVALUE:DLMAIN.QUOTE
+      END
+      IF BUILD.DATA.VALUE.CTR = 1 THEN
+         IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+            NUM.ITEMS = COUNT(TUPLE,@SM) + (TUPLE # '')
+            BUILD.DATA.SUBVALUE.CTR = NUM.ITEMS + 1
+         END ELSE
+            BUILD.DATA.SUBVALUE.CTR = -1
+         END
+      END
+      TUPLE<1,1,BUILD.DATA.SUBVALUE.CTR> = TUPLE.ITEM
+      TUPLE.LIST<LINE.VALUE,BUILD.DATA.VALUE.CTR> = TUPLE
+      RETURN
+
+
+*
+*
+* DO FMT ON DATA.VALUE
+*
+FMT.DATA.VALUE: 
+      BEGIN CASE
+         CASE FMT.VALUE = NULL.CODE
+            NULL
+         CASE FMT.VALUE
+            DATA.VALUE = FMT(DATA.VALUE, FMT.VALUE)
+         CASE FIELD.FMT
+            DATA.VALUE = FMT(DATA.VALUE, FIELD.FMT)
+      END CASE
+      RETURN
+
+*
+*
+* DO A CONV ON DATA.VALUE
+*
+CONV.DATA.VALUE: 
+      BEGIN CASE
+         CASE CONV.VALUE = NULL.CODE
+            NULL
+         CASE FIELD.CONV = 'DBF.DATE'
+            DATA.VALUE = OCONV(DATA.VALUE,'D4/[YMD]')
+            CONVERT '/' TO '' IN DATA.VALUE
+         CASE CONV.VALUE
+            DATA.VALUE = OCONV(DATA.VALUE, CONV.VALUE)
+         CASE FIELD.CONV
+            DATA.VALUE = OCONV(DATA.VALUE, FIELD.CONV)
+      END CASE
+      RETURN
+
+*
+*
+* TAKE A MAXIMUM LENGTH ON DATA.VALUE
+*
+*
+LENGTH.DATA.VALUE: 
+      IF LENGTH.VALUE THEN
+         DATA.VALUE = DATA.VALUE[1,LENGTH.VALUE]
+      END
+      RETURN
+
+
+*
+*
+* DO FMT ON DATA.SUBVALUE
+*
+FMT.DATA.SUBVALUE: 
+      BEGIN CASE
+         CASE FMT.VALUE = NULL.CODE
+            NULL
+         CASE FMT.VALUE
+            DATA.SUBVALUE = FMT(DATA.SUBVALUE, FMT.VALUE)
+         CASE FIELD.FMT
+            DATA.SUBVALUE = FMT(DATA.SUBVALUE, FIELD.FMT)
+      END CASE
+      RETURN
+
+*
+*
+* DO A CONV ON DATA.SUBVALUE
+*
+CONV.DATA.SUBVALUE: 
+      BEGIN CASE
+         CASE CONV.VALUE = NULL.CODE
+            NULL
+         CASE FIELD.CONV = 'DBF.DATE'
+            DATA.SUBVALUE = OCONV(DATA.SUBVALUE,'D4/[YMD]')
+            CONVERT '/' TO '' IN DATA.SUBVALUE
+         CASE CONV.VALUE
+            DATA.SUBVALUE = OCONV(DATA.SUBVALUE, CONV.VALUE)
+         CASE FIELD.CONV
+            DATA.SUBVALUE = OCONV(DATA.SUBVALUE, FIELD.CONV)
+      END CASE
+      RETURN
+
+*
+*
+* TAKE A MAXIMUM LENGTH ON DATA.VALUE
+*
+*
+LENGTH.DATA.SUBVALUE: 
+      IF LENGTH.VALUE THEN
+         DATA.SUBVALUE = DATA.SUBVALUE[1,LENGTH.VALUE]
+      END
+      RETURN
+
+
+*
+*
+* BUILD FIXED DETAIL LINES
+*
+BUILD.FIXED.DETAIL.LINES: 
+      FOR FIELD.CTR=1 TO NUM.OUT.FIELDS(OUTPUT.REC.CTR)
+         GOSUB LOAD.FIELD.VALUES
+         IF OUT.TYPE # 'SUP' THEN
+            GOSUB GET.DATA.FIELD
+            IF BY.EXP.FIELD # '' AND PART.OF.ASSOC.VALUE THEN
+               GOSUB CHECK.BY.EXP
+               IF BY.EXP.OKAY THEN
+                  BUILD.DATA.VALUE.CTR = 1
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  GOSUB BUILD.FIXED.DATA.SUBVALUE
+               END
+            END ELSE
+               NUM.DATA.VALUES = COUNT(DATA.FIELD,@VM) + 1
+               NUM.DATA.VALUES.USED = 0
+               BUILD.DATA.VALUE.CTR = 1
+               DONE.VALUES = FALSE
+               FOR VALUE.CTR=1 TO NUM.DATA.VALUES UNTIL DONE.VALUES
+                  DATA.VALUE = DATA.FIELD<1,VALUE.CTR>
+                  NUM.DATA.SUBVALUES = COUNT(DATA.VALUE,@SM) + 1
+                  NUM.DATA.SUBVALUES.USED = 0
+                  DONE.SUBVALUES = FALSE
+                  USE.DATA.VALUE = FALSE
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  FOR SUBVALUE.CTR=1 TO NUM.DATA.SUBVALUES UNTIL DONE.SUBVALUES
+                     USE.DATA.SUBVALUE = TRUE
+                     IF PART.OF.ASSOC.VALUE AND WHEN.FIELD.LIST # '' THEN
+                        USE.DATA.SUBVALUE = WHEN.RESULT.LIST<VALUE.CTR,SUBVALUE.CTR>
+                     END
+                     IF USE.DATA.SUBVALUE THEN
+                        USE.DATA.VALUE = TRUE
+                        DATA.SUBVALUE = DATA.VALUE<1,1,SUBVALUE.CTR>
+                        NUM.DATA.SUBVALUES.USED += 1
+                        GOSUB BUILD.FIXED.DATA.SUBVALUE
+                        IF MV.ORIENTATION.VALUE = 'HORIZONTAL' THEN
+                           BEG.COL.VALUE += LENGTH.VALUE
+                        END
+                        IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                           IF NUM.DATA.SUBVALUES.USED >= NUM.SUBVALUES.VALUE THEN
+                              DONE.SUBVALUES = TRUE
+                           END
+                        END
+                     END
+                  NEXT SUBVALUE.CTR
+                  IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     FOR SUBVALUE.CTR=(NUM.DATA.SUBVALUES.USED+1) TO NUM.SUBVALUES.VALUE
+                        DATA.SUBVALUE = ''
+                        GOSUB BUILD.FIXED.DATA.SUBVALUE
+                        IF MV.ORIENTATION.VALUE = 'HORIZONTAL' THEN
+                           BEG.COL.VALUE += LENGTH.VALUE
+                        END
+                     NEXT SUBVALUE.CTR
+                  END
+                  IF USE.DATA.VALUE THEN
+                     NUM.DATA.VALUES.USED += 1
+                     IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+                        BUILD.DATA.VALUE.CTR += 1
+                     END
+                     IF NUM.VALUES.VALUE # 'ALL' THEN
+                        IF NUM.DATA.VALUES.USED >= NUM.VALUES.VALUE THEN
+                           DONE.VALUES = TRUE
+                        END
+                     END
+                  END
+               NEXT VALUE.CTR
+               IF NUM.VALUES.VALUE # 'ALL' THEN
+                  FOR VALUE.CTR=(NUM.DATA.VALUES.USED+1) TO NUM.VALUES.VALUE
+                     DATA.SUBVALUE = ''
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     GOSUB BUILD.FIXED.DATA.SUBVALUE
+                     IF MV.ORIENTATION.VALUE = 'HORIZONTAL' THEN
+                        BEG.COL.VALUE += LENGTH.VALUE
+                     END
+                  NEXT VALUE.CTR
+               END
+            END
+         END
+*
+      NEXT FIELD.CTR
+      RETURN
+
+
+*
+*
+* BUILD FIXED DATA.SUBVALUE
+*
+BUILD.FIXED.DATA.SUBVALUE: 
+      IF MV.ORIENTATION.VALUE = 'VERTICAL' THEN
+         BUILD.DATA.SUBVALUE.CTR += 1
+      END ELSE
+         BUILD.DATA.SUBVALUE.CTR = 1
+      END
+      GOSUB CONV.DATA.SUBVALUE
+      GOSUB FMT.DATA.SUBVALUE
+      GOSUB LENGTH.DATA.SUBVALUE
+*
+      BUILD.DATA.LINE.VALUE = LINE.VALUE + BUILD.DATA.VALUE.CTR  - 1
+      W.DETAIL.LINE = DETAIL.LINES<BUILD.DATA.LINE.VALUE,BUILD.DATA.SUBVALUE.CTR>
+      LEN.WDL = LEN(W.DETAIL.LINE)
+      IF LEN.WDL > END.COL.VALUE THEN
+         W.DETAIL.LINE[BEG.COL.VALUE,LENGTH.VALUE] = DATA.SUBVALUE
+      END ELSE
+         PART.ONE.LEN = BEG.COL.VALUE - 1
+         IF PART.ONE.LEN > 0 THEN
+            W.DETAIL.LINE = (W.DETAIL.LINE:SPACE(PART.ONE.LEN))[1,PART.ONE.LEN]
+         END ELSE
+            W.DETAIL.LINE = ''
+         END
+         W.DETAIL.LINE := (DATA.SUBVALUE:SPACE(LENGTH.VALUE))[1,LENGTH.VALUE]
+      END
+      DETAIL.LINES<BUILD.DATA.LINE.VALUE,BUILD.DATA.SUBVALUE.CTR> = W.DETAIL.LINE
+      RETURN
+
+
+*
+*
+* BUILD WORDPERFECT DETAIL LINES
+*
+BUILD.WORDPERFECT.DETAIL.LINES:
+      DETAIL.LINES = ''
+      FOR FIELD.CTR=1 TO NUM.OUT.FIELDS(OUTPUT.REC.CTR)
+         FIRST.VALUE.USED = FALSE
+         GOSUB LOAD.FIELD.VALUES
+         DATA.SEPARATOR = K.WORDPERFECT.DATA.SEP
+         IF OUT.TYPE # 'SUP' THEN
+            GOSUB GET.DATA.FIELD
+            IF BY.EXP.FIELD # '' AND PART.OF.ASSOC.VALUE THEN
+               GOSUB CHECK.BY.EXP
+               IF BY.EXP.OKAY THEN
+                  BUILD.DATA.VALUE.CTR = 1
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  GOSUB BUILD.WORDPERFECT.DATA.SUBVALUE
+               END
+            END ELSE
+               NUM.DATA.VALUES = COUNT(DATA.FIELD,@VM) + 1
+               NUM.DATA.VALUES.USED = 0
+               BUILD.DATA.VALUE.CTR = 1
+               DONE.VALUES = FALSE
+               FOR VALUE.CTR=1 TO NUM.DATA.VALUES UNTIL DONE.VALUES
+                  DATA.VALUE = DATA.FIELD<1,VALUE.CTR>
+                  NUM.DATA.SUBVALUES = COUNT(DATA.VALUE,@SM) + 1
+                  NUM.DATA.SUBVALUES.USED = 0
+                  DONE.SUBVALUES = FALSE
+                  USE.DATA.VALUE = FALSE
+                  BUILD.DATA.SUBVALUE.CTR = 0
+                  FOR SUBVALUE.CTR=1 TO NUM.DATA.SUBVALUES UNTIL DONE.SUBVALUES
+                     USE.DATA.SUBVALUE = TRUE
+                     IF PART.OF.ASSOC.VALUE AND WHEN.FIELD.LIST # '' THEN
+                        USE.DATA.SUBVALUE = WHEN.RESULT.LIST<VALUE.CTR,SUBVALUE.CTR>
+                     END
+                     IF USE.DATA.SUBVALUE THEN
+                        USE.DATA.VALUE = TRUE
+                        DATA.SUBVALUE = DATA.VALUE<1,1,SUBVALUE.CTR>
+                        NUM.DATA.SUBVALUES.USED += 1
+                        GOSUB BUILD.WORDPERFECT.DATA.SUBVALUE
+                        IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                           IF NUM.DATA.SUBVALUES.USED >= NUM.SUBVALUES.VALUE THEN
+                              DONE.SUBVALUES = TRUE
+                           END
+                        END
+                     END
+                  NEXT SUBVALUE.CTR
+                  IF NUM.SUBVALUES.VALUE # 'ALL' THEN
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     FOR SUBVALUE.CTR=(NUM.DATA.SUBVALUES.USED+1) TO NUM.SUBVALUES.VALUE
+                        DATA.SUBVALUE = ''
+                        GOSUB BUILD.WORDPERFECT.DATA.SUBVALUE
+                     NEXT SUBVALUE.CTR
+                  END
+                  IF USE.DATA.VALUE THEN
+                     NUM.DATA.VALUES.USED += 1
+                     IF NUM.VALUES.VALUE # 'ALL' THEN
+                        IF NUM.DATA.VALUES.USED >= NUM.VALUES.VALUE THEN
+                           DONE.VALUES = TRUE
+                        END
+                     END
+                  END
+               NEXT VALUE.CTR
+               IF NUM.VALUES.VALUE # 'ALL' THEN
+                  FOR VALUE.CTR=(NUM.DATA.VALUES.USED+1) TO NUM.VALUES.VALUE
+                     DATA.SUBVALUE = ''
+                     BUILD.DATA.SUBVALUE.CTR = 0
+                     GOSUB BUILD.WORDPERFECT.DATA.SUBVALUE
+                  NEXT VALUE.CTR
+               END
+            END
+         END
+         DETAIL.LINES := K.WORDPERFECT.FIELD.SEP
+      NEXT FIELD.CTR
+      DETAIL.LINES := K.WORDPERFECT.END.RECORD
+      RETURN
+
+
+*
+*
+* BUILD WORDPERFECT DATA.SUBVALUE
+*
+BUILD.WORDPERFECT.DATA.SUBVALUE:
+      GOSUB CONV.DATA.SUBVALUE
+      IF FMT.VALUE THEN
+         GOSUB FMT.DATA.SUBVALUE
+      END
+      GOSUB LENGTH.DATA.SUBVALUE
+      IF FIRST.VALUE.USED THEN
+         DETAIL.LINES := DATA.SEPARATOR:DATA.SUBVALUE
+      END ELSE
+         DETAIL.LINES := DATA.SUBVALUE
+      END
+      FIRST.VALUE.USED = TRUE
+      RETURN
+
+
+*
+*
+* GET DATA.FIELD VALUE
+*
+GET.DATA.FIELD: 
+      HAVE.GROUPED.FIELD = @FALSE
+      BEGIN CASE
+         CASE OUT.PREFIX = 'TOTAL' AND BREAK.LEVEL > 0
+            HAVE.GROUPED.FIELD = @TRUE
+            DATA.FIELD = DATA.TOTAL(BREAK.LEVEL)<OUT.CTR> + 0
+         CASE OUT.PREFIX = 'MIN' AND BREAK.LEVEL > 0
+            HAVE.GROUPED.FIELD = @TRUE
+            DATA.FIELD = DATA.MIN(BREAK.LEVEL)<OUT.CTR>
+         CASE OUT.PREFIX = 'MAX' AND BREAK.LEVEL > 0
+            HAVE.GROUPED.FIELD = @TRUE
+            DATA.FIELD = DATA.MAX(BREAK.LEVEL)<OUT.CTR>
+         CASE OUT.PREFIX = 'AVERAGE' AND BREAK.LEVEL > 0
+            HAVE.GROUPED.FIELD = @TRUE
+            T.COUNT = DATA.COUNT(BREAK.LEVEL)<OUT.CTR> + 0
+            T.TOTAL = DATA.TOTAL(BREAK.LEVEL)<OUT.CTR>
+            IF T.COUNT # 0 THEN
+               DATA.FIELD = T.TOTAL / T.COUNT
+            END ELSE
+               DATA.FIELD = ''
+            END
+         CASE OUT.TYPE = 'FIELD'
+            FIELD.IS.LESSER.BREAK = FALSE
+            IF (OUTPUT.REC.CTR # DETAIL.OUT.REC) OR (BREAK.LEVEL > 1) THEN
+               FOR CHECK.CTR=(BREAK.LEVEL+1) TO DLMAIN.NUM.BREAK.FIELDS
+                  IF DLMAIN.BREAK.DICT.CTR.LIST<CHECK.CTR> = OUT.CTR THEN
+                     FIELD.IS.LESSER.BREAK = TRUE
+                  END
+               NEXT CHECK.CTR
+            END
+            IF FIELD.IS.LESSER.BREAK THEN
+               DATA.FIELD = ''
+            END ELSE
+               DATA.FIELD = DATA.ITEMS(OUT.CTR)
+               IF DATA.FIELD = '' THEN
+                  DATA.FIELD = DEFAULT.VALUE
+               END
+            END
+         CASE OUT.TYPE = 'SUBR'
+            DATA.FIELD = SUBR.RET.VALUES(OUT.CTR)
+            IF DATA.FIELD = '' THEN
+               DATA.FIELD = DEFAULT.VALUE
+            END
+         CASE OUT.TYPE = 'LITERAL'
+            DATA.FIELD = DLMAIN.LITERAL.VALUES(OUT.CTR)
+            GOSUB PROCESS.LITERAL.DATA
+         CASE OUT.TYPE = 'SUP'
+            NULL
+         CASE 1
+            DATA.FIELD = '** Unknown OUT.TYPE "':OUT.TYPE:'" for "':OUT.FIELD.LIST(OUTPUT.REC.CTR)<FIELD.CTR>:'"'
+      END CASE
+      IF DLMAIN.REMOVE.PUNCTUATION THEN
+         GOSUB DO.REMOVE.PUNCTUATION
+      END
+      RETURN
+
+
+
+PROCESS.LITERAL.DATA: 
+      ORIG.DATA.FIELD = DATA.FIELD
+      DATA.FIELD = ''
+      NUM.DATA.FIELD.FIELDS = COUNT(ORIG.DATA.FIELD,"'") + 1
+      QUOTE.START = 2
+      FOR WHICH.DATA.FIELD = 1 TO NUM.DATA.FIELD.FIELDS
+         DATA.FIELD.OPTIONS = FIELD(ORIG.DATA.FIELD,"'",WHICH.DATA.FIELD,1)
+         IF WHICH.DATA.FIELD = QUOTE.START THEN
+            GOSUB PROCESS.DATA.FIELD.OPTIONS
+            QUOTE.START += 2
+         END ELSE
+            DATA.FIELD := DATA.FIELD.OPTIONS
+         END
+      NEXT WHICH.DATA.FIELD
+      RETURN
+
+
+PROCESS.DATA.FIELD.OPTIONS: 
+      NUM.DATA.FIELD.OPTIONS = LEN(DATA.FIELD.OPTIONS)
+      FOR WHICH.DATA.FIELD.OPTION = 1 TO NUM.DATA.FIELD.OPTIONS
+         DATA.FIELD.OPTION = DATA.FIELD.OPTIONS[WHICH.DATA.FIELD.OPTION,1]
+         BEGIN CASE
+            CASE DATA.FIELD.OPTION = 'D'
+               DATA.FIELD := OCONV(DATE(),'D2-')
+            CASE DATA.FIELD.OPTION = 'T'
+               DATA.FIELD := OCONV(TIME(),'MTHS'):'  ':OCONV(DATE(),'D2-')
+            CASE 1
+               DATA.FIELD := DATA.FIELD.OPTION
+         END CASE
+      NEXT WHICH.DATA.FIELD.OPTION
+      RETURN
+
+
+
+*
+*
+*
+PRINT.DETAIL.LINES: 
+      LOOP
+         REMOVE PRINT.LINE FROM DETAIL.LINES SETTING DETAIL.LINES.DELIM
+         PRINT.LINE := DLMAIN.EOR
+         BEGIN CASE
+            CASE DLMAIN.PRINT.METHOD = 'CRT'
+               CRT PRINT.LINE
+            CASE DLMAIN.PRINT.METHOD = 'WRITE.OP.SYS'
+               FLUSH.BUFFER = FALSE
+               CALL DOWNLOAD.OP.SYS.WRITE(PRINT.LINE, FLUSH.BUFFER)
+            CASE 1
+               GOSUB DO.WRITESEQ
+         END CASE
+      UNTIL DETAIL.LINES.DELIM = 0
+      REPEAT
+      RETURN
+
+
+*
+*
+* USE 'WRITESEQ' TO WRITE A LINE
+*
+DO.WRITESEQ: 
+      WRITESEQ PRINT.LINE APPEND TO DLMAIN.F.TYPE1.FILE ELSE
+         DLMAIN.ERRMSG<-1> = 'Can not write to "':DLMAIN.TYPE1.FILE.NAME:'" "':DLMAIN.TYPE1.RECORD.NAME:'" for record "':DLMAIN.RECORD.ID:'"'
+         DLMAIN.FATAL.ERROR = TRUE
+      END
+      RETURN
+
+   END

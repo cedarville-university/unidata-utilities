@@ -1,0 +1,206 @@
+      SUBROUTINE DOWNLOAD.BUILD.LOG.FILE
+*
+* UNIBASIC PROGRAM
+* 05/31/2010
+* DLR
+* TITLE ----- DOWNLOAD.BUILD.LOG.FILE
+*
+*
+* PURPOSE: BUILD THE DICTIONARY FOR A BASIC LOG FILE
+*
+*
+*************************************************************************
+*
+* Stamped: p19 rotmand, /usr/local/download, user #2048, 13 Aug 15, 07:48AM.
+* Version 8.01
+*
+*************************************************************************
+*
+*
+
+      $INCLUDE IDLDBMS
+      $INCLUDE IDLOPSYS
+      $INCLUDE IWHICHDBMS
+
+      TRUE = 1
+      FALSE = 0
+      PROMPT ''
+
+      X.PROGRAM.NAME = 'DOWNLOAD.BUILD.LOG.FILE'
+      X.DEFAULT.FILE.NAME = 'DOWNLOAD.LOG'
+      CRT X.PROGRAM.NAME
+      CRT
+
+      GOSUB DBMS.SET.UP
+      GOSUB PARSE.INITIAL.COMMAND.LINE
+      GOSUB OPENFILES
+      GOSUB BUILD.DICT.RECORDS
+      GOSUB COMPILE.DICT.RECORDS
+      CRT 'Build complete.'
+      STOP
+
+
+BUILD.DICT.RECORDS: 
+      CRT 'Starting build of dictionary for ':X.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.SENTENCE'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '1'
+      RD.FILE.NAME<4> = 'Sentence'
+      RD.FILE.NAME<5> = '25T'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.COMMAND'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '2'
+      RD.FILE.NAME<4> = 'Cedarville Download Command'
+      RD.FILE.NAME<5> = '25T'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.NUM.RECS'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<3> = '2'
+      RD.FILE.NAME<4> = 'Recs'
+      RD.FILE.NAME<5> = '6R'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.DATE'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '4'
+      RD.FILE.NAME<3> = 'D4/'
+      RD.FILE.NAME<4> = 'Date'
+      RD.FILE.NAME<5> = '10R'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.TIME'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '5'
+      RD.FILE.NAME<3> = 'MTH'
+      RD.FILE.NAME<4> = 'Time'
+      RD.FILE.NAME<5> = '7R'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DLLOG.LOGIN.NAME'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '6'
+      RD.FILE.NAME<4> = 'Login Name'
+      RD.FILE.NAME<5> = '10L'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = '@'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'PH'
+      RD.FILE.NAME<2> = 'DLLOG.COMMAND DLLOG.NUM.RECS DLLOG.DATE DLLOG.TIME DLLOG.LOGIN.NAME'
+      GOSUB WRITE.D.FILE.NAME
+      RETURN
+
+
+WRITE.D.FILE.NAME: 
+      CRT '   ':KVD.FILE.NAME
+      WRITE RD.FILE.NAME ON D.FILE.NAME, KVD.FILE.NAME
+      RETURN
+
+
+COMPILE.DICT.RECORDS: 
+      CRT 'Compiling dictionary ':X.FILE.NAME
+      X.COMMAND = 'CD ':X.FILE.NAME
+      EXECUTE X.COMMAND
+      RETURN
+
+
+OPENFILES: 
+      OPEN '',X.FILE.NAME TO F.FILE.NAME ELSE
+         CRT 'UNABLE TO OPEN ':X.FILE.NAME
+         STOP
+      END
+      OPEN 'DICT',X.FILE.NAME TO D.FILE.NAME ELSE
+         CRT 'UNABLE TO OPEN DICT ':X.FILE.NAME
+         STOP
+      END
+      RETURN
+
+
+DBMS.SET.UP: 
+      BEGIN CASE
+         CASE DBMS.NAME = 'INFORMATION'
+            GOSUB DBMS.INFORMATION.SET.UP
+         CASE DBMS.NAME = 'UNIDATA'
+            GOSUB DBMS.UNIDATA.SET.UP
+         CASE DBMS.NAME = 'UNIVERSE'
+            GOSUB DBMS.UNIVERSE.SET.UP
+      END CASE
+      RETURN
+
+DBMS.INFORMATION.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 3
+      DBMS.ACCOUNT.PATH.NAME = @PATH
+      DBMS.DICT.FIELD.TO.CHECK = 17
+      DBMS.PATH.DELIM = '>'
+      DBMS.HIGHEST.SELECT.UNIT = 10
+      DBMS.VOC.ITEM.TYPE.LIST = 'D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+DBMS.UNIDATA.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 1
+      DBMS.ACCOUNT.PATH.NAME = @ACCOUNT
+      DBMS.DICT.FIELD.TO.CHECK = 8
+      DBMS.PATH.DELIM = '/'
+      DBMS.HIGHEST.SELECT.UNIT = 9
+      DBMS.VOC.ITEM.TYPE.LIST = 'DIR,D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+
+DBMS.UNIVERSE.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 1
+      DBMS.ACCOUNT.PATH.NAME = @ACCOUNT
+      DBMS.DICT.FIELD.TO.CHECK = 17
+      DBMS.PATH.DELIM = '/'
+      DBMS.HIGHEST.SELECT.UNIT = 9
+      DBMS.VOC.ITEM.TYPE.LIST = 'DIR,D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+
+PARSE.INITIAL.COMMAND.LINE: 
+      EXPAND.VOC.PHRASES = FALSE
+      OTHER.SEPARATORS = '(':@FM:')':@FM:','
+      ITEMS.DONE = FALSE
+      ITEM.CTR = 0
+      PARAM.LIST = ''
+      PARAM.QUOTED.LIST = ''
+      NUM.PARAMS = 0
+      CALL DLPARSECL(DBMS.COMMAND.LINE, PARAM.LIST, PARAM.QUOTED.LIST, NUM.PARAMS, OTHER.SEPARATORS)
+*
+* SKIP BEGINNING ITEMS ON COMMAND LINE
+*
+      IF PARAM.LIST<1> = 'RUN' THEN
+         DBMS.COMMAND.LINE.ITEMS.TO.SKIP += 2
+      END
+      NUM.ITEMS = NUM.PARAMS - DBMS.COMMAND.LINE.ITEMS.TO.SKIP
+      BEG.ITEM.NUM = DBMS.COMMAND.LINE.ITEMS.TO.SKIP + 1
+      X.FILE.NAME = PARAM.LIST<BEG.ITEM.NUM>
+      IF X.FILE.NAME = '' OR X.FILE.NAME = 'DOWNLOAD.SOURCE' OR X.FILE.NAME = 'DLSOURCE' THEN
+         CRT 'Defaulting to file ':X.DEFAULT.FILE.NAME
+         X.FILE.NAME = X.DEFAULT.FILE.NAME
+      END
+      CRT 'Using file ':X.FILE.NAME:' for writing dictionary items.'
+      CRT 'Enter Y to continue, any other character to exit: ':
+      INPUT X.ANSWER
+      IF OCONV(X.ANSWER,'MCU') NE 'Y' THEN
+         CRT 'Process aborted.'
+         STOP
+      END
+      RETURN
+
+
+   END

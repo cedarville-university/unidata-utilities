@@ -1,0 +1,40 @@
+      SUBROUTINE MAXVAL(RETURN.VALUE,VALUE.LIST)
+*
+* RETURN THE MAXIMUM VALUE IN A LIST OF VALUES
+*
+*     Last updated by LIVE (ROTMAN) at 15:35:10 on 03/17/1988.
+
+
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      NUM = COUNT(VALUE.LIST,@VM) + (VALUE.LIST#'')
+      IF NUM < 1 THEN
+         MAX.VALUE = ''
+      END ELSE
+         MAX.VALUE = VALUE.LIST<1,1>
+         FOR I=2 TO NUM
+            VALUE = VALUE.LIST<1,I>
+            IF VALUE > MAX.VALUE THEN MAX.VALUE = VALUE
+         NEXT I
+      END
+      RETURN.VALUE = MAX.VALUE
+      RETURN
+   END

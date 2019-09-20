@@ -1,0 +1,26 @@
+*
+* UNIBASIC PROGRAM
+* 07/22/94
+* DLR
+* TITLE ----- LATE
+*
+* PURPOSE:  REPLACE UNIDATA 'SLEEP' ECLC COMMAND
+*   OUR CURRENT TESTING SHOWS THAT THE COMMAND-LINE VERSION
+*   OF SLEEP WAITS ONLY FOR 30 MINUTES AND THEN GOES AHEAD...
+*
+*
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #23920, 22 Jul 94, 02:10PM.
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+      TIME.TO.SLEEP = FIELD(COMMAND.LINE,' ',2,99)
+      IF NUM(TIME.TO.SLEEP) THEN
+         CRT OCONV(TIME(),'MTHS'):' Sleeping ':TIME.TO.SLEEP:' seconds.'
+      END ELSE
+         CRT OCONV(TIME(),'MTHS'):' Sleeping until ':TIME.TO.SLEEP
+      END
+      SLEEP TIME.TO.SLEEP
+      CRT 'Resuming at ':OCONV(TIME(),'MTHS')
+      STOP
+   END

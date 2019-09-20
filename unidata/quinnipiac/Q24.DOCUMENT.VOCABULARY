@@ -1,0 +1,333 @@
+333 LINES
+*-------------------------- FTP SUBMISSION FORM --------------------------
+*--- PROGRAM NAME...: Record i-descriptors in a "vocabulary" file
+*--- 40-CHAR DESC...: Record i-descriptors in a "vocabulary"
+*--- KEYWORDS.......: CUSTOM DBA MGMT DICT
+*--- SUBMISSION DATE: 28 June 1996
+*--- COMPANY NAME...: Quinnipiac College
+*--- CONTACT NAME...: Eric Spitzner
+*--- CONTACT PHONE#.: 203/281-8615
+*--- CONTACT EMAIL..: spitzner@quinnipiac.edu
+*--- LONG DESC......: A UniBasic program to populate a "vocabulary" file
+*---                : with the i-descriptors found in all or a subset of
+*---                : the files in a user VOC.  I-descriptors are selected
+*---                : if their name begins with the Datatel Customer ID,
+*---                : e.g. Q24.
+*-------------------------------------------------------------------------
+FILE/RECORD INFORMATION:
+  1 CUSTOM.SOURCE...................... Q24.DOCUMENT.VOCABULARY
+  2 CUSTOM.SOURCE...................... ECS.DICT.VOCABULARY
+ ##### FILE CUSTOM.SOURCE #########################    2 RECORDS ######
+ ======== RECORD Q24.DOCUMENT.VOCABULARY ==========   189 FIELDS ======
+   PROGRAM Q24.DOCUMENT.VOCABULARY
+ * 19 November, 1992
+ * UNIBASIC PROGRAM
+ * Eric Spitzner, CDP
+ * Q24.DOCUMENT.VOCABULARY
+ * 11.1
+ * Program to document all institution defined data fields,
+ * which are identified by beginning with our Datatel ID.
+ * All files in the VOC may be searched, or only the subset
+ * identified by name in a specified SAVE.LIST.
+ * Last updated by
+ * Stamped: 13 spitzner, /data/coll/coltest, user #3240, 31 Mar 93, 03:
+C25PM.
+ *
+   EQUATE DD.F1                          TO    1;*      3L     S
+   EQUATE DD.Q24.TYPE                    TO    1;*      8T     S
+   EQUATE DD.F2                          TO    2;*      13R    S
+   EQUATE DD.LOC                         TO    2;*      13R    S
+   EQUATE DD.CONV                        TO    3;*      4L     S
+   EQUATE DD.NAME                        TO    4;*      15L    S
+   EQUATE DD.FORMAT                      TO    5;*      6L     S
+   EQUATE DD.SM                          TO    6;*      2L     S
+   EQUATE DD.ASSOC                       TO    7;*      10T    S
+   DIMENSION R.DICT.DICT(7)
+
+   EQUATE VCB.VOC.TYPE                   TO    1;*      8T     S
+   EQUATE VCB.VOC.LOC                    TO    2;*      16T    S
+   EQUATE VCB.VOC.CONV                   TO    3;*      4L     S
+   EQUATE VCB.VOC.NAME                   TO    4;*      30L    S
+   EQUATE VCB.VOC.FORMAT                 TO    5;*      6L     S
+   EQUATE VCB.VOC.SM                     TO    6;*      3L     S
+   EQUATE VCB.VOC.ASSOC                  TO    7;*      30L    S
+   EQUATE VCB.VOC.FILE.REF               TO    8;*      30L    M
+   EQUATE VCB.VOC.PGM.REF                TO    9;*      30L    M
+   DIMENSION R.VOCABULARY(9)
+
+   EQUATE K0000.INST.DATATEL.ID TO "Q24"
+
+
+
+ P0000.DOCUMENT.VOCABULARY:
+   CRT @(-1)
+   CRT @(17):"DOCUMENT INSTALLATION WRITTEN DICTIONARY ENTRIES"
+   CRT
+
+   GOSUB P1000.START.VOCABULARY:
+
+   IF W0000.E.O.F THEN
+     CRT @(27):"No files selected - quitting"
+   END ELSE
+     LOOP
+     UNTIL W0000.E.O.F DO
+       GOSUB P2000.DOCUMENT.FILE:
+     REPEAT
+   END
+
+   GOSUB P3000.FINISH.VOCABULARY:
+
+   STOP
+
+
+
+ P1000.START.VOCABULARY:
+   PROMPT ""
+   CRT @(1) : "If you have a SAVE.LIST of files, enter its name;"
+   CRT @(1) : " press [NL] for all files " : "#########################
+C#####" : @(27) :
+   INPUT W1000.SAVE.LIST.NAME, 30_ :
+   CRT @(27) : FMT(OCONV(W1000.SAVE.LIST.NAME, "MCU"), "30L") : @(-4)
+
+   IF W1000.SAVE.LIST.NAME EQ "" THEN
+     EXECUTE "SELECT VOC WITH F1 LIKE 'F...' OR F1 LIKE 'f...' TO 1"
+   END ELSE
+     EXECUTE "GET.LIST " : W1000.SAVE.LIST.NAME : " TO 1"
+   END
+
+   IF @SYSTEM.RETURN.CODE GT 0 THEN
+     OPEN "", "VOCABULARY" TO F.VOCABULARY ELSE
+       ABORT "Can't open VOCABULARY (Status = '":STATUS():"') - abortin
+Cg"
+     END
+     W0000.E.O.F = ""
+     GOSUB P2100.START.FILE:
+   END ELSE
+     W0000.E.O.F = 1
+   END
+
+   RETURN
+
+
+
+ P2000.DOCUMENT.FILE:
+   LOOP
+   UNTIL W2000.E.O.F DO
+     GOSUB P2200.DOCUMENT.FIELD:
+   REPEAT
+
+   GOSUB P2300.FINISH.FILE:
+
+   GOSUB P2100.START.FILE:
+
+   RETURN
+
+
+
+ P2100.START.FILE:
+   READNEXT W2000.FILE.NAME FROM 1 THEN
+     CRT @(26):"Searching file ":W2000.FILE.NAME
+     W2000.FILE.EXTRACT = "SELECT DICT "
+     W2000.FILE.EXTRACT := W2000.FILE.NAME
+     W2000.FILE.EXTRACT := " WITH @ID LIKE '"
+     W2000.FILE.EXTRACT := K0000.INST.DATATEL.ID
+     W2000.FILE.EXTRACT := "...' TO 2"
+     EXECUTE W2000.FILE.EXTRACT
+     IF @SYSTEM.RETURN.CODE GT 0 THEN
+       OPEN "DICT", W2000.FILE.NAME READONLY TO F.DICT.DICT ELSE
+         ABORT "Can't open dict of '":W2000.FILE.NAME:"' - aborting"
+       END
+       W2000.E.O.F = ""
+       GOSUB P2210.GET.FIELD:
+     END ELSE
+       W2000.E.O.F = 1
+     END
+   END ELSE
+     W0000.E.O.F = 1
+   END
+
+   RETURN
+
+
+
+ P2200.DOCUMENT.FIELD:
+   GOSUB P2220.PUT.FIELD:
+   GOSUB P2210.GET.FIELD:
+
+   RETURN
+
+
+
+ P2210.GET.FIELD:
+   READNEXT W2200.FIELD.NAME FROM 2 THEN
+     MATREAD R.DICT.DICT FROM F.DICT.DICT, W2200.FIELD.NAME ELSE
+       ABORT "Can't read field '":W2200.FIELD.NAME:"' dict of file '":W
+C2200.FILE.NAME:"' - aborting"
+     END
+   END ELSE
+     W2000.E.O.F = 1
+   END
+
+   RETURN
+
+
+
+ P2220.PUT.FIELD:
+   MATREAD R.VOCABULARY FROM F.VOCABULARY, W2200.FIELD.NAME THEN
+     IF FIELD(R.DICT.DICT(DD.F1), " ", 1) EQ FIELD(R.VOCABULARY(VCB.VOC
+C.TYPE), " ", 1) AND R.DICT.DICT(DD.LOC) EQ R.VOCABULARY(VCB.VOC.LOC) T
+CHEN
+       NULL
+     END ELSE
+       CRT W2200.FIELD.NAME:" in file ":W2000.FILE.NAME:" differs from
+Cprevious definition(s)"
+     END
+   END ELSE
+     MAT R.VOCABULARY = MAT R.DICT.DICT
+     R.VOCABULARY(VCB.VOC.FILE.REF) = ""
+     R.VOCABULARY(VCB.VOC.PGM.REF) = ""
+   END
+
+   LOCATE W2000.FILE.NAME IN R.VOCABULARY(VCB.VOC.FILE.REF)<1, 1> BY "A
+CL" SETTING W2220.FILE.REF.POINTER ELSE
+     INS W2000.FILE.NAME BEFORE R.VOCABULARY(VCB.VOC.FILE.REF)<1, W2220
+C.FILE.REF.POINTER>
+   END
+
+   MATWRITE R.VOCABULARY TO F.VOCABULARY, W2200.FIELD.NAME
+
+   RETURN
+
+
+
+ P2300.FINISH.FILE:
+   CLOSE F.DICT.DICT
+
+   RETURN
+
+
+
+ P3000.FINISH.VOCABULARY:
+   GOSUB P2300.FINISH.FILE:
+
+   CLOSE F.VOCABULARY
+
+   RETURN
+
+
+
+ END
+ ======== END OF RECORD ===============================================
+ ======== RECORD ECS.DICT.VOCABULARY ==============   110 FIELDS ======
+ VOCABULARY:
+
+ @ID:
+ D
+ 0
+
+ Vocabulary
+ 30L
+ S
+
+
+ VOC.TYPE:
+ D
+ 1
+
+ Voc~Type
+ 8T
+ S
+
+
+ VOC.LOC:
+ D
+ 2
+
+ Voc~Loc
+ 16T
+ S
+
+
+ VOC.CONV:
+ D
+ 3
+
+ Voc~Conv
+ 4L
+ S
+
+
+ VOC.NAME:
+ D
+ 4
+
+ Voc~Name
+ 30L
+ S
+
+
+ VOC.FORMAT:
+ D
+ 5
+
+ Voc~Format
+ 6L
+ S
+
+
+ VOC.SM:
+ D
+ 6
+
+ Voc~SM
+ 3L
+ S
+
+
+ VOC.ASSOC:
+ D
+ 7
+
+ Voc~Assoc
+ 30L
+ S
+
+
+ VOC.FILE.REF:
+ D
+ 8
+
+ Voc~File.Ref
+ 30L
+ M
+
+
+ VOC.PGM.REF:
+ D
+ 9
+
+ Voc~Pgm.Ref
+ 30L
+ M
+
+
+ VOC.RCD.DESC:
+ I
+ LEN(VOC.RCD.TYPE)+1;TRIMF(VOC.TYPE[@,LEN(VOC.TYPE)])
+
+ Voc~Rcd.Desc.
+ 32T
+ S
+
+
+ VOC.RCD.TYPE:
+ I
+ IF VOC.TYPE[1,1] EQ "P" THEN VOC.TYPE[1,2] ELSE VOC.TYPE[1,1]
+
+ Voc~Rcd.~Type
+ 4L
+ S
+
+
+ ======== END OF RECORD ===============================================
+ ### END OF FILE ######################################################

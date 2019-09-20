@@ -1,0 +1,71 @@
+      SUBROUTINE PWRITE(FUNIT, WORDS.TO.WRITE, BUFFER, WORDS.ACTUALLY.WRITTEN, ERRMSG)
+*
+* INFO/BASIC SUBROUTINE
+* 3/15/91
+* DWS
+* TITLE ----- PWRITE
+*
+*
+* PURPOSE: WRITE A FILE DIRECTLY (USING PRIMOS CALL PRWF$$)
+*
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #2041, 31 Mar 05, 08:13AM.
+* Version 7.12
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+$INCLUDE IDLKEYS_INS
+$INSERT SYSCOM>ERRD.INS.IBAS
+
+*
+*
+* MAIN CONTROL
+*
+
+      GOSUB SET.UP
+      GOSUB FLIP.BUFFER
+      GOSUB WRITE.FILE
+      RETURN
+
+
+
+* SET UP PARAMETERS FOR CALL
+*
+SET.UP:
+      POSITION = 0
+      WORDS.ACTUALLY.WRITTEN = 0
+      CODE = ''
+      RETURN
+
+
+*
+*
+* FLIP 8TH BIT ON EACH BYTE (PRIMOS/INFORMATION HASSLE)
+*
+FLIP.BUFFER:
+      FLIPPED.BUFFER = ''
+      CALL DLFLIP8TH(FLIPPED.BUFFER, BUFFER)
+      RETURN
+
+
+
+*
+*
+* WRITE THE FILE FOR WRITE OR WRITE
+*
+WRITE.FILE:
+      CALL $PRWF$$(K$WRIT, FUNIT, FLIPPED.BUFFER, WORDS.TO.WRITE, POSITION, WORDS.ACTUALLY.WRITTEN, CODE)
+      IF CODE THEN
+         ERRMSG = 'PRWF$$ returned an error of ':CODE
+      END
+      RETURN
+
+   END

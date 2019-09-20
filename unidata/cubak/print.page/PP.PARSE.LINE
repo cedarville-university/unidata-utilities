@@ -1,0 +1,99 @@
+      SUBROUTINE PP.PARSE.LINE(LINE,PARAMETERS,PARAM.QUOTED,NUM.PARAMS)
+*
+* PURPOSE     : PARSE LINE FOR REPLACE COMMAND
+*
+* PROGRAMMER  : DOUGLAS W SJOQUIST
+*
+* DATE WRITTEN: 05-08-87
+*
+*     Last updated by LIVE (SJOQUIST) at 14:43:58 on 09/11/1987.
+*
+*=============================================================
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+      SGL.SPACE = ' '
+      NIL = ''
+      TRUE = 1
+      FALSE = 0
+
+*
+*  PARSE LINE INTO LIST OF SEPARATE PARAMETERS & FLAG THEM AS QUOTED OR NOT
+*
+
+      NUM.PARAMS = 0
+      PARAMETERS = NIL
+      PARAM.QUOTED = NIL
+
+      PREV.CHAR = SGL.SPACE
+      QUOTE = NIL
+*
+*
+* MAIN
+*
+      GOSUB PROCESS.LINE
+      RETURN
+
+*
+*   READ THROUGH COMMAND LINE AND PARSE IT
+*
+PROCESS.LINE: 
+      LEN.LINE = LEN(LINE)
+      FOR I=1 TO LEN.LINE
+         CUR.CHAR = LINE[I,1]
+*
+*     IF THE QUOTE FLAG IS ON, THEN TAKE EVERYTHING UP TO THE
+*       MATCHING END QUOTE AS PART OF THE ITEM
+*
+         IF QUOTE THEN
+            BEGIN CASE
+               CASE CUR.CHAR = QUOTE
+                  QUOTE = NIL
+               CASE 1
+                  PARAMETERS<NUM.PARAMS> = PARAMETERS<NUM.PARAMS>:CUR.CHAR
+            END CASE
+*
+*    IF THE CUR.CHARACTER IS A QUOTE, TURN ON QUOTE MODE
+*      OTHERWISE ADD IT THE CURRENT ITEM
+*
+         END ELSE
+            BEGIN CASE
+               CASE CUR.CHAR = SGL.SPACE
+               CASE CUR.CHAR = '"' OR CUR.CHAR = "'"
+                  QUOTE = CUR.CHAR
+                  NUM.PARAMS += 1
+                  PARAM.QUOTED<NUM.PARAMS> = QUOTE
+               CASE 1
+*
+*          IF THIS IS THE BEGINNING OF A NEW ITEM, ADD 1 TO NUM.PARAMS
+*
+                  IF PREV.CHAR = SGL.SPACE THEN
+                     NUM.PARAMS += 1
+                     PARAM.QUOTED<NUM.PARAMS> = NIL
+                  END
+                  PARAMETERS<NUM.PARAMS> = PARAMETERS<NUM.PARAMS>:CUR.CHAR
+            END CASE
+         END
+         PREV.CHAR = CUR.CHAR
+      NEXT I
+      RETURN
+   END

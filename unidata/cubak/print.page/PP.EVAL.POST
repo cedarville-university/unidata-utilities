@@ -1,0 +1,280 @@
+      SUBROUTINE PP.EVAL.POST(RETURN.VALUE,POSTFIX.STRING,RETURN.ERRMSG)
+*
+* INFO/BASIC SUBROUTINE
+* 7/26/88
+* DWS
+* TITLE ----- PP.EVAL.POSTFIX
+*
+*
+* MODULE : PRINT.PAGE
+* PURPOSE: CALCULATE VALUE OF POSTFIX STRING (ASSUMES ALL FIELDS &
+*             & VARIABLES HAVE BEEN RESOLVED, AND ONLY VALUES ARE PASSED)
+*
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 15:18:37 on 07/26/1988.
+*
+*************************************************************************
+*
+
+      $INSERT I_PP.OPERATORS.COMMON
+      $INSERT I_PRINT.PAGE.COMMON
+      $INSERT I_PP.DATA.COMMON
+
+*
+*
+* MAIN CONTROL
+*
+
+      GOSUB SET.UP
+      GOSUB PROCESS.STRING
+      GOSUB GET.VALUE
+      RETURN
+
+
+
+*
+* SETUP
+*
+SET.UP: 
+      RETURN.ERRMSG = ''
+      MAX.STACK = 999
+      DIM STACK(MAX.STACK)
+      STACK.PTR = 0
+      RETURN
+
+
+*
+* PROCESS STRING
+*
+PROCESS.STRING: 
+*
+* RESET STRING FOR REMOVE FUNCTION
+*
+      POSTFIX.STRING = POSTFIX.STRING
+      LOOP
+         REMOVE ITEM.TYPE FROM POSTFIX.STRING SETTING DELIM
+*
+* ALL VALUES ARE ONE SET OF LITERAL VALUES
+*   (ALLOWS PHRASE "WITH MAJOR = 'EDUC''UNDEC'")
+*
+         REMOVE ITEM FROM POSTFIX.STRING SETTING DELIM
+         LOOP
+         UNTIL DELIM # 3
+            REMOVE NEXT.ITEM FROM POSTFIX.STRING SETTING DELIM
+            ITEM := @VM:NEXT.ITEM
+         REPEAT
+*
+         BEGIN CASE
+            CASE ITEM.TYPE = 'F'
+               GOSUB EVALUATE.FIELDS
+            CASE ITEM.TYPE = 'O'
+               ON OP.TYPE(ITEM) GOSUB FUNC.ARITHMETIC, FUNC.STRING, FUNC.COMPARISON, FUNC.LOGICAL
+            CASE 1
+               VALUE = ITEM
+               GOSUB PUSH
+         END CASE
+      UNTIL DELIM = 0
+      REPEAT
+      RETURN
+
+
+*
+*
+* EVALUATE FIELDS
+*
+EVALUATE.FIELDS: 
+      FILE.NUM = ITEM<1,1>
+      FIELD.NUM = ITEM<1,2>
+      VALUE = DATA.ARRAY(FIELD.NUM)
+      FOR X=1 TO FIELD.NUM
+*  CRT X,'*':DATA.ARRAY(X)
+      NEXT X
+      GOSUB PUSH
+*(IF @LOGNAME = 'SJOQUIST' THEN CRT 'EVALUATE FIELDS: "':FILE.NUM:'" "':FIELD.NUM:'" "':VALUE:'"'
+      RETURN
+
+
+*
+*  ARITHMETIC FUNCTIONS:
+*
+FUNC.ARITHMETIC: 
+      IF ITEM <= 2 THEN
+         GOSUB POP
+         IF NOT(NUM(VALUE)) THEN
+            RETURN.ERRMSG<-1> = '  Non numeric value "':VALUE:'" found where numeric required, using null'
+            VALUE = ''
+         END
+      END ELSE
+         GOSUB POP.2
+         IF NOT(NUM(V1)) THEN
+            RETURN.ERRMSG<-1> = '  Non numeric value "':V1:'" found where numeric required, using null'
+            V1 = ''
+         END
+         IF NOT(NUM(V2)) THEN
+            RETURN.ERRMSG<-1> = '  Non numeric value "':V2:'" found where numeric required, using null'
+            V2 = ''
+         END
+      END
+      ON ITEM GOSUB FUNC.UNARY.MINUS, FUNC.UNARY.PLUS, FUNC.EXP, FUNC.MULT, FUNC.DIV, FUNC.ADD, FUNC.SUB
+      GOSUB PUSH
+      RETURN
+*
+FUNC.UNARY.MINUS: 
+      VALUE = -VALUE
+      RETURN
+FUNC.UNARY.PLUS: 
+      VALUE = VALUE
+      RETURN
+FUNC.EXP: 
+      VALUE = V2 ** V1
+      RETURN
+FUNC.MULT: 
+      VALUE = V1 * V2
+      RETURN
+FUNC.DIV: 
+      VALUE = V2/V1
+      RETURN
+FUNC.ADD: 
+      VALUE = V1 + V2
+      RETURN
+FUNC.SUB: 
+      VALUE = V2 - V1
+      RETURN
+*
+* STRING FUNCTIONS
+*
+FUNC.STRING: 
+      GOSUB POP.2
+      GOSUB FUNC.CAT                    ;* ONLY STRING FUNCTION RIGHT NOW
+      GOSUB PUSH
+      RETURN
+*
+FUNC.CAT: 
+      VALUE = V2:V1
+      RETURN
+
+*
+* COMPARISON FUNCTIONS
+*   ALL COMPARE OPS ALLOW FOR COMPARISON WITH MULTIPLE LITERAL VALUES
+*
+FUNC.COMPARISON: 
+      GOSUB POP.2
+      VALUE = 0
+      FUNC.NUMBER = ITEM - 8
+      LOOP
+         REMOVE SV.V2 FROM V2 SETTING V2.DELIM
+         V1 = V1
+         LOOP
+            REMOVE SV.V1 FROM V1 SETTING V1.DELIM
+            ON FUNC.NUMBER GOSUB FUNC.LT, FUNC.GT, FUNC.EQ, FUNC.NE, FUNC.LE, FUNC.GE, FUNC.MATCH
+         UNTIL V1.DELIM = 0 OR VALUE
+         REPEAT
+      UNTIL V2.DELIM = 0 OR VALUE
+      REPEAT
+      GOSUB PUSH
+      RETURN
+*
+FUNC.LT: 
+      VALUE = (SV.V2 < SV.V1)
+      RETURN
+FUNC.GT: 
+      VALUE = (SV.V2 > SV.V1)
+      RETURN
+FUNC.EQ: 
+      VALUE = (SV.V2 = SV.V1)
+      RETURN
+FUNC.NE: 
+      VALUE = (SV.V2 # SV.V1)
+      RETURN
+FUNC.LE: 
+      VALUE = (SV.V2 <= SV.V1)
+      RETURN
+FUNC.GE: 
+      VALUE = (SV.V2 >= SV.V1)
+      RETURN
+FUNC.MATCH: 
+      VALUE = (SV.V2 MATCHES SV.V1)
+      RETURN
+
+
+*
+* LOGICAL FUNCTIONS
+*
+FUNC.LOGICAL: 
+      IF ITEM = 16 THEN
+         GOSUB POP
+      END ELSE
+         GOSUB POP.2
+      END
+      FUNC.NUMBER = ITEM - 15
+      ON FUNC.NUMBER GOSUB FUNC.NOT, FUNC.AND, FUNC.OR
+      GOSUB PUSH
+      RETURN
+*
+FUNC.NOT: 
+      VALUE = NOT(VALUE)
+      RETURN
+FUNC.AND: 
+      VALUE = (V1 AND V2)
+      RETURN
+FUNC.OR: 
+      VALUE = (V1 OR V2)
+      RETURN
+
+
+
+*
+* POP
+*
+POP:  
+      IF STACK.PTR > 0 THEN
+         VALUE = STACK(STACK.PTR)
+         STACK.PTR -= 1
+      END ELSE
+         RETURN.ERRMSG<-1> = '  Stack underflow on "':ORIG.OPS(ITEM):'"'
+         RETURN
+      END
+      RETURN
+*
+* PUSH
+*
+PUSH: 
+      IF STACK.PTR < MAX.STACK THEN
+         STACK.PTR += 1
+         STACK(STACK.PTR) = VALUE
+      END ELSE
+         RETURN.ERRMSG<-1> = '  Stack overflow on "':ORIG.OPS(ITEM):'"'
+         RETURN
+      END
+      RETURN
+
+*
+*
+* POP.2
+*
+POP.2: 
+      GOSUB POP
+      V1 = VALUE
+      GOSUB POP
+      V2 = VALUE
+      RETURN
+
+*
+*
+* GET RETURN VALUE
+*
+GET.VALUE: 
+      IF STACK.PTR # 1 THEN
+         RETURN.ERRMSG<-1> = '  Error in Stack:'
+         FOR JPTR=STACK.PTR TO 1 STEP -1
+            RETURN.ERRMSG := ' "':STACK(JPTR):'"'
+         NEXT JPTR
+      END ELSE
+         RETURN.VALUE = STACK(STACK.PTR)
+      END
+      RETURN
+
+   END

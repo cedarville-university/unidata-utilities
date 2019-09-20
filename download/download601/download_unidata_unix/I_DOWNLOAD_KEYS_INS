@@ -1,0 +1,20 @@
+* I_DOWNLOAD.KEYS.INS
+*
+*
+*  contains the necessary constants for PRIMOS.OPEN.FILE,
+* Stamped: p7 rotmand, /user/local/collive, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*
+*
+*
+*
+*
+*
+*  PRIMOS.WRITE.FILE, and PRIMOS.CLOSE.FILE to compile and run.
+*
+      EQUATE K$READ TO          1
+      EQUATE K$WRIT TO          2
+      EQUATE K$TRNC TO          4
+      EQUATE K$EXST TO          6
+      EQUATE K$CLOS TO          4
+      EQUATE K$GETU TO      16384

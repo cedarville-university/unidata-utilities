@@ -1,0 +1,38 @@
+      SUBROUTINE AGE(RETURNED.AGE,BIRTHDATE)
+*
+* INFO/BASIC SUBROUTINE
+* 9/13/89
+* DLR
+* TITLE ----- AGE
+*
+*
+* MODULE :
+* PURPOSE: CALCULATE PERSON'S AGE
+*
+*     Last updated by LIVE (ROTMAN) at 13:51:33 on 09/13/1989.
+*
+*************************************************************************
+*
+
+
+      RETURNED.AGE = ''
+      IF BIRTHDATE = '' THEN
+         RETURN
+      END
+
+
+      FORMATTED.BIRTHDATE = OCONV(BIRTHDATE,'D4/')
+      FORMATTED.TODAY     = OCONV(DATE(),'D4/')
+      BIRTH.YEAR = FORMATTED.BIRTHDATE[7,4]
+      TODAY.YEAR = FORMATTED.TODAY[7,4]
+      BIRTH.TEMP = ICONV(FORMATTED.BIRTHDATE[1,5],'D4/')
+      TODAY.TEMP = ICONV(FORMATTED.TODAY[1,5],'D4/')
+      IF BIRTH.TEMP <= TODAY.TEMP THEN
+         RETURNED.AGE = TODAY.YEAR - BIRTH.YEAR
+      END ELSE
+         RETURNED.AGE = TODAY.YEAR - BIRTH.YEAR - 1
+      END
+      RETURN
+
+
+   END

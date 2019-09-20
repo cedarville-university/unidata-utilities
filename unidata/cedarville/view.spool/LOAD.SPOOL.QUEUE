@@ -1,0 +1,230 @@
+      SUBROUTINE LOAD.SPOOL.QUEUE(RETURN.STATUS)
+*
+* INFO/BASIC SUBROUTINE
+* 4/27/90
+* DWS
+* TITLE ----- LOAD.SPOOL.QUEUE
+*
+*
+* PURPOSE: LOAD CURRENT SPOOL QUEUE ENTRIES INTO LABELLED COMMON
+*
+* Stamped: pts_90 howders, /datatel/live/collive, user #13022, 10 May 06, 04:20PM.
+*    Spool queue entry numbers can now be over 100000.  Changed the 
+*    formating of the number.
+* Stamped: pts_114 rotmand, /datatel/live/collive, user #2139, 29 Sep 05, 08:47AM.
+*    Speed up the loading by using 'lpq' for filename information
+*    rather than opening each control file.
+* Stamped: pts_4 rotmand, /datatel/live/collive, user #22998, 04 Apr 05, 11:59AM.
+*    Modified for Linux CUPS printing
+* Stamped: pty/ttyp6 testuser, /disk1/coltest, user #3736, 14 Jun 94, 04:44PM.
+*    rewritten for HP-UX
+* Last updated by LIVE (SJOQUIST) at 11:27:46 on 04/27/1990.
+*
+*************************************************************************
+*
+
+      $INCLUDE LOCAL.SOURCE I_SPQUEUE.COMMON
+
+*
+*
+* MAIN CONTROL
+*
+
+      RETURN.STATUS = ''
+      GOSUB SET.UP
+      X.COMMAND = 'lpstat -o'
+      PCPERFORM X.COMMAND CAPTURING XL.LPSTAT.OUTPUT
+      IF XL.LPSTAT.OUTPUT = '' THEN
+         RETURN
+      END
+      X.COMMAND = 'lpq -a -l'
+      PCPERFORM X.COMMAND CAPTURING XL.LPQ.OUTPUT
+      IF XL.LPQ.OUTPUT = '' THEN
+         RETURN
+      END
+      GOSUB BUILD.LPQ.ARRAY
+      NUM.XL.LPSTAT.OUTPUT = DCOUNT(XL.LPSTAT.OUTPUT,@FM)
+      FOR WHICH.XL.LPSTAT.OUTPUT = 1 TO NUM.XL.LPSTAT.OUTPUT
+         X.LPSTAT.OUTPUT = XL.LPSTAT.OUTPUT<WHICH.XL.LPSTAT.OUTPUT>
+         IF X.LPSTAT.OUTPUT NE '' THEN
+            GOSUB BUILD.ENTRY
+         END
+      NEXT WHICH.XL.LPSTAT.OUTPUT
+      RETURN
+
+
+
+SET.UP: 
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      SPQUEUE.NUM.ENTRIES = 0
+      SPQUEUE.ENTRY.NUMBER.LIST = ''
+      MAT SPQUEUE.USER.NAME = ''
+      MAT SPQUEUE.DATE = ''
+      MAT SPQUEUE.TIME = ''
+      MAT SPQUEUE.SPOOL.NAME = ''
+      MAT SPQUEUE.FILE.NAME = ''
+      MAT SPQUEUE.FORM.NAME = ''
+      MAT SPQUEUE.SIZE = ''
+      MAT SPQUEUE.COPIES = ''
+      RETURN
+
+
+
+*
+*
+* INITIALIZE ENTRY FIELDS
+*
+INITIALIZE.ENTRY: 
+      ENTRY.USER.NAME = ''
+      ENTRY.SPOOL.NAME = ''
+      ENTRY.FILE.NAME = ''
+      ENTRY.TITLE = ''
+      ENTRY.DATE = ''
+      ENTRY.TIME = ''
+      ENTRY.SIZE = ''
+      ENTRY.COPIES = ''
+      RETURN
+
+
+*
+*
+
+*
+*
+* SPLIT ENTRY
+*
+SPLIT.ENTRY: 
+      X.TEMP = TRIM(X.LPSTAT.OUTPUT)
+      TEMP.SPOOL.NAME = FIELD(X.TEMP,' ',1,1)
+      ENTRY.FORM.NAME = FIELD(TEMP.SPOOL.NAME,'-',1,1)
+      ENTRY.JOB.NUMBER = FIELD(TEMP.SPOOL.NAME,'-',2,1)
+      IF LEN(ENTRY.JOB.NUMBER) <= 5 THEN
+         ENTRY.SPOOL.NAME = '/var/spool/cups/d':FMT(ENTRY.JOB.NUMBER,'5"0"R'):'-001'
+      END ELSE
+         ENTRY.SPOOL.NAME = '/var/spool/cups/d':ENTRY.JOB.NUMBER:'-001'
+      END
+      ENTRY.USER.NAME = FIELD(X.TEMP,' ',2,1)
+      ENTRY.SIZE = FIELD(X.TEMP,' ',3,1)
+      X.MONTH = FIELD(X.TEMP,' ',5,1)
+      X.DAY = FIELD(X.TEMP,' ',6,1)
+      X.YEAR = FIELD(X.TEMP,' ',8,1)
+      ENTRY.DATE = ICONV(X.MONTH:'/':X.DAY:'/':X.YEAR,'D4/')
+      X.TIME = FIELD(X.TEMP,' ',7,1)
+      ENTRY.TIME = ICONV(X.TIME,'MTH')
+      RETURN
+
+
+*
+*
+* GET FILE INFO
+*
+GET.FILE.INFO: 
+      IF ENTRY.SPOOL.NAME = '' THEN
+         RETURN
+      END
+      KV.VAR.SPOOL.CUPS = 'c':FMT(ENTRY.JOB.NUMBER,'5"0"R')
+      X.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+      X.COMMAND := ' /bin/cat'
+      X.COMMAND := ' /var/spool/cups/':KV.VAR.SPOOL.CUPS
+      PCPERFORM X.COMMAND CAPTURING R.VAR.SPOOL.CUPS
+      CONVERT CHAR(0) TO CHAR(254) IN R.VAR.SPOOL.CUPS
+      X.POS = INDEX(R.VAR.SPOOL.CUPS,'job-name',1)
+      IF X.POS THEN
+         X.TEMP = R.VAR.SPOOL.CUPS[X.POS,999]
+         X.FILE.NAME = FIELD(X.TEMP,CHAR(254),2,1)
+         ENTRY.FILE.NAME = X.FILE.NAME[2,LEN(X.FILE.NAME)-2]
+      END
+      X.POS = INDEX(R.VAR.SPOOL.CUPS,'copies',1)
+      IF X.POS THEN
+         ENTRY.COPIES = SEQ(R.VAR.SPOOL.CUPS[X.POS+11,1])
+      END
+      RETURN
+
+
+GET.LPQ.INFO: 
+      IF ENTRY.SPOOL.NAME = '' THEN
+         RETURN
+      END
+      LOCATE ENTRY.JOB.NUMBER IN XL.LPQ.JOB<1,1> SETTING LPQ.POS THEN
+         ENTRY.FILE.NAME = XL.LPQ.FILE.NAME<1,LPQ.POS>
+         ENTRY.COPIES = XL.LPQ.COPIES<1,LPQ.POS>
+      END ELSE
+         ENTRY.COPIES = ''
+         ENTRY.FILE.NAME = ''
+      END
+      RETURN
+
+
+*
+*
+* BUILD ENTRY
+*
+BUILD.ENTRY: 
+      GOSUB INITIALIZE.ENTRY
+      GOSUB SPLIT.ENTRY
+*DLR*      GOSUB GET.FILE.INFO
+      GOSUB GET.LPQ.INFO
+      SPQUEUE.NUM.ENTRIES += 1
+      SPQUEUE.ENTRY.NUMBER.LIST<SPQUEUE.NUM.ENTRIES> = ENTRY.JOB.NUMBER
+      SPQUEUE.USER.NAME(SPQUEUE.NUM.ENTRIES) = ENTRY.USER.NAME
+*DLR*      SPQUEUE.TITLE(SPQUEUE.NUM.ENTRIES) = ENTRY.TITLE
+      SPQUEUE.SPOOL.NAME(SPQUEUE.NUM.ENTRIES) = ENTRY.SPOOL.NAME
+      SPQUEUE.FILE.NAME(SPQUEUE.NUM.ENTRIES) = ENTRY.FILE.NAME
+      SPQUEUE.DATE(SPQUEUE.NUM.ENTRIES) = ENTRY.DATE
+      SPQUEUE.TIME(SPQUEUE.NUM.ENTRIES) = ENTRY.TIME
+      SPQUEUE.FORM.NAME(SPQUEUE.NUM.ENTRIES) = ENTRY.FORM.NAME
+      SPQUEUE.SIZE(SPQUEUE.NUM.ENTRIES) = ENTRY.SIZE
+      SPQUEUE.COPIES(SPQUEUE.NUM.ENTRIES) = ENTRY.COPIES
+      RETURN
+
+
+BUILD.LPQ.ARRAY: 
+      XL.LPQ.FILE.NAME = ''
+      XL.LPQ.COPIES = ''
+      XL.LPQ.JOB = ''
+      NUM.XL.LPQ.JOB = 0
+      X.TARGET.STRING = '[job '
+      LEN.X.TARGET.STRING = LEN(X.TARGET.STRING)
+      NUM.XL.LPQ.OUTPUT = DCOUNT(XL.LPQ.OUTPUT,@FM)
+      WHICH.XL.LPQ.OUTPUT = 0
+      LOOP
+         WHICH.XL.LPQ.OUTPUT += 1
+      UNTIL WHICH.XL.LPQ.OUTPUT GE NUM.XL.LPQ.OUTPUT
+         X.LPQ.TEMP = XL.LPQ.OUTPUT<WHICH.XL.LPQ.OUTPUT>
+         X.INDEX = INDEX(X.LPQ.TEMP,'[job ',1)
+         IF X.INDEX GT 0 THEN
+            GOSUB PROCESS.LPQ.TEMP
+         END
+      REPEAT
+      RETURN
+
+
+PROCESS.LPQ.TEMP: 
+      X.JOB.NUMBER = FIELD(X.LPQ.TEMP[X.INDEX+LEN.X.TARGET.STRING,99],' ',1,1)
+      WHICH.XL.LPQ.OUTPUT += 1
+      X.LPQ.TEMP = XL.LPQ.OUTPUT<WHICH.XL.LPQ.OUTPUT>
+      X.LPQ.TEMP.1 = X.LPQ.TEMP[9,40]
+      IF INDEX(X.LPQ.TEMP.1,'copies',1) GT 0 THEN
+         X.COPIES = FIELD(X.LPQ.TEMP.1,' ',1,1)
+         X.FILE.NAME = FIELD(X.LPQ.TEMP.1,' ',4,1)
+      END ELSE
+         X.COPIES = ''
+         X.FILE.NAME = TRIM(X.LPQ.TEMP.1)
+      END
+* GENERIC NO-NAME FILES SOMETIMES LOOK LIKE PRTabcdefg
+      IF (X.FILE.NAME[1,3] = 'PRT') THEN
+*DLR*         LEN.X.FILE.NAME = LEN(X.FILE.NAME)
+*DLR*         IF (LEN.X.FILE.NAME EQ 10) OR (LEN.X.FILE.NAME EQ 11) THEN
+*DLR*            X.FILE.NAME = ''
+*DLR*         END
+         X.FILE.NAME = '     ':X.FILE.NAME
+      END
+      NUM.XL.LPQ.JOB += 1
+      XL.LPQ.FILE.NAME<1,NUM.XL.LPQ.JOB> = X.FILE.NAME
+      XL.LPQ.COPIES<1,NUM.XL.LPQ.JOB> = X.COPIES
+      XL.LPQ.JOB<1,NUM.XL.LPQ.JOB> = X.JOB.NUMBER
+      RETURN
+
+
+   END

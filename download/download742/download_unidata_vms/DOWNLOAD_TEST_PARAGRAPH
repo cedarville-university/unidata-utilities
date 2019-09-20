@@ -1,0 +1,183 @@
+PA
+* Stamped: p15 rotmand, /usr/local/download, user #3248, 11 Sep 13, 07:48AM.
+* Version 7.42
+*
+*
+*
+COMO ON DOWNLOAD.TEST
+DISPLAY
+DISPLAY This paragraph will run DOWNLOAD several times...
+DISPLAY   1   simple comma-quote output to the screen
+DISPLAY   2   multi-valued output to the screen
+DISPLAY   3   comma-quote output to _HOLD_ DOWNLOAD.CQ
+DISPLAY   4   fixed output to _HOLD_ DOWNLOAD.DAT
+DISPLAY   5   HTML output to _HOLD_ DOWNLOAD.HTM
+DISPLAY   6   tab-delimited output to _HOLD_ DOWNLOAD.TAB
+DISPLAY   7   wp51 merge  output to _HOLD_ DOWNLOAD.MRG
+DISPLAY   8   XML output to _HOLD_ DOWNLOAD.XML
+DISPLAY   9   comma-quote with break totals to _HOLD_ DOWNLOAD.BRK
+DISPLAY  10   comma-quote using EVAL and COL.HDG to the screen
+DISPLAY
+DISPLAY Make sure you have run DOWNLOAD.BUILD.TEST.FILE to prepare
+DISPLAY the data used by this paragraph.
+DISPLAY
+DISPLAY
+* <<PRESS RETURN TO START TEST 1>>
+DISPLAY
+DISPLAY
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 1 Testing simple comma-quote output
+SSELECT DOWNLOAD.TEST.FILE
+DOWNLOAD DOWNLOAD.TEST.FILE \
+ @ID TEXT.FIELD DATE.FIELD.MV MONEY.FIELD.MV NUMERIC.FIELD VFIELD \
+ HEADING FIELD.NAMES
+DISPLAY
+* <<PRESS RETURN TO START TEST 2>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 2 Testing multi-valued fields and vertical display
+SSELECT DOWNLOAD.TEST.FILE 'REC1''REC2''REC3'
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  @ID TEXT.FIELD MONEY.FIELD.MV NUM.VALUES ALL \
+  MV.ORIENTATION VERTICAL
+DISPLAY
+* <<PRESS RETURN TO START TEST 3>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 3 Testing comma-quote file output
+SELECT DOWNLOAD.TEST.FILE \
+  BY TEXT.FIELD
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  @COUNTER @ID \
+  TEXT.FIELD DATE.FIELD.MV MONEY.FIELD.MV NUMERIC.FIELD VFIELD \
+  HEADING FIELD.NAMES \
+  FORMAT QUOTE \
+  FILE _HOLD_ DOWNLOAD.CQ OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 4>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 4 Testing fixed file output
+SSELECT DOWNLOAD.TEST.FILE \
+ 'REC1''REC2''REC3''REC4''REC5' \
+  BY.EXP DATE.FIELD.MV BY @ID
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  BY.EXP DATE.FIELD.MV \
+  DATE.FIELD.MV MONEY.FIELD.MV @ID \
+  HEADING @SYSTEM.RETURN.CODE FMT "5'0'R" \
+  LITERAL "Cedarville Download" LINE 2 \
+  LITERAL '  ' @DATE CONV "D4/" FMT "10L" \
+  FORMAT FIXED \
+  FILE _HOLD_ DOWNLOAD.DAT OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 5>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 5 Testing HTML file output
+SSELECT DOWNLOAD.TEST.FILE \
+ 'REC1''REC2''REC3''REC4''REC5'
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  @ID \
+  TEXT.FIELD \
+  DATE.FIELD.MV \
+    NUM.VALUES ALL VALUE.SEPARATOR '<br />' \
+  MONEY.FIELD.MV HTML.CELL 'align="right"' \
+    NUM.VALUES ALL VALUE.SEPARATOR '<br />' \
+  NUMERIC.FIELD HTML.CELL 'class="xred" align="right"' \
+  VFIELD \
+  HEADING FIELD.LABELS HTML.ROW 'bgcolor="#0099FF"' \
+  FORMAT HTML \
+  HTML.DOCTYPE 4.01 STRICT \
+  HTML.TITLE 'Cedarville DOWNLOAD HTML Test Run' \
+  HTML.HEAD '<style type="text/css"> .xred {background-color: #FF0000;} </style>' \
+  HTML.TOP 'The following table should contain 6 columns (fifth column in red), one blue heading row, and 5 detail rows.' \
+  HTML.BOTTOM 'This is the bottom text, appearing after the table, including some <strong>strong</strong> and <em>emphasized</em> text.' \
+  FILE _HOLD_ DOWNLOAD.HTM OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 6>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 6 Testing tab file output
+SSELECT DOWNLOAD.TEST.FILE
+DOWNLOAD DOWNLOAD.TEST.FILE \
+ @ID TEXT.FIELD DATE.FIELD.MV MONEY.FIELD.MV NUMERIC.FIELD VFIELD \
+  FORMAT TAB \
+  FILE _HOLD_ DOWNLOAD.TAB OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 7>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 7 Testing wp51 merge file output
+SSELECT DOWNLOAD.TEST.FILE 'REC1''REC2''REC3'
+DOWNLOAD DOWNLOAD.TEST.FILE \
+ @ID TEXT.FIELD DATE.FIELD.MV MONEY.FIELD.MV NUMERIC.FIELD VFIELD \
+  FORMAT WP51 \
+  FILE _HOLD_ DOWNLOAD.MRG OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 8>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 8 Testing XML file output
+SSELECT DOWNLOAD.TEST.FILE \
+ 'REC1''REC2''REC3''REC4''REC5'
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  DEFAULT NUM.VALUES ALL \
+  @ID XML.ATTRIBUTE \
+  TEXT.FIELD \
+ DATE.FIELD.MV XML.GROUP.NAME 'mvgroup' \
+ MONEY.FIELD.MV NUMERIC.FIELD VFIELD \
+  FORMAT XML \
+  FILE _HOLD_ DOWNLOAD.XML OVERWRITING
+*
+DISPLAY
+* <<PRESS RETURN TO START TEST 9>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 9 Testing break totals with comma-quote output
+SSELECT DOWNLOAD.TEST.FILE \
+ 'REC1''REC2''REC3''REC4''REC5' \
+  BY.EXP DATE.FIELD.MV BY @ID
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  BY.EXP DATE.FIELD.MV \
+  BREAK.ON DATE.FIELD.MV \
+  MONEY.FIELD.MV \
+  FOOTING.ON DATE.FIELD.MV LITERAL 'Subtotal' TOTAL MONEY.FIELD.MV \
+  FOOTING.ON FINAL LITERAL 'Grand total' TOTAL MONEY.FIELD.MV \
+  FILE _HOLD_ DOWNLOAD.BRK OVERWRITING
+*
+*
+DISPLAY
+* <<PRESS RETURN TO START TEST 10>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY 10 Testing EVAL and COL.HDG using comma-quote output
+SELECT DOWNLOAD.TEST.FILE \
+  BY TEXT.FIELD
+DOWNLOAD DOWNLOAD.TEST.FILE \
+  @ID \
+  NUMERIC.FIELD \
+  EVAL "NUMERIC.FIELD+58" \
+  COL.HDG "New Amount" \
+  CONV "MD0" \
+  TEXT.FIELD \
+  HEADING FIELD.LABELS
+*
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY
+DISPLAY Test run is complete.
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY
+COMO OFF

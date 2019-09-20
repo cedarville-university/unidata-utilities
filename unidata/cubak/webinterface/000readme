@@ -1,0 +1,25 @@
+The files in this directory are intended to serve as examples of
+how Cedarville University connects Unidata information to its Web site.
+We have deliberately omitted some of our routines (such as the ones
+which validate the username and password) for security reasons.
+We are not able to provide assistance in getting your site setup,
+but trust that the information here will get you started.
+
+
+Files which would be loaded on the Web server:
+constants.ph            pathnames, remote-shell user names, etc.
+defaults.ph             default fiscal year, number of months, etc.
+shared.ph               shared subroutines
+testtransaction.ph      sample application
+
+Files which would be loaded on the Unidata host:
+CALLUB.CUSTOMER.LOOKUP  routine which performs the customer lookup/display
+CALLUB.MASTER           master routine which accepts the remote shell command
+                        line and calls the appropriate subroutine to
+                        lookup records, format Web pages, update files, etc.
+
+
+The users ('adam' and 'eve' in these samples) need to be setup on your
+Unidata host.  The default shell for these users is an executable file
+which invokes Unidata.  For help in creating this executable, see
+the 'uic' instructions on this site (/pub/unidata/unidata).

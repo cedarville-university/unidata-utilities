@@ -1,0 +1,47 @@
+      SUBROUTINE IF.WHEN(RETURN.VALUE,LIST1,VALUE,LIST2)
+*
+* INFO/BASIC SUBROUTINE
+* 2/26/88
+* DWS
+* TITLE ----- IF.WHEN
+*
+*
+* PURPOSE: RETRIEVE AN ITEM IN A MV ASSOC LIST (LIST2) FOR THE
+*           ASSOCIATED POSITION OF A VALUE IN LIST1
+*
+*     Last updated by LIVE (SJOQUIST) at 11:25:55 on 02/26/1988.
+*
+********************************************************************
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+      RETURN.VALUE = ''
+      NUM.VALUES = COUNT(VALUE,@VM) + 1
+      FOR VALUE.CTR=1 TO NUM.VALUES
+         SEARCH.VALUE = VALUE<1,VALUE.CTR>
+         LOCATE SEARCH.VALUE IN LIST1<1,1> SETTING VALUE.POS THEN
+            RETURN.VALUE = LIST2<1,VALUE.POS>
+            RETURN
+         END
+      NEXT VALUE.CTR
+      RETURN
+   END

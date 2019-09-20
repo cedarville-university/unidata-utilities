@@ -1,0 +1,252 @@
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*   Add XML.GROUP.ATTRIBUTE qualifier.
+*   Add XML.ELEMENT qualifier.
+*   Add DEFAULT XML.ELEMENT option.
+*   Add DEFAULT XML.ATTRIBUTE option.
+*   Bug fix (APPEND in format XML should remove closing root tag)
+*   Bug fix (documentation indicated that XML.FILE.NAME NONE will
+*      function the same as XML.FILE.NAME "", but this was not happening)
+*   Corrected documentation on illegal characters in XML values (the
+*      documentation indicated that these characters would be removed,
+*      but they are actually replaced by acceptable expressions)
+*
+*
+*
+* Stamped: p8 rotmand, /usr/local/download, user #1502, 02 Sep 05, 10:59AM.
+* Version 7.13
+*   Add @COUNTER (running counter) as a pre-defined AT variable
+*   Bug fix (DEFAULT SUBVALUE.SEPARATOR did not work)
+*   Bug fix (Using @RECORD required TYPE to be in DICT.DICT).
+*   Bug fix (for XML output, a null value in an association caused
+*      the rest of the data values to "slide up")
+*   Bug fix (output file specified in VOC via @HOME did not work)
+*   Bug fix (EVAL expression with embedded quotation marks did not work)
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #2041, 31 Mar 05, 08:13AM.
+* Version 7.12
+*   Allow "NONE" keyword for XML.ROOT.NAME and XML.VERSION.
+*   Bug fix (FIXED format with DEFAULT MV.ORIENTATION VERTICAL produced
+*      error message during consistency check)
+*   Bug fix (HEADING FIELD.NAMES did not honor VALUE.SEPARATOR)
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #1043, 17 Aug 04, 07:41AM.
+* Version 7.11
+*   Enhance error message when record keys are not found.
+*   Bug fix (COMMA.CHAR did not accept multiple characters)
+*   Bug fix (QUOTE.CHAR did not accept multiple characters)
+*   Bug fix (DBF format header incorrect)
+*   Bug fix (NUM.VALUES clause on a field with null association became
+*       the default for all fields with null association)
+*
+*
+*
+* Stamped: p2 rotmand, /usr/local/download, user #2463, 17 Feb 04, 10:49AM.
+* Version 7.10
+*   Added qualifier XML.ALLOW.CHARACTERS.
+*   Added DEFAULT XML.ALLOW.CHARACTERS.
+*   Allow null association names in XML.
+*   Added HTML.HEAD option.
+*   Return HTML tags in lower case for compatibility with XHTML.
+*   Bug fix (allow NUM.SUBVALUES ALL for FORMAT HTML)
+*   Bug fix (abort execution if @RECORD returns no entries)
+*   Bug fix (honor EOR.CHAR in XML heading lines)
+*   Bug fix (use "head" instead of "heading" in HTML format)
+*   Bug fix (use "th" for table headings instead of "td")
+*   Renamed several external subroutines:
+*      EXPAND.ITEMS          to DL.EXPAND.ITEMS
+*      FLIP.8TH.BIT          to DL.FLIP.8TH.BIT
+*      GET.KEYWORD.VALUE     to DL.GET.KEYWORD.VALUE
+*      OPEN.FILE             to DL.OPEN.FILE
+*      PARSE.COMMAND.LINE    to DL.PARSE.COMMAND.LINE
+*      PROMPT.ANS            to DL.PROMPT.ANS
+*      PROMPT.STACK          to DL.PROMPT.STACK
+*      VIEW.FILE             to DL.VIEW.FILE
+*      VIEW.SEQ.FILE         to DL.VIEW.SEQ.FILE
+*   Added options for cataloging globally or locally during instalation.
+*
+*
+*
+* Stamped: p5 rotmand, /usr/local/download, user #1208, 26 Sep 03, 08:18AM.
+* Version 7.02
+*   Bug fix (compilation-time syntax error on DLPROCESS in Universe)
+*
+*
+*
+* Stamped: p3 rotmand, /usr/local/download, user #4151, 15 Sep 03, 11:30AM.
+* Version 7.01
+*   Escape XML output data for characters:  < > & ' "
+*
+*
+*
+* Stamped: p4 rotmand, /usr/local/download, user #4051, 05 Sep 03, 03:15PM.
+* Version 7.00
+*    Added EVAL functionality for output of expressions.
+*    Incorporated EVAL and data-field functionality into various
+*       HTML and XML options.
+*    Added COL.HDG qualifier.
+*    Added XML.GROUP.NAME qualifier.
+*    Enabled XML.ATTRIBUTE within associated fields.
+*    Default XML.ASSOC.NAME TO 'fieldnameASSOC' if no association
+*       is listed in the dictionary and XML.ASSOC.NAME is not
+*       specified on the command line.
+*    Modified the APPEND logic to allow this function to work in
+*       Universe.
+*    Enabled APPEND for HTML and XML output.
+*    Added support for NUM.VALUES when specifying the key
+*       to a SECONDARY.FILE (especially useful with XML).
+*    Added '@RECORD' as a method for specifying output fields.
+*    Consolidated redundant code in DOWNLOAD.PARSE.
+*    Added 'DOWNLOAD HELP MAX' to show the various maximum
+*       values for literals, fields, etc.
+*    Systematized DEBUG.LEVEL arguments (see documentation file for
+*       details).
+*    Conformed all variables in I_DOWNLOAD_OUT_REC_COMMON to a
+*       consistent naming scheme.
+*    Bug fix (recognize VOC entries with type LF and LD)
+*    Bug fix (recognize DICT records of type V)
+*    Bug fix (comma-quote fields with a format specification shorter
+*       than the actual data length would produce unpredictable
+*       results)
+*    Bug fix (exploded list was not being honored by secondary files)
+*
+*
+*
+* Stamped: p6 rotmand, /usr/local/download, user #13226, 19 May 03, 02:17PM.
+* Version 6.02
+*    Added XML.VERSION option (to let users specify the layout of
+*       the xml version tag, or omit it altogether).
+*    Unidata/Universe now set a default zero character in their
+*       configuration files.  The Unidata version of DOWNLOAD now
+*       fetches this value by a call to GETENV.  Universe users may
+*       need to set this value by hand in routine DBMS.UNIVERSE.SET.UP
+*       in the main DOWNLOAD program.  (Typically, the value will
+*       be 0, 128, or 131.)  This setting only affects WP50 and WP51
+*       formatted output.
+*    Bug fix (WP50/WP51 headings were not complete if NUM.VALUES
+*       was used for the detail and HEADING FIELD.NAMES was used
+*       to specify the headings.)
+*
+*
+*
+* Stamped: p7 rotmand, /usr/local/download, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*    Bug fix (consecutive XML.ASSOC.NAME qualifiers not honored)
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #18427, 04 Nov 02, 06:56AM.
+* Version 6.00
+*    Added FORMAT XML
+*    Added FORMAT TAB (equivalent to FORMAT COMMA COMMAR.CHAR ^9)
+*    Added VALUE.SEPARATOR and SUBVALUE.SEPARATOR
+*    Increased DLMAX.LITERAL.VALUES from 150 to 200 (literal values)
+*    Increased DLMAX.SUBR.NAMES from 100 to 150 (subroutine names)
+*    Increased DLMAX.DICT.RECS from 250 to 300 (fields to DOWNLOAD)
+*    Added FIELD.LABELS clause to HEADING option
+*    Added LIT as a synonym for LITERAL
+*    Added CNV as a synonym for CONV
+*    Allowed use of environment variables in VOC entry for output file
+*    Allowed use of NUM.SUBVALUES with exploded select lists
+*    Updated Unidata installation (force $BASICTYPE "U")
+*    Created Universe-specific installation (Unix)
+*    Created Windows-specific installation (Universe and Unidata)
+*    Created test routines to verify a successful installation
+*    Bug fix (specifying HEADING twice caused infinite loop)
+*    Bug fix (MIN minimum value on footing line was always null)
+*
+*
+*
+* Stamped: p3 rotmand, /usr/local/download, user #1542, 01 Feb 01, 08:04AM.
+* Version 5.10
+*    Enable "@" variables in file names
+*    Add WRITE.INTERVAL option to pause between writing groups of
+*       records (necessary on some systems communicating via NFS
+*       or Samba)
+*    Fix bug in WP51 format where null fields were suppressed if they
+*       were at the end of the output record.
+*    Fix bug in field qualifier MAX (used in break lines).
+*
+*
+*
+* Stamped: pe rotmand, /usr/local/download, user #12980, 06 Jul 00, 08:04AM.
+* Version 5.00
+*    Added support for HTML files
+*    Added APPEND option
+*    Added REMOVE.PUNCTUATION option
+*    Corrected typographical errors in the documentation
+*    Produce PDF version of the documentation
+*
+*
+*
+* Stamped: pt rotmand, /usr/local/download, user #16160, 14 Feb 97, 03:35PM.
+* Version 4.0
+*    Added support for DBF files
+*    Changed headings used in FIXED and DBF formats to follow same
+*       lengths as detail records unless over-ridden on the command line
+*    Added FIELD.NAMES clause to HEADING option
+*    Added support for "@" variables such as @DATE, @SYSTEM.RETURN.CODE
+*    Added NO.PAGE option to turn off screen pauses on progress meter
+*       and screen-based output
+*    Added ability to write to a subdirectory without creating a VOC
+*       pointer (see documentation for FILE option).
+*    Various bug fixes, including:
+*       Default @ID when using secondary file
+*       More-complete DIF output (required by Excel)
+*    Moved version history to separate file
+*    Modified on-line help
+*    Created WordPerfect documentation
+*
+*
+*
+* Version 3.1
+* Stamped: pt rotmand, /usr/local/download, user #2968, 05 Jul 95, 01:16PM.
+*    Added BREAK.SUP option.
+*
+*
+*
+* Version 3.0
+* Stamped: pt sjoquist, /usr/local/download, user #3835, 01 Nov 94, 01:38PM.
+*    Added file relations (avoid building multiple, complicated i-descriptors)
+*
+*
+*
+* Version 2.2
+* Last updated by TEST (SJOQUISTD) at 16:41:41 on 02/11/1994.
+*    Modified COMMA format (numeric values do not have quotes)
+*    Added QUOTE format (functions like COMMA used to)
+*    Created DIF format
+*
+*
+*
+* Version 2.1, miscellaneous changes
+* Last updated by LIVE (SJOQUISTD) at 13:42:17 on 10/27/1993.
+*    Set up new distributable copy (version 2.1)
+* Last updated by LIVE (ROTMAND) at 12:26:26 on 09/01/1993.
+*    Add 'T' and 'D' option to LITERAL fields.
+* Last updated by LIVE (SJOQUIST) at 09:19:31 on 09/09/1992.
+*    Add COMMA.CHAR option.
+* Last updated by LIVE (ROTMAN) at 17:19:31 on 08/12/1992.
+*    Add QUOTE.CHAR option.
+* Last updated by LIVE (SJOQUIST) at 08:18:42 on 08/06/1991.
+*    Rename DOWNLOAD.LOAD to DOWNLOAD.PARSE
+*    Split DOWNLOAD.PROCESS into DOWNLOAD.LOAD & DOWNLOAD.PROCESS
+*
+*
+*
+* Version 2.0, HEADING/FOOTING/BREAK.ON
+* Last updated by LIVE (SJOQUIST) at 09:34:44 on 07/26/1991.
+*    Split into INIT/LOAD/PROCESS subroutines
+*
+*
+*
+* Version 1.1, BEGIN ... END keywords with prompting using PROMPT.STACK
+* Last updated by LIVE (SJOQUIST) at 08:28:29 on 07/26/1991.
+* Last updated by LIVE (SJOQUIST) at 16:20:31 on 04/10/1991.
+*
+*
+

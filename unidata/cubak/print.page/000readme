@@ -1,0 +1,41 @@
+000readme for PRINT.PAGE version 4.0
+
+
+
+The files in this directory are used to generate a utility we call
+PRINT.PAGE.  This utility is a page-formatting program which produces
+standard-layout documents from Unidata files.  In its simplest form,
+you just create a text file showing where you want the fields to print,
+and PRINT.PAGE will position the fields in those locations.  There are
+lots of more-sophisticated options, as detailed in the Acrobat
+documentation file.
+
+You are welcome to use the program on your system, redistribute it,
+etc.  You are not allowed to sell the program or any derivative of
+it.
+
+
+To install the software:
+
+1.  Create a directory named PRINT.PAGE.SOURCE on your Unidata system.
+
+2.  Fetch all of the files from the ftp site to the PRINT.PAGE.SOURCE
+    directory on your Unidata system.
+
+3.  Copy the paragraph PP.INSTALL from PRINT.PAGE.SOURCE to your VOC
+    file:
+         COPY FROM PRINT.PAGE.SOURCE TO VOC 'PP.INSTALL'
+
+4.  Invoke the install paragraph by typing:
+         PP.INSTALL
+    at the colon prompt.  Enter PRINT.PAGE.SOURCE when prompted for
+    the directory name.
+
+
+
+
+
+
+Dave Rotman
+07/01/1996
+(version 4.0 posted 12/19/2000)

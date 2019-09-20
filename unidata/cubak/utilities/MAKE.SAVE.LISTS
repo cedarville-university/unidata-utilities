@@ -1,0 +1,225 @@
+*
+* INFO/BASIC PROGRAM
+* 5/1/89
+* DLR/SJH
+* TITLE ----- MAKE.SAVE.LISTS
+*
+*
+* MODULE :
+* PURPOSE:  CREATE MULTIPLE SAVE LISTS FROM ONE PASS THROUGH A FILE
+*
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #6096, 24 Jun 94, 04:52PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAND) at 12:47:51 on 09/10/1993.
+* Support SUFFIX option.
+*     Last updated by LIVE (ROTMAN) at 16:46:53 on 05/01/1989.
+*
+*************************************************************************
+*
+*
+
+      SYNTAX = 'Usage:  '
+      SYNTAX<-1> = 'MAKE.SAVE.LISTS file.name field.name '
+      SYNTAX<-1> = '  [PREFIX prefix] [SUFFIX suffix] [NO.NULLS] [REQUIRE.SELECT]'
+
+      JUNK = @(0,0)
+      GOSUB SET.UP
+      REC.COUNT = 0
+      READNEXT REC.KEY ELSE
+         IF REQUIRE.SELECT THEN
+            CRT 'No select list active.  Processing terminated.'
+            STOP
+         END
+         SELECT F.FILE.NAME
+         READNEXT REC.KEY ELSE
+            PRINT 'FILE ':FILE.NAME:' IS EMPTY.'
+            STOP
+         END
+      END
+
+      DONE = 0
+      LOOP
+      UNTIL DONE
+         REC.COUNT += 1
+         IF MOD(REC.COUNT,10) = 0 THEN
+            CRT '*':
+            IF MOD(REC.COUNT,500) = 0 THEN
+               CRT ' ':REC.COUNT
+            END
+         END
+         GOSUB PROCESS.RECORD
+         READNEXT REC.KEY ELSE
+            DONE = 1
+         END
+      REPEAT
+
+      CRT
+      IF REC.COUNT = 1 THEN
+         CRT 'One record processed.'
+      END ELSE
+         CRT REC.COUNT:' records processed.'
+      END
+      GOSUB SAVE.LISTS
+      STOP
+
+
+
+SET.UP:
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      COMMAND.LINE = @SENTENCE
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF NUM.PARAMS < 3 THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      FILE.NAME = PARAM.STR<2>
+      ERR.RET = ''
+      ERR.MSG = ''
+      F.FILE.NAME = ''
+      CALL OPEN.FILE(F.FILE.NAME,FILE.NAME,ERR.RET,ERR.MSG)
+      D.FILE.NAME = ''
+      CALL OPEN.FILE(D.FILE.NAME,'DICT ':FILE.NAME,ERR.RET,ERR.MSG)
+      FIELD.NAME = PARAM.STR<3>
+      READ FIELD.NAME.DICT.REC FROM D.FILE.NAME,FIELD.NAME ELSE
+         CALL FATAL.ERROR('MISSING.ITEM',FIELD.NAME:@FM:'DICT ':FILE.NAME)
+      END
+      FIELD.TYPE = FIELD.NAME.DICT.REC<1>[1,1]
+      IF FIELD.TYPE # 'I' AND FIELD.TYPE # 'D' THEN
+         PRINT 'DICTIONARY FIELD MUST BE OF TYPE "I" OR "D"'
+         STOP
+      END
+      IF FIELD.TYPE = 'D' THEN
+         FIELD.LOC = FIELD.NAME.DICT.REC<2>
+      END
+
+      LOCATE 'PREFIX' IN PARAM.STR<4> SETTING POS THEN
+         HAVE.PREFIX = @TRUE
+         LIST.PREFIX = PARAM.STR<POS+1>
+      END ELSE
+         HAVE.PREFIX = @FALSE
+         LIST.PREFIX = ''
+      END
+
+      LOCATE 'SUFFIX' IN PARAM.STR<4> SETTING POS THEN
+         HAVE.SUFFIX = @TRUE
+         LIST.SUFFIX = PARAM.STR<POS+1>
+      END ELSE
+         HAVE.SUFFIX = @FALSE
+         LIST.SUFFIX = ''
+      END
+
+      IF NOT(HAVE.PREFIX) AND NOT(HAVE.SUFFIX) THEN
+         LIST.PREFIX = FILE.NAME:'.'
+      END
+
+      LOCATE 'NO.NULL' IN PARAM.STR<4> SETTING NO.NULL ELSE
+         LOCATE 'NO.NULLS' IN PARAM.STR<4> SETTING NO.NULL ELSE
+            NO.NULL = 0
+         END
+      END
+      LOCATE 'REQUIRE.SELECT' IN PARAM.STR<4> SETTING REQUIRE.SELECT ELSE
+         LOCATE 'REQUIRE.SELECTS' IN PARAM.STR<4> SETTING REQUIRE.SELECT ELSE
+            REQUIRE.SELECT = 0
+         END
+      END
+
+      MAX.LISTS = 400
+      FIELD.VALUES = ''
+      COUNT.FIELD.VALUES = 1
+      DIM LISTS(MAX.LISTS)
+      MAT LISTS = ''
+      RETURN
+
+
+
+DISPLAY.HELP:
+      COUNT.SYNTAX = COUNT(SYNTAX,@FM) + 1
+      FOR WHICH.SYNTAX = 1 TO COUNT.SYNTAX
+         CRT SYNTAX<WHICH.SYNTAX>
+      NEXT WHICH.SYNTAX
+      RETURN
+
+
+PROCESS.RECORD:
+      VALUE.NUM = REC.KEY<1,2,1>
+      SUB.VALUE.NUM = REC.KEY<1,3,1>
+      @ID = REC.KEY<1,1,1>
+      READ @RECORD FROM F.FILE.NAME,@ID ELSE
+         PRINT @ID:' NOT FOUND'
+         RETURN
+      END
+      IF FIELD.TYPE = 'D' THEN
+         DATA.VALUE.LIST = @RECORD<FIELD.LOC>
+      END ELSE
+         DATA.VALUE.LIST = ITYPE(FIELD.NAME.DICT.REC)
+      END
+      COUNT.VALUES = COUNT(DATA.VALUE.LIST,@VM) + 1
+      ISTART = 1
+      IEND = COUNT.VALUES
+      IF VALUE.NUM > 0 THEN
+         ISTART = VALUE.NUM
+         IEND = VALUE.NUM
+      END
+      FOR WHICH.VALUE = ISTART TO IEND
+         IF SUB.VALUE.NUM > 0 THEN
+            DATA.VALUE = DATA.VALUE.LIST<1,WHICH.VALUE,SUB.VALUE.NUM>
+         END ELSE
+            DATA.VALUE = DATA.VALUE.LIST<1,WHICH.VALUE>
+         END
+         GOSUB STORE.DATA.VALUE
+      NEXT WHICH.VALUE
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+STORE.DATA.VALUE:
+      IF DATA.VALUE = '' AND NO.NULL THEN
+         RETURN
+      END
+      IF DATA.VALUE = '' THEN
+         POS = 1
+      END ELSE
+         LOCATE DATA.VALUE IN FIELD.VALUES<2> SETTING POS ELSE
+            COUNT.FIELD.VALUES += 1
+            IF COUNT.FIELD.VALUES > MAX.LISTS THEN
+               PRINT 'EXCEEDED MAXIMUM OF ':MAX.LISTS:' SELECT LISTS ACTIVE'
+               STOP
+            END
+            FIELD.VALUES<COUNT.FIELD.VALUES> = DATA.VALUE
+            POS = COUNT.FIELD.VALUES
+         END
+      END
+      LISTS(POS)<-1> = @ID
+      RETURN
+
+
+***************************************************************************
+*
+***************************************************************************
+SAVE.LISTS:
+      IF NO.NULL THEN
+         ISTART = 2
+      END ELSE
+         ISTART = 1
+      END
+      FOR WHICH.LIST = ISTART TO COUNT.FIELD.VALUES
+         LIST.NAME = LIST.PREFIX:FIELD.VALUES<WHICH.LIST>:LIST.SUFFIX
+         ACTUAL.LIST = LISTS(WHICH.LIST)
+         RECORD.COUNT = COUNT(ACTUAL.LIST,@FM) + (ACTUAL.LIST#'')
+         IF RECORD.COUNT = 1 THEN
+            PRINT RECORD.COUNT:' record selected for value ':FIELD.VALUES<WHICH.LIST>
+         END ELSE
+            PRINT RECORD.COUNT:' records selected for value ':FIELD.VALUES<WHICH.LIST>
+         END
+         FORMLIST ACTUAL.LIST
+         EXECUTE 'SAVE.LIST ':LIST.NAME
+      NEXT WHICH.LIST
+      RETURN
+
+
+   END

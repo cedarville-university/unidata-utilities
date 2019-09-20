@@ -1,0 +1,1198 @@
+*
+* INFO/BASIC PROGRAM
+* 6/20/90
+* DWS
+* TITLE ----- VIEW.SPOOL
+*
+*
+* PURPOSE: VIEW SPOOL QUEUE ENTRIES WITH OPTION
+*
+*
+*
+*
+*  NOTE THE FOLLOWING:
+*
+*     In order for the suroot.o program to work properly it must have
+*     the "sticky" bit set.  Do a search in the wiki on suroot to
+*     find the page that gives instructions on how to do so.
+*
+*
+*
+*
+* Stamped: pts_87 jdmack, /datatel/coll18/live/apphome, user #25582, 30 Apr 08, 03:37PM.
+*    Added the classic chomd 777 code to allow mailing of contents without having to view it first.
+* Stamped: pts_96 rotmand, /datatel/live/collive, user #32191, 20 Dec 06, 11:52AM.
+*    Trim DIRECTORY.NAME
+* Stamped: pts_1 rotmand, /datatel/live/collive, user #31263, 13 Jun 05, 06:52AM.
+*    Additional changes for Linux.
+* Stamped: ra rotmand & howders, /datatel/live/collive, user #8764, 17 Dec 04, 04:23PM.
+*    Add SAVE option to write to H: or J: drive
+* Stamped: p4 rotmand, /datatel/live/collive, user #24773, 16 Sep 03, 08:41AM.
+*    Allow attaching multiple files to an email messsage.
+* Stamped: p3 rotmand, /datatel/live/collive, user #16276, 05 Oct 00, 08:12AM.
+*    Require a SUBJECT when sending/attaching mail
+* Stamped: p5 rotmand, /datatel/live/collive, user #20102, 20 Sep 00, 10:26AM.
+*    Our C program which changes the owner doesn't release the spool
+*    queue unless we re-invoke this program (recursively), so the
+*    CANCEL command invokes itself multiple times if more than one
+*    queue entry is being cancelled.
+* Stamped: ve rotmand, /disk1/collive, user #17632, 11 Dec 98, 04:35PM.
+*    Allow missing entries when cancelling a range of queue entries
+*       'cancel 12-15' will work even if entries 13 or 14 are missing
+*    Allow cancelling only those entries that are shown on the display
+* Stamped: p5 rotmand, /disk1/collive, user #4633, 10 Nov 97, 08:51AM.
+*    Allow entry of '-o' options
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #17913, 10 Jul 95, 10:02AM.
+*    Allow hyphen-designated ranges (eg, 5-9 as shorthand for 5 6 7 8 9).
+* Stamped: pty/ttyp2 sjoquist, /disk1/coltest, user #2435, 23 Jun 94, 08:44AM.
+*    Rewrite for HP
+* Last updated by LIVE (ROTMAN) at 13:47:49 on 08/23/1991.
+*    Start a rudimentary help paragraph.
+* Last updated by LIVE (ROTMAN) at 12:37:26 on 07/31/1991.
+*    Shorten queue-entry and attribute columns so that file.name column
+*    can be longer.
+* Last updated by LIVE (SJOQUIST) at 15:23:26 on 06/20/1990.
+*
+*************************************************************************
+*
+
+      $INCLUDE LOCAL.SOURCE I_C26.STANDARD
+      $INSERT I_SPQUEUE.COMMON
+
+
+*
+*
+* MAIN CONTROL
+*
+
+      GOSUB SET.UP
+      GOSUB PROCESS.COMMAND.LINE
+      GOSUB LOAD.ITEMS
+      BEGIN CASE
+         CASE NUM.CL.OPTIONS > 0
+            GOSUB PROCESS.OPTION.LIST
+         CASE MENU.DISPLAY
+            GOSUB DISPLAY.HEADINGS
+            CURRENT.PAGE = LAST.PAGE
+            GOSUB DISPLAY.PAGE
+            GOSUB PROCESS.MENU
+         CASE 1
+            GOSUB LIST.ITEMS
+      END CASE
+      STOP
+
+
+
+*
+*
+*
+SET.UP: 
+      X.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+      X.COMMAND := ' /bin/chmod 777'
+      X.COMMAND := ' /var/spool/cups'
+      PCPERFORM X.COMMAND CAPTURING X.OUTPUT
+      ON.ERROR.RETURN = @FALSE
+      ERRMSG = ''
+      F.INFO.USERS = ''
+      CALL OPEN.FILE(F.INFO.USERS, 'INFO.USERS', ON.ERROR.RETURN, ERRMSG)
+      READ INFO.USERS.REC FROM F.INFO.USERS, @LOGNAME ELSE
+         INFO.USERS.REC = ''
+      END
+      IUR.EDIT.SPOOL.QUEUE.OKAY = INFO.USERS.REC<16>
+*
+      MAX.ITEMS = 2000
+      DIM ITEM.LINE(MAX.ITEMS)
+      LINES.PER.PAGE = 17
+      LINE.OFFSET = 3
+      NO.ITEMS.MSG = 'There are no items in the spool queue to display.'
+      DISPLAY.PROMPT = '(A)ttach (M)ail (S)ave (P)age (R)edis (V)iew (CA)ncel (F)orm (CO)pies'
+*DLR*      DISPLAY.PROMPT = '(A)ttach (M)ail (P)age (R)edis (V)iew (CA)ncel (F)orm (CO)pies'
+      IF IUR.EDIT.SPOOL.QUEUE.OKAY THEN
+         DISPLAY.PROMPT := ' (ED)'
+      END
+      ANSWER.LIST = ''
+      DEFAULT.ANSWER = ''
+      NULL.ANSWER.LIST = ''
+      NULL.DEFAULT.ANSWER = ''
+      CRT.COL = 0
+      PROMPT.COL = 0
+      PROMPT.LINE = 22
+      CRT.LINE = 0
+      END.PARAM = 2
+      MENU.DISPLAY = @FALSE
+      PROGRAM = 'VIEW.SPOOL'
+      PROGRAM.TITLE = 'Display spool queue entries'
+      GAP = 79 - LEN(PROGRAM) - LEN(PROGRAM.TITLE)
+      HDG1 = PROGRAM.TITLE:SPACE(GAP):PROGRAM
+      HDG2 = 'Request Time   User        File                      No Size    Queue  Status'
+      HDG3 = '------- ----- ------------ ------------------------- -- ------- ------ --------'
+      RETURN
+
+
+*
+*
+* PROCESS COMMAND.LINE
+*
+PROCESS.COMMAND.LINE: 
+      COMMAND.LINE = @SENTENCE
+      PARAM.LIST = ''
+      PARAM.QUOTED.LIST = ''
+      NUM.PARAMS = 0
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.LIST,PARAM.QUOTED.LIST,NUM.PARAMS)
+      IF PARAM.LIST<1> = 'RUN' THEN
+         PARAM.CTR = 3
+      END ELSE
+         PARAM.CTR = 1
+      END
+*
+      CURRENT.LIST.TYPE = ''
+      PARAM.USER.USED = @FALSE
+      CL.USER.LIST = ''
+      CL.FORM.LIST = ''
+      CL.OPTION.LIST = ''
+      NUM.CL.OPTIONS = 0
+      LOOP
+         PARAM.CTR += 1
+      UNTIL PARAM.CTR > NUM.PARAMS
+         PARAM = PARAM.LIST<PARAM.CTR>
+         ORIG.PARAM = PARAM
+         PARAM.QUOTED = PARAM.QUOTED.LIST<PARAM.CTR>
+         IF NOT(PARAM.QUOTED) THEN
+            PARAM = OCONV(PARAM,'MCU')
+         END
+         BEGIN CASE
+            CASE PARAM = 'HELP' OR PARAM = '-HELP'
+               GOSUB DISPLAY.HELP
+               STOP
+            CASE PARAM.QUOTED
+               GOSUB ADD.PARAM.TO.LIST
+            CASE PARAM = '-USER'
+               CURRENT.LIST.TYPE = 'USER'
+               PARAM.USER.USED = @TRUE
+            CASE PARAM = '-FORM'
+               CURRENT.LIST.TYPE = 'FORM'
+            CASE PARAM = '-MENU'
+               MENU.DISPLAY = @TRUE
+            CASE PARAM = '-OPTION' OR PARAM = '-OPTIONS'
+               CURRENT.LIST.TYPE = 'OPTION'
+               NUM.CL.OPTIONS += 1
+            CASE 1
+               GOSUB ADD.PARAM.TO.LIST
+         END CASE
+      REPEAT
+*
+      IF PARAM.USER.USED AND CL.USER.LIST = '' THEN
+         CL.USER.LIST = @LOGNAME
+      END
+      NUM.CL.FORMS = COUNT(CL.FORM.LIST,@FM) + (CL.FORM.LIST # '')
+      GOSUB DETERMINE.USERS.TO.VIEW
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT
+      CRT 'VIEW.SPOOL provides an alternative method to control spool queue entries.'
+      CRT
+      CRT 'The command may be entered without any options, or the following options'
+      CRT 'could be used:'
+      CRT '  -USER user [user]       (restricts viewing to those users only)'
+      CRT '  -FORM form# [form#]       (restricts viewing to those forms only)'
+      CRT '  -MENU'
+      CRT '  -OPTIONS FORM form# newFormName'
+      CRT '  -OPTIONS COPIES form# #copies'
+      CRT '  -OPTIONS CANCEL form# [form#]'
+      CRT '  -OPTIONS VIEW form# [form#]'
+      CRT '  -OPTIONS LIST'
+      IF IUR.EDIT.SPOOL.QUEUE.OKAY THEN
+         CRT '  -OPTIONS EDIT form# [form#]'
+      END
+      RETURN
+
+
+
+
+
+*
+*
+* ADD PARAM TO LIST
+*
+ADD.PARAM.TO.LIST: 
+      BEGIN CASE
+         CASE CURRENT.LIST.TYPE = 'USER'
+            CL.USER.LIST<-1> = OCONV(ORIG.PARAM,'MCL')
+         CASE CURRENT.LIST.TYPE = 'FORM'
+            CL.FORM.LIST<-1> = ORIG.PARAM
+         CASE CURRENT.LIST.TYPE = 'OPTION'
+            CL.OPTION.LIST<NUM.CL.OPTIONS,-1> = ORIG.PARAM
+         CASE 1
+            CRT 'Not expecting ':PARAM.QUOTED:ORIG.PARAM:PARAM.QUOTED:' here.'
+      END CASE
+      RETURN
+
+
+*
+*
+*
+* DETERMIME WHO TO VIEW
+*
+DETERMINE.USERS.TO.VIEW: 
+      VIEW.ALL.USERS = @FALSE
+      VS.USER.LIST = CL.USER.LIST
+*
+      IUR.VS.USER.LIST = INFO.USERS.REC<15>
+      CONVERT @VM TO @FM IN IUR.VS.USER.LIST
+      LOCATE @LOGNAME IN IUR.VS.USER.LIST<1> SETTING POS ELSE
+         IUR.VS.USER.LIST<-1> = @LOGNAME
+      END
+*
+* IF THIS PERSON CAN VIEW ALL (FIELD 15 IN INFO.USERS SET TO $ALL)
+* THEN CHECK IF LIST OF USERS SPECIFIED ON COMMAND LINE
+* ELSE SET VIEW.ALL.USERS TO TRUE
+*
+* IF THE PERSON CAN VIEW ONLY SELECTED PEOPLE, THEN CROSS CHECK
+* COMMAND LINE ENTRIES (IF ANY) WITH INFO.USERS VS.USER.LIST (F15)
+*
+      LOCATE '$ALL' IN IUR.VS.USER.LIST<1> SETTING POS THEN
+         IF VS.USER.LIST = '' THEN
+            VIEW.ALL.USERS = @TRUE
+         END
+      END ELSE
+         IF VS.USER.LIST = '' THEN
+            VS.USER.LIST = IUR.VS.USER.LIST
+         END ELSE
+            NUM.VUL = COUNT(VS.USER.LIST,@FM) + 1
+            NEW.VU.LIST = ''
+            FOR VUL.CTR=1 TO NUM.VUL
+               LOCATE VS.USER.LIST<VUL.CTR> IN IUR.VS.USER.LIST<1> SETTING POS THEN
+                  NEW.VU.LIST<-1> = VS.USER.LIST<VUL.CTR>
+               END
+            NEXT VUL.CTR
+            VS.USER.LIST = NEW.VU.LIST
+            IF VS.USER.LIST = '' THEN
+               VS.USER.LIST = @LOGNAME
+            END
+         END
+      END
+      RETURN
+
+
+*
+*
+* LOAD ITEMS
+*
+LOAD.ITEMS: 
+      RETURN.STATUS = ''
+      IF @LOGNAME = '*rotmand' THEN
+         CALL DAVESUB(RETURN.STATUS)
+      END ELSE
+         CALL LOAD.SPOOL.QUEUE(RETURN.STATUS)
+      END
+      IF RETURN.STATUS # '' THEN
+         MSG = 'ERROR ON SPOOL QUEUE: ':RETURN.STATUS<1>
+         CALL LINE.22(MSG)
+         STOP
+      END
+*
+* CHECK FOR PRINTING JOBS
+*
+      SEARCH.TEXT = 'now printing'
+      LPSTAT.COMMAND = 'lpstat -p|grep "':SEARCH.TEXT:'"'
+      PCPERFORM LPSTAT.COMMAND CAPTURING LPSTAT.TEXT
+      CONVERT CHAR(10) TO @FM IN LPSTAT.TEXT
+      NUM.TEXT.LINES = COUNT(LPSTAT.TEXT,@FM)
+      PRINTING.JOB.LIST = ''
+      FOR LINE.CTR=1 TO NUM.TEXT.LINES
+         TEXT.LINE = LPSTAT.TEXT<LINE.CTR>
+         JOB.POS = INDEX(TEXT.LINE, SEARCH.TEXT, 1) + LEN(SEARCH.TEXT) + 1
+         JOB.NAME = FIELD(TEXT.LINE[JOB.POS,100],'.',1,1)
+         PRINTING.JOB.LIST<-1> = JOB.NAME
+      NEXT LINE.CTR
+*
+      PREV.DATE = ''
+      NUM.ITEMS = 0
+      MAT ITEM.LINE = ''
+      VL.VIEWABLE.ENTRIES = ''
+      FOR Q.CTR=1 TO SPQUEUE.NUM.ENTRIES
+         GOSUB CHECK.IF.OKAY.TO.VIEW
+         IF VIEW.THIS.ENTRY THEN
+            GOSUB ADD.QUEUE.ENTRY.TO.ITEMS
+            PREV.DATE = SPQUEUE.DATE(Q.CTR)
+         END
+      NEXT Q.CTR
+      LAST.PAGE = INT((NUM.ITEMS - 1)/LINES.PER.PAGE) + 1
+      IF NUM.ITEMS = 0 THEN
+         MSG = NO.ITEMS.MSG
+         GOSUB DISPLAY.MSG
+         STOP
+      END
+      RETURN
+
+
+*
+*
+* CHECK LISTS TO SEE IF IT IS OKAY TO VIEW THIS ITEM
+*
+CHECK.IF.OKAY.TO.VIEW: 
+      VIEW.THIS.ENTRY = @FALSE
+      IF VIEW.ALL.USERS THEN
+         VIEW.THIS.ENTRY = @TRUE
+      END ELSE
+         LOCATE SPQUEUE.USER.NAME(Q.CTR) IN VS.USER.LIST<1> SETTING POS THEN
+            VIEW.THIS.ENTRY = @TRUE
+         END
+      END
+      IF NUM.CL.FORMS > 0 THEN
+         LOCATE SPQUEUE.FORM.NAME(Q.CTR) IN CL.FORM.LIST<1> SETTING POS ELSE
+            VIEW.THIS.ENTRY = @FALSE
+         END
+      END
+      RETURN
+
+
+*
+*
+* ADD THIS QUEUE ENTRY TO THE LIST OF ITEMS TO USE
+*
+ADD.QUEUE.ENTRY.TO.ITEMS: 
+      IF SPQUEUE.DATE(Q.CTR) # PREV.DATE THEN
+*IF @LOGNAME = 'howders' THEN
+*   CRT 'SPQUEUE.DATE(Q.CTR) ':SPQUEUE.DATE(Q.CTR)
+*END
+         LINE = OCONV(SPQUEUE.DATE(Q.CTR),'D')
+         LINE = LINE[1,4]:OCONV(LINE[5,99],'MCL')
+         NUM.ITEMS += 1
+         ITEM.LINE(NUM.ITEMS) = LINE
+      END
+      VL.VIEWABLE.ENTRIES<1,-1> = SPQUEUE.ENTRY.NUMBER.LIST<Q.CTR>
+      LINE = FMT(SPQUEUE.ENTRY.NUMBER.LIST<Q.CTR>,'7R'):' '
+      LINE := OCONV(SPQUEUE.TIME(Q.CTR),'MT'):' '
+      LINE := FMT(SPQUEUE.USER.NAME(Q.CTR),'12L')[1,12]:' '
+      TITLE = SPQUEUE.TITLE(Q.CTR)
+      FILE.NAME = SPQUEUE.FILE.NAME(Q.CTR)
+      IF TITLE THEN
+         DISPLAY.TITLE = TITLE
+      END ELSE
+         DISPLAY.TITLE = FILE.NAME
+      END
+      LINE := FMT(DISPLAY.TITLE[25],'25L')
+      LINE := FMT(SPQUEUE.COPIES(Q.CTR),'3R')
+      LINE := FMT(SPQUEUE.SIZE(Q.CTR),'8R'):' '
+      LINE := FMT(SPQUEUE.FORM.NAME(Q.CTR),'6L')[1,6]:' '
+      JOB.NAME = SPQUEUE.FORM.NAME(Q.CTR):'-':SPQUEUE.ENTRY.NUMBER.LIST<Q.CTR>
+      LOCATE JOB.NAME IN PRINTING.JOB.LIST<1> SETTING POS THEN
+         LINE := 'printing'
+      END
+      NUM.ITEMS += 1
+      ITEM.LINE(NUM.ITEMS) = LINE
+      RETURN
+
+
+*
+*
+* LIST ITEM
+*
+LIST.ITEMS: 
+*DWS      CRT HDG1
+      CRT HDG2
+      CRT HDG3
+      FOR ITEM.NUM = 1 TO NUM.ITEMS
+         CRT ITEM.LINE(ITEM.NUM)
+      NEXT ITEM.NUM
+      RETURN
+
+
+
+*
+* DISPLAY HEADINGS
+*
+DISPLAY.HEADINGS: 
+      CRT CLEAR.SCREEN
+      CRT @(0,0):HDG1
+      CRT @(0,2):HDG2
+      CRT @(0,3):HDG3
+      RETURN
+
+
+
+*
+*
+* PROCESS COMMANDS
+*
+PROCESS.MENU: 
+      LOOP
+         COMMAND = ''
+         CALL PROMPT.ANS(COMMAND,DISPLAY.PROMPT,PROMPT.COL,PROMPT.LINE,ANSWER.LIST,DEFAULT.ANSWER,END.PARAM)
+         UC.COMMAND = OCONV(COMMAND,'MCU')
+      UNTIL UC.COMMAND = 'E' OR UC.COMMAND = 'Q' DO
+         GOSUB PROCESS.COMMAND
+      REPEAT
+      RETURN
+
+
+PROCESS.OPTION.LIST: 
+      FOR OPTION.CTR=1 TO NUM.CL.OPTIONS
+         OPTION = OCONV(CL.OPTION.LIST<OPTION.CTR,1>,'MCU')
+         REST.OF.LINE = FIELD(CL.OPTION.LIST<OPTION.CTR>,@VM,2,9999)
+         CONVERT @VM TO ' ' IN REST.OF.LINE
+         GOSUB PROCESS.OPTION
+      NEXT OPTION.CTR
+      RETURN
+
+
+*
+*
+* PROCESS AN OPTION
+*
+PROCESS.OPTION: 
+      BEGIN CASE
+         CASE OPTION = 'EDIT' AND IUR.EDIT.SPOOL.QUEUE.OKAY
+            GOSUB PROCESS.EDIT
+         CASE OPTION = 'VIEW'
+            GOSUB PROCESS.VIEW
+         CASE OPTION = 'CANCEL'
+            GOSUB PROCESS.CANCEL
+         CASE OPTION = 'FORM'
+            GOSUB PROCESS.FORM
+         CASE OPTION = 'LIST'
+            GOSUB LIST.ITEMS
+         CASE OPTION = 'COPIES'
+            GOSUB PROCESS.COPIES
+      END CASE
+      RETURN
+
+
+
+*
+*
+* PROCESS A COMMAND
+*
+PROCESS.COMMAND: 
+      NEED.REDISPLAY = @FALSE
+      CMD1 = UC.COMMAND[1,1]
+      REST1 = COMMAND[2,80]
+      CMD2 = UC.COMMAND[1,2]
+      REST2 = COMMAND[3,80]
+      REST.OF.LINE = ''
+      BEGIN CASE
+         CASE CMD1 = 'P'
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.PAGE
+         CASE UC.COMMAND = 'R'
+            NEED.REDISPLAY = @TRUE
+         CASE CMD2 = 'ED' AND IUR.EDIT.SPOOL.QUEUE.OKAY
+            REST.OF.LINE = REST2
+            GOSUB PROCESS.EDIT
+         CASE CMD1 = 'V'
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.VIEW
+         CASE CMD1 = 'A'
+            NEED.REDISPLAY = @TRUE
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.ATTACH
+         CASE CMD1 = 'S'
+            NEED.REDISPLAY = @TRUE
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.SAVE
+         CASE CMD1 = 'M'
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.MAIL
+         CASE CMD2 = 'CA'
+            REST.OF.LINE = REST2
+            GOSUB PROCESS.CANCEL
+         CASE CMD1 = 'F'
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.FORM
+         CASE CMD1 = 'O'
+            REST.OF.LINE = REST1
+            GOSUB PROCESS.ALT.OPTION
+         CASE CMD2 = 'CO'
+            REST.OF.LINE = REST2
+            GOSUB PROCESS.COPIES
+         CASE COMMAND = ''
+            GOSUB PROCESS.FORWARD
+      END CASE
+      IF NEED.REDISPLAY THEN
+         GOSUB PROCESS.REDISPLAY
+      END
+      RETURN
+
+
+*
+*
+* PROCESS.FORWARD
+*
+PROCESS.FORWARD: 
+      IF CURRENT.PAGE = LAST.PAGE THEN
+         CURRENT.PAGE = 1
+      END ELSE
+         CURRENT.PAGE += 1
+      END
+      IF LAST.PAGE # 1 THEN
+         GOSUB DISPLAY.PAGE
+      END
+      RETURN
+
+
+*
+*
+* PROCESS.PAGE
+*
+PROCESS.PAGE: 
+      PAGE.NO = REST.OF.LINE
+      IF PAGE.NO = '' THEN
+         CALL PROMPT.ANS(PAGE.NO,'Page #',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      END
+      IF NOT(NUM(PAGE.NO)) THEN
+         MSG = '"':PAGE.NO:'" is not a valid page number.'
+         CALL LINE.22(MSG)
+      END ELSE
+         IF PAGE.NO < 1 OR PAGE.NO > LAST.PAGE THEN
+            MSG = 'Page number must be from 1 to ':LAST.PAGE:'.'
+            CALL LINE.22(MSG)
+         END ELSE
+            CURRENT.PAGE = PAGE.NO
+            GOSUB DISPLAY.PAGE
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* REDISPLAY
+*
+PROCESS.REDISPLAY: 
+      GOSUB LOAD.ITEMS
+      GOSUB DISPLAY.HEADINGS
+      CURRENT.PAGE = LAST.PAGE
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* VIEW SPOOL FILE
+*
+PROCESS.VIEW: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      ENTRY.NUMBER.LIST = TRIM(REST.OF.LINE)
+      MISSING.NUMBERS.OKAY = @FALSE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         IF NUM.ENTRY.NUMBERS = 1 THEN
+            X.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+            X.COMMAND := ' /bin/chmod 777'
+            X.COMMAND := ' ':SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>)
+            PCPERFORM X.COMMAND CAPTURING X.OUTPUT
+            OSOPEN SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>) TO F.OS.FILE THEN
+               HEADING.TEXT = 'Spool entry #':ENTRY.NUMBER
+               OS.POS = 0
+               CALL VIEW.OS.FILE(F.OS.FILE, OS.POS, HEADING.TEXT)
+               OSCLOSE F.OS.FILE
+               NEED.REDISPLAY = @TRUE
+            END ELSE
+               MSG = 'Can not open "':SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>):'"'
+               CALL LINE.22(MSG)
+            END
+         END ELSE
+            MSG = 'You may only view one entry at a time.'
+            CALL LINE.22(MSG)
+         END
+      END
+      RETURN
+
+
+*
+*
+*
+PROCESS.ATTACH: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      TEMP.LINE = TRIM(REST.OF.LINE)
+      ENTRY.NUMBER.LIST = TEMP.LINE
+      MISSING.NUMBERS.OKAY = @FALSE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         GOSUB GET.LANDSCAPE
+         GOSUB GET.CHARS.PER.LINE
+         ADDRESSEE = FIELD(TEMP.LINE,' ',2,1)
+         IF ADDRESSEE = '' THEN
+            GOSUB GET.ADDRESSEE
+         END
+         IF ADDRESSEE # '' THEN
+            GOSUB GET.SUBJECT
+            GOSUB GET.MESSAGE.TEXT
+            IF SUBJECT # '' THEN
+               SENDER = @LOGNAME
+               FOR WHICH.ENTRY = 1 TO NUM.ENTRY.NUMBERS
+                  X.ENTRY.NUMBER = FIELD(ENTRY.NUMBER.LIST,' ',WHICH.ENTRY,1)
+                  CALL ATTACH.SPOOL.FILE.NETWORK(RETURN.MESSAGE, ADDRESSEE, SENDER, MESSAGE.TEXT, SUBJECT, X.ENTRY.NUMBER, X.USE.LANDSCAPE, X.CHARS.PER.LINE)
+               NEXT WHICH.ENTRY
+            END
+         END
+      END
+      RETURN
+
+
+PROCESS.SAVE: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      TEMP.LINE = TRIM(REST.OF.LINE)
+      ENTRY.NUMBER.LIST = TEMP.LINE
+      MISSING.NUMBERS.OKAY = @FALSE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         GOSUB GET.LANDSCAPE
+         GOSUB GET.CHARS.PER.LINE
+         DIRECTORY.NAME = FIELD(TEMP.LINE,' ',2,1)
+         FILE.NAME = FIELD(TEMP.LINE,' ',3,1)
+         IF DIRECTORY.NAME = '' THEN
+            GOSUB GET.DIRECTORY.NAME
+         END
+         IF FILE.NAME = '' THEN
+            GOSUB GET.FILE.NAME
+         END
+         X.TEMP = OCONV(FILE.NAME,'MCU')
+         IF X.TEMP[4] NE '.PDF' THEN
+            IF X.TEMP = FILE.NAME THEN
+               FILE.NAME := '.PDF'
+            END ELSE
+               FILE.NAME := '.pdf'
+            END
+         END
+         X.ENTRY.NUMBER = FIELD(ENTRY.NUMBER.LIST,' ',1,1)
+         X.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+         X.COMMAND := ' /bin/chmod 777'
+         X.COMMAND := ' ':SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>)
+         PCPERFORM X.COMMAND CAPTURING X.OUTPUT
+         A.RETURN.CODE = ''
+         CALL WRITE.SPOOL.FILE.NETWORK(A.RETURN.CODE,DIRECTORY.NAME,FILE.NAME,X.ENTRY.NUMBER,X.USE.LANDSCAPE,X.CHARS.PER.LINE)
+         CRT
+         IF A.RETURN.CODE EQ '' THEN
+            CRT 'File ':FILE.NAME:' successfully written to ':DIRECTORY.NAME
+         END ELSE
+            CRT 'Unable to write to ':DIRECTORY.NAME:' ':FILE.NAME
+         END
+         CRT 'Press return to continue: ':
+         INPUT CRTJUNK
+      END
+      DEFAULT.ANSWER = ''
+      RETURN
+
+
+PROCESS.MAIL: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      TEMP.LINE = TRIM(REST.OF.LINE)
+      ENTRY.NUMBER.LIST = FIELD(TEMP.LINE,' ',1,1)
+      MISSING.NUMBERS.OKAY = @FALSE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         IF NUM.ENTRY.NUMBERS = 1 THEN
+            ADDRESSEE = FIELD(TEMP.LINE,' ',2,1)
+            IF ADDRESSEE = '' THEN
+               GOSUB GET.ADDRESSEE
+            END
+            IF ADDRESSEE # '' THEN
+               IF ADDRESSEE # '' THEN
+                  GOSUB GET.SUBJECT
+                  IF SUBJECT # '' THEN
+                     SENDER = @LOGNAME
+                     X.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+                     X.COMMAND := ' /bin/chmod 777'
+                     X.COMMAND := ' ':SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>)
+                     PCPERFORM X.COMMAND CAPTURING X.OUTPUT
+                     CALL SEND.SPOOL.FILE.NETWORK(RETURN.MESSAGE, ADDRESSEE, SENDER, SUBJECT, ENTRY.NUMBER.LIST)
+                  END
+               END
+            END ELSE
+               MSG = 'You may only mail one entry at a time.'
+               CALL LINE.22(MSG)
+            END
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* GET VALID ENTRY NUMBER
+*
+GET.VALID.ENTRY.NUMBERS: 
+      IF ENTRY.NUMBER.LIST = '' THEN
+         CALL PROMPT.ANS(ENTRY.NUMBER.LIST,'Entry number(s)',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+         REST.OF.LINE = ENTRY.NUMBER.LIST
+         GOSUB CHECK.FOR.HYPHENS
+         ENTRY.NUMBER.LIST = REST.OF.LINE
+         CONVERT ',' TO ' ' IN REST.OF.LINE
+         ENTRY.NUMBER.LIST = TRIM(ENTRY.NUMBER.LIST)
+      END
+      IF ENTRY.NUMBER.LIST = '' THEN
+         VALID.ENTRY.NUMBERS = @FALSE
+         RETURN
+      END
+      VALID.ENTRY.NUMBERS = @TRUE
+      NUM.ENTRY.NUMBERS = COUNT(ENTRY.NUMBER.LIST,' ') + 1
+      ENTRY.POS.LIST = ''
+      ENTRY.NAME.LIST = ''
+      ENTRY.USER.LIST = ''
+      FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+         ENTRY.NUMBER = FIELD(ENTRY.NUMBER.LIST,' ',ENTRY.CTR,1)
+         LOCATE ENTRY.NUMBER IN SPQUEUE.ENTRY.NUMBER.LIST<1> SETTING ENTRY.POS THEN
+            ENTRY.POS.LIST<ENTRY.CTR> = ENTRY.POS
+            ENTRY.NAME.LIST<ENTRY.CTR> = SPQUEUE.FORM.NAME(ENTRY.POS):'-':ENTRY.NUMBER
+            ENTRY.USER.LIST<ENTRY.CTR> = SPQUEUE.USER.NAME(ENTRY.POS)
+         END ELSE
+            IF NOT(MISSING.NUMBERS.OKAY) THEN
+               VALID.ENTRY.NUMBERS = @FALSE
+               MSG = 'Entry number ':ENTRY.NUMBER:' does not exist.'
+               GOSUB DISPLAY.MSG
+            END
+         END
+      NEXT ENTRY.CTR
+      RETURN
+
+
+*
+*
+* GET FORM NAME
+*
+GET.FORM.NAME: 
+      FORM.NAME = ''
+      CALL PROMPT.ANS(FORM.NAME,'Form name',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      RETURN
+
+
+GET.OPTION.NAME: 
+      OPTION.NAME = ''
+      CALL PROMPT.ANS(OPTION.NAME,'Option',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      RETURN
+
+
+*
+*
+*
+GET.LANDSCAPE: 
+      LANDSCAPE = ''
+      X.DEFAULT.ANSWER = 'P'
+      X.ANSWER.LIST = 'P,L'
+      CALL PROMPT.ANS(LANDSCAPE,'(P)ortrait or (L)andscape',PROMPT.COL,PROMPT.LINE,X.ANSWER.LIST,X.DEFAULT.ANSWER,END.PARAM)
+      IF OCONV(LANDSCAPE,'MCU') = 'L' THEN
+         X.USE.LANDSCAPE = @TRUE
+      END ELSE
+         X.USE.LANDSCAPE = @FALSE
+      END
+      RETURN
+
+
+GET.CHARS.PER.LINE: 
+      WANT.132.CHARS = ''
+      X.DEFAULT.ANSWER = 'S'
+      X.ANSWER.LIST = 'S,M,L'
+      CALL PROMPT.ANS(X.LINE.LENGTH,'(S)hort line [80 char], (M)edium line [132 char], (L)ong line [180 char]',PROMPT.COL,PROMPT.LINE,X.ANSWER.LIST,X.DEFAULT.ANSWER,END.PARAM)
+      X.LINE.LENGTH = OCONV(X.LINE.LENGTH,'MCU')
+      BEGIN CASE
+         CASE X.LINE.LENGTH = 'S'
+            X.CHARS.PER.LINE = 80
+         CASE X.LINE.LENGTH = 'M'
+            X.CHARS.PER.LINE = 132
+         CASE 1
+            X.CHARS.PER.LINE = 180
+      END CASE
+      RETURN
+
+
+GET.ADDRESSEE: 
+      ADDRESSEE = ''
+      CALL PROMPT.ANS(ADDRESSEE,'To',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      RETURN
+
+
+GET.SUBJECT: 
+      SUBJECT = ''
+      LOOP
+         CALL PROMPT.ANS(SUBJECT,'Subject',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      UNTIL SUBJECT # ''
+      REPEAT
+      RETURN
+
+
+GET.MESSAGE.TEXT: 
+      MESSAGE.TEXT = ''
+      CRT 'Enter message text a line at a time.  Enter an empty line to end your message.'
+      LOOP
+         INPUT X.TEMP
+      UNTIL X.TEMP = ''
+         MESSAGE.TEXT<1,-1> = X.TEMP
+      REPEAT
+      RETURN
+
+
+GET.DIRECTORY.NAME: 
+      DIRECTORY.NAME = ''
+      DEFAULT.ANSWER = 'DOCS.':OCONV(@LOGNAME,'MCU')
+      CALL PROMPT.ANS(DIRECTORY.NAME,'Directory (DOCS.SMITHJ, etc.)',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,DEFAULT.ANSWER,END.PARAM)
+      DIRECTORY.NAME = TRIM(DIRECTORY.NAME)
+      RETURN
+
+
+GET.FILE.NAME: 
+      FILE.NAME = ''
+      CALL PROMPT.ANS(FILE.NAME,'File (BUDGETREPORT.PDF, etc.)',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      RETURN
+
+
+*
+*
+* GET VALID NUM.COPIES
+*
+GET.VALID.NUM.COPIES: 
+      VALID.NUM.COPIES = @FALSE
+      NUM.COPIES = ''
+      CALL PROMPT.ANS(NUM.COPIES,'Number of copies',PROMPT.COL,PROMPT.LINE,NULL.ANSWER.LIST,NULL.DEFAULT.ANSWER,END.PARAM)
+      IF NUM.COPIES # '' THEN
+         IF NOT(NUM(NUM.COPIES)) OR NUM.COPIES < 1 THEN
+            MSG = '"':NUM.COPIES:'" is not a valid number of copies.'
+            GOSUB DISPLAY.MSG
+         END ELSE
+            VALID.NUM.COPIES = @TRUE
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* EDIT JOBS
+*
+PROCESS.EDIT: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      ENTRY.NUMBER.LIST = TRIM(REST.OF.LINE)
+      MISSING.NUMBERS.OKAY = @FALSE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         EDIT.COMMAND = 'vi'
+         FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+            EDIT.COMMAND := ' ':SPQUEUE.SPOOL.NAME(ENTRY.POS.LIST<1>)
+         NEXT ENTRY.CTR
+         PCPERFORM EDIT.COMMAND
+         IF NUM.CL.OPTIONS = 0 THEN
+            CRT 'Press Return to continue: ':
+            INPUT ANS
+         END
+      END
+      NEED.REDISPLAY = @TRUE
+      RETURN
+
+
+
+*
+*
+* CANCEL JOBS
+*
+PROCESS.CANCEL: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      ENTRY.NUMBER.LIST = TRIM(REST.OF.LINE)
+      MISSING.NUMBERS.OKAY = @TRUE
+      GOSUB GET.VALID.ENTRY.NUMBERS
+      IF VALID.ENTRY.NUMBERS THEN
+         FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+            ENTRY.NUMBER = FIELD(ENTRY.NAME.LIST<ENTRY.CTR>,'-',2,1)
+            IF ENTRY.NUMBER # '' THEN
+               LOCATE ENTRY.NUMBER IN VL.VIEWABLE.ENTRIES<1,1> SETTING VIEWABLE.POS THEN
+                  IF ENTRY.CTR GT 1 THEN
+                     X.COMMAND = 'VIEW.SPOOL -OPTION CANCEL ':ENTRY.NUMBER
+                     EXECUTE X.COMMAND
+                  END ELSE
+*                     GOSUB CHANGE.OWNER
+                     LPCANCEL.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+                     LPCANCEL.COMMAND := ' /usr/bin/cancel '
+                     LPCANCEL.COMMAND := ENTRY.NAME.LIST<ENTRY.CTR>
+                     X.TEMP = ENTRY.NAME.LIST<ENTRY.CTR>
+                     CRT 'Cancelling entry ':X.TEMP
+                     PCPERFORM LPCANCEL.COMMAND CAPTURING X.OUTPUT
+*                     SPOOL.COMMAND = 'cancel ':ENTRY.NAME.LIST<ENTRY.CTR>
+*                     PCPERFORM SPOOL.COMMAND
+                  END
+               END ELSE
+                  CRT 'Entry ':ENTRY.NUMBER:' was not on your displayed list.'
+               END
+            END
+         NEXT ENTRY.CTR
+         IF NUM.CL.OPTIONS = 0 THEN
+            CRT 'Press Return to continue: ':
+            INPUT ANS
+         END
+      END
+      NEED.REDISPLAY = @TRUE
+      RETURN
+
+
+*
+*
+* CHANGE FORM FOR ENTRIES
+*
+PROCESS.FORM: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      REST.OF.LINE = TRIM(REST.OF.LINE)
+      IF REST.OF.LINE # '' THEN
+         ENTRY.NUMBER.LIST = FIELD(REST.OF.LINE,' ',1,1)
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            FORM.NAME = FIELD(REST.OF.LINE,' ',2,1)
+            IF FORM.NAME = '' THEN
+               GOSUB GET.FORM.NAME
+            END
+         END
+      END ELSE
+         ENTRY.NUMBER.LIST = ''
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            GOSUB GET.FORM.NAME
+         END
+      END
+      IF VALID.ENTRY.NUMBERS THEN
+         NUM.ERRORS = 0
+         SPOOL.ERRORS = ''
+         FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+*DLR*            GOSUB CHANGE.OWNER
+            LPMOVE.COMMAND = '/datatel/locsrc/cprogs/suroot.o'
+            LPMOVE.COMMAND := ' /usr/sbin/lpmove ':ENTRY.NAME.LIST<ENTRY.CTR>:' ':FORM.NAME
+            PCPERFORM LPMOVE.COMMAND CAPTURING LPMOVE.MESSAGE
+*            LPALT.OPTIONS = ' -d':FORM.NAME
+*            GOSUB DO.LPALT
+*            IF LPALT.MESSAGE[1,18] # 'new request id is ' THEN
+*               NUM.ERRORS += 1
+*               SPOOL.ERRORS<NUM.ERRORS> = LPALT.MESSAGE
+*            END
+         NEXT ENTRY.CTR
+         IF NUM.ERRORS > 0 THEN
+            FOR ERR.CTR=1 TO NUM.ERRORS
+               CRT SPOOL.ERRORS<ERR.CTR>
+            NEXT ERR.CTR
+            IF NUM.CL.OPTIONS = 0 THEN
+               CRT 'Press Return to continue: ':
+               INPUT ANS
+            END
+         END
+         NEED.REDISPLAY = @TRUE
+      END
+      RETURN
+
+
+PROCESS.ALT.OPTION: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      REST.OF.LINE = TRIM(REST.OF.LINE)
+      IF REST.OF.LINE # '' THEN
+         ENTRY.NUMBER.LIST = FIELD(REST.OF.LINE,' ',1,1)
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            OPTION.NAME = FIELD(REST.OF.LINE,' ',2,1)
+            IF OPTION.NAME = '' THEN
+               GOSUB GET.OPTION.NAME
+            END
+         END
+      END ELSE
+         ENTRY.NUMBER.LIST = ''
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            GOSUB GET.OPTION.NAME
+         END
+      END
+      IF VALID.ENTRY.NUMBERS THEN
+         NUM.ERRORS = 0
+         SPOOL.ERRORS = ''
+         FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+*DLR*            GOSUB CHANGE.OWNER
+            LPALT.OPTIONS = ' -o':OPTION.NAME
+            GOSUB DO.LPALT
+            IF LPALT.MESSAGE[1,18] # 'new request id is ' THEN
+               NUM.ERRORS += 1
+               SPOOL.ERRORS<NUM.ERRORS> = LPALT.MESSAGE
+            END
+         NEXT ENTRY.CTR
+         IF NUM.ERRORS > 0 THEN
+            FOR ERR.CTR=1 TO NUM.ERRORS
+               CRT SPOOL.ERRORS<ERR.CTR>
+            NEXT ERR.CTR
+            IF NUM.CL.OPTIONS = 0 THEN
+               CRT 'Press Return to continue: ':
+               INPUT ANS
+            END
+         END
+         NEED.REDISPLAY = @TRUE
+      END
+      RETURN
+
+
+*
+*
+* PROCESS COPIES
+*
+PROCESS.COPIES: 
+      GOSUB CHECK.FOR.HYPHENS
+      CONVERT ',' TO ' ' IN REST.OF.LINE
+      REST.OF.LINE = TRIM(REST.OF.LINE)
+      IF REST.OF.LINE # '' THEN
+         ENTRY.NUMBER.LIST = FIELD(REST.OF.LINE,' ',1,1)
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            NUM.COPIES = FIELD(REST.OF.LINE,' ',2,1)
+            VALID.NUM.COPIES = @TRUE
+            IF NUM.COPIES # '' THEN
+               IF NOT(NUM(NUM.COPIES)) OR NUM.COPIES < 1 THEN
+                  VALID.NUM.COPIES = @FALSE
+                  MSG = '"':NUM.COPIES:'" is not a valid number of copies'
+                  GOSUB DISPLAY.MSG
+               END
+            END ELSE
+               GOSUB GET.VALID.NUM.COPIES
+            END
+         END
+      END ELSE
+         ENTRY.NUMBER.LIST = ''
+         MISSING.NUMBERS.OKAY = @FALSE
+         GOSUB GET.VALID.ENTRY.NUMBERS
+         IF VALID.ENTRY.NUMBERS THEN
+            GOSUB GET.VALID.NUM.COPIES
+         END
+      END
+      IF VALID.ENTRY.NUMBERS THEN
+         IF VALID.NUM.COPIES THEN
+            NUM.ERRORS = 0
+            SPOOL.ERRORS = ''
+            FOR ENTRY.CTR=1 TO NUM.ENTRY.NUMBERS
+*DLR*               GOSUB CHANGE.OWNER
+               LPALT.OPTIONS = ' -n':NUM.COPIES
+               GOSUB DO.LPALT
+               IF LPALT.MESSAGE THEN
+                  NUM.ERRORS += 1
+                  SPOOL.ERRORS<NUM.ERRORS> = LPALT.MESSAGE
+               END
+            NEXT ENTRY.CTR
+            IF NUM.ERRORS > 0 THEN
+               FOR ERR.CTR=1 TO NUM.ERRORS
+                  CRT SPOOL.ERRORS<ERR.CTR>
+               NEXT ERR.CTR
+               IF NUM.CL.OPTIONS = 0 THEN
+                  CRT 'Press Return to continue: ':
+                  INPUT ANS
+               END
+            END
+         END
+      END
+      NEED.REDISPLAY = @TRUE
+      RETURN
+
+
+*
+* Note: by using 'lpalt -dNEWFORM old-job' to change a form name
+*       leaves the new job without the appropriate rights set for
+*       group lp to access it.  By waiting 1 second, and then executing
+*       'lpstat -t', lpstat sets the rights correctly.
+*
+DO.LPSTAT: 
+      SLEEP 1
+      SPOOL.COMMAND = 'lpstat -t'
+      PCPERFORM SPOOL.COMMAND CAPTURING SPOOL.MESSAGE
+      RETURN
+
+
+DO.LPALT: 
+      GOSUB CHANGE.OWNER
+      IF LPALT.MESSAGE = '' THEN
+*DLR*         LPALT.COMMAND = 'lpalt ':LPALT.OPTIONS:' -i ':LPALT.ENTRY
+         LPALT.COMMAND = 'lp ':LPALT.OPTIONS:' -i ':LPALT.ENTRY
+         PCPERFORM LPALT.COMMAND CAPTURING LPALT.MESSAGE
+*DLR*IF @LOGNAME = 'rotmand' OR @LOGNAME = 'howders' THEN
+*DLR*   CRT 'LPALT.COMMAND ':LPALT.COMMAND
+*DLR*   CRT 'LPALT.MESSAGE ':LPALT.MESSAGE
+*DLR*   INPUT JUNK.VARIABLE
+*DLR*END
+         GOSUB DO.LPSTAT
+         IF LPALT.MESSAGE[1,18] = 'new request id is ' THEN
+            LPALT.NEW.ENTRY = TRIM(LPALT.MESSAGE<1>[19,80])
+            IF @LOGNAME # LPALT.USER THEN
+               CHQOWN.COMMAND = '/datatel/locsrc/cprogs/chqown ':LPALT.NEW.ENTRY:' ':LPALT.USER
+               PCPERFORM CHQOWN.COMMAND CAPTURING CHQOWN.MESSAGE
+            END
+         END
+      END
+      RETURN
+
+
+CHANGE.OWNER: 
+      LPALT.ENTRY = ENTRY.NAME.LIST<ENTRY.CTR>
+      LPALT.USER = ENTRY.USER.LIST<ENTRY.CTR>
+      LPALT.MESSAGE = ''
+      X.LOOP.COUNT = 0
+      LOOP
+         X.LOOP.COUNT += 1
+         IF @LOGNAME # LPALT.USER THEN
+            CHQOWN.COMMAND = '/datatel/locsrc/cprogs/chqown ':LPALT.ENTRY:' ':@LOGNAME
+            PCPERFORM CHQOWN.COMMAND CAPTURING LPALT.MESSAGE
+         END
+      UNTIL X.LOOP.COUNT GT 5 OR LPALT.MESSAGE = ''
+         CRT 'Trying to change owner...'
+         SLEEP 2
+      REPEAT
+      RETURN
+
+
+*
+*
+*
+DISPLAY.PAGE: 
+      END.ITEM = CURRENT.PAGE * LINES.PER.PAGE
+      START.ITEM = END.ITEM - (LINES.PER.PAGE - 1)
+      CRT.LINE = LINE.OFFSET
+      CRT @(0,LINE.OFFSET+1):CLEAR.EOS
+      IF END.ITEM > NUM.ITEMS THEN
+         END.ITEM = NUM.ITEMS
+      END
+      FOR ITEM.NUM = START.ITEM TO END.ITEM
+         CRT.LINE += 1
+         CRT @(0,CRT.LINE):ITEM.LINE(ITEM.NUM):
+      NEXT ITEM.NUM
+      CRT @(PROMPT.COL,PROMPT.LINE-1):'Page ':CURRENT.PAGE:' of ':LAST.PAGE
+      RETURN
+
+
+*
+*
+* DISPLAY MSG
+*
+DISPLAY.MSG: 
+      IF MENU.DISPLAY THEN
+         CALL LINE.22(MSG)
+      END ELSE
+         CRT MSG
+      END
+      RETURN
+
+
+
+CHECK.FOR.HYPHENS: 
+      IF INDEX(REST.OF.LINE,'-',1) > 0 THEN
+         RETURN.STRING = ''
+         CALL HYPHENS.TO.NUMBERS(RETURN.STRING,REST.OF.LINE)
+         REST.OF.LINE = RETURN.STRING
+         CONVERT @VM TO ' ' IN REST.OF.LINE
+      END
+      RETURN
+
+
+   END

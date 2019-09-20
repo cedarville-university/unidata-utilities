@@ -1,0 +1,56 @@
+* SELECT.NAMES
+* INFO/BASIC PROGRAM
+* 03/26/93
+* DWS
+* TITLE ----- SELECT.NAMES
+*
+* PURPOSE: LIST MATCHING ID'S & NAMES BASED ON COMMAND LINE INPUT OF NAME
+*
+* Stamped: rb rotmand, /disk1/collive, user #18257, 07 Aug 97, 06:59AM.
+*   Release 14.0
+* Stamped: pty/ttyp8 sjoquist, /disk1/collive, user #25189, 25 Jun 94, 04:56PM.
+* Updated for HP-UX
+*     Last updated by LIVE (SJOQUISTD) at 14:24:48 on 09/23/1993.
+*
+*************************************************************************
+*
+
+
+*
+*
+* MAIN CONTROL
+*
+      COMMAND.LINE = @SENTENCE
+      INPUT.NAME = OCONV(FIELD(TRIM(COMMAND.LINE),' ',2,999),'MCU')
+      IF LEN(INPUT.NAME) < 2 THEN
+         STOP 'Must enter at least 2 characters of the last name.'
+      END
+      ID.LIST = ''
+      GOSUB SET.UP
+      GOSUB PROCESS.NAME
+      IF ID.LIST = '' THEN
+         CRT 'No matching names found.'
+      END ELSE
+         NUM.IDS = COUNT(ID.LIST,@FM) + 1
+         IF NUM.IDS = 1 THEN
+            CRT 'One matching name selected to list 1.'
+         END ELSE
+            CRT NUM.IDS:' matching names selected to list 1.'
+         END
+         FORMLIST ID.LIST
+      END
+      STOP
+
+SET.UP: 
+      RETURN
+
+
+PROCESS.NAME: 
+      ID.LIST = ''
+      EXACT.MATCH.FLAG = @FALSE
+      CALL LOOKUP.NAME(ID.LIST, INPUT.NAME, EXACT.MATCH.FLAG)
+      CONVERT @VM TO @FM IN ID.LIST
+      RETURN
+
+
+   END

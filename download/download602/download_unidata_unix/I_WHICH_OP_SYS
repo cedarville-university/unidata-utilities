@@ -1,0 +1,24 @@
+*
+* Set which operating system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_OP_SYS_UNIX
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p6 rotmand, /usr/local/collive, user #13226, 19 May 03, 02:17PM.
+* Version 6.02
+*
+*
+*
+*
+*
+*
+*
+
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIX LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.PRIMOS LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.WINDOWS LIT '*'
+      OP.SYS.NAME = 'UNIX'

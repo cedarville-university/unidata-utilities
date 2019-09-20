@@ -1,0 +1,31 @@
+*
+* Common for DOWNLOAD programs
+* 20/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD.SUBR.COMMON
+*
+*
+* PURPOSE: VARIABLES PERTAINING TO "SUBR" FIELDS
+*
+*
+*************************************************************************
+* Stamped: p4 rotmand, /usr/local/collive, user #4051, 06 Sep 03, 03:15PM.
+* Version 7.00
+*
+*
+*
+*
+*
+*
+*
+
+      COMMON /DL.SUBR/ NUM.USE.SUBRS,
+         USE.SUBR.CTR.LIST,
+         USE.SUBR.ARG.TYPE.LIST,
+         USE.SUBR.ARG.VALUE.LIST,
+         USE.SUBR.ARG.DICT.CTR.LIST,
+         NUM.SUBR.NAMES,
+         SUBR.NAME.LIST,
+         SUBR.NAMES(DLMAX.SUBR.NAMES),
+         SUBR.NUM.ARGS.LIST(DLMAX.SUBR.NAMES),
+         SUBR.ARG.VALUES(DLMAX.SUBR.ARGS)

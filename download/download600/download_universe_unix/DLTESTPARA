@@ -1,0 +1,144 @@
+PA
+* Stamped: p1 rotmand, /usr/local/download, user #184, 05 Nov 02, 07:56AM.
+*   Version 6.00
+*
+*
+*
+*
+*
+*
+*
+*
+*
+DISPLAY
+DISPLAY This paragraph will run DOWNLOAD several times...
+DISPLAY  1   simple comma-quote output to the screen
+DISPLAY  2   multi-valued output to the screen
+DISPLAY  3   comma-quote output to &HOLD& DOWNLOAD.CQ
+DISPLAY  4   fixed output to &HOLD& DOWNLOAD.DAT
+DISPLAY  5   HTML output to &HOLD& DOWNLOAD.HTM
+DISPLAY  6   tab-delimited output to &HOLD& DOWNLOAD.TAB
+DISPLAY  7   wp51 merge  output to &HOLD& DOWNLOAD.MRG
+DISPLAY  8   XML output to &HOLD& DOWNLOAD.XML
+DISPLAY  9   comma-quote with break totals to &HOLD& DOWNLOAD.BRK
+DISPLAY
+DISPLAY Make sure you have run DOWNLOAD.BUILD.TEST.FILE to prepare
+DISPLAY the data used by this paragraph.
+DISPLAY
+DISPLAY
+* <<PRESS RETURN TO START TEST 1>>
+DISPLAY
+DISPLAY
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing simple comma-quote output
+SELECT DLTESTFILE
+DOWNLOAD DLTESTFILE @ID FIELD1 FIELD2 FIELD3 FIELD4 VFIELD
+DISPLAY
+* <<PRESS RETURN TO START TEST 2>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing multi-valued fields and vertical display
+SELECT DLTESTFILE 'REC1''REC2''REC3'
+DOWNLOAD DLTESTFILE @ID FIELD1 FIELD3 NUM.VALUES ALL MV.ORIENTATION VERTICAL
+DISPLAY
+* <<PRESS RETURN TO START TEST 3>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing comma-quote file output
+SELECT DLTESTFILE
+DOWNLOAD DLTESTFILE @ID FIELD1 FIELD2 FIELD3 FIELD4 VFIELD _
+  HEADING FIELD.NAMES _
+  FORMAT QUOTE _
+  FILE &HOLD& DOWNLOAD.CQ OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 4>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing fixed file output
+SELECT DLTESTFILE _
+  BY.EXP FIELD2 BY @ID
+DOWNLOAD DLTESTFILE _
+  BY.EXP FIELD2 _
+  FIELD2 FIELD3 @ID _
+  HEADING @SYSTEM.RETURN.CODE FMT "5'0'R" _
+  FORMAT FIXED _
+  FILE &HOLD& DOWNLOAD.DAT OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 5>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing HTML file output
+SELECT DLTESTFILE
+DOWNLOAD DLTESTFILE _
+  @ID _
+  FIELD1 _
+  FIELD2 _
+    NUM.VALUES ALL VALUE.SEPARATOR '<BR>' _
+  FIELD3 HTML.CELL 'ALIGN="RIGHT"' _
+    NUM.VALUES ALL VALUE.SEPARATOR '<BR>' _
+  FIELD4 HTML.CELL 'ALIGN="RIGHT"' _
+  VFIELD _
+  HEADING FIELD.LABELS HTML.ROW 'BGCOLOR="#0099FF"' _
+  FORMAT HTML _
+  HTML.TITLE 'DOWNLOAD HTML Test Run' _
+  HTML.TOP 'The following table should contain 6 columns, one heading row, and 5 detail rows.' _
+  HTML.BOTTOM 'This is the bottom text, appearing after the table, including some <b>bold</b> and <i>italicized</i> text.' _
+  FILE &HOLD& DOWNLOAD.HTM OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 6>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing tab file output
+SELECT DLTESTFILE
+DOWNLOAD DLTESTFILE @ID FIELD1 FIELD2 FIELD3 FIELD4 VFIELD _
+  FORMAT TAB _
+  FILE &HOLD& DOWNLOAD.TAB OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 7>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing wp51 merge file output
+SELECT DLTESTFILE 'REC1''REC2''REC3'
+DOWNLOAD DLTESTFILE @ID FIELD1 FIELD2 FIELD3 FIELD4 VFIELD _
+  FORMAT WP51 _
+  FILE &HOLD& DOWNLOAD.MRG OVERWRITING
+DISPLAY
+* <<PRESS RETURN TO START TEST 8>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing XML file output
+SELECT DLTESTFILE
+DOWNLOAD DLTESTFILE _
+  @ID XML.ATTRIBUTE _
+  FIELD1 FIELD2 FIELD3 FIELD4 VFIELD _
+  FORMAT XML _
+  FILE &HOLD& DOWNLOAD.XML OVERWRITING
+*
+DISPLAY
+* <<PRESS RETURN TO START TEST 9>>
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY Testing break totals with comma-quote output
+SELECT DLTESTFILE _
+  BY.EXP FIELD2 BY @ID
+DOWNLOAD DLTESTFILE _
+  BY.EXP FIELD2 _
+  BREAK.ON FIELD2 _
+  FIELD3 _
+  FOOTING.ON FIELD2 LITERAL 'Subtotal' TOTAL FIELD3 _
+  FOOTING.ON FINAL LITERAL 'Grand total' TOTAL FIELD3 _
+  FILE &HOLD& DOWNLOAD.BRK OVERWRITING
+*
+DISPLAY
+DISPLAY ===============================================================
+DISPLAY
+DISPLAY Test run is complete.

@@ -1,0 +1,424 @@
+* INFO/BASIC PROGRAM
+* 2/11/88
+* DWS
+* TITLE ----- PRINT.PAGE
+* REV 3.2
+*
+*
+* MODULE:  PRINT.PAGE
+* PURPOSE: LOAD PARAMETERS FROM FILE FOR PRINT.PAGE ROUTINES
+*
+* Stamped: pts_4 rotmand, /datatel/coll18/live/apphome, user #27508, 08 Dec 14, 08:55AM.
+*  Version 5.2
+*  Allow field name for mail subject
+* Stamped: pts_3 rotmand, /datatel/coll18/live/apphome, user #21570, 31 Jan 12, 05:22PM.
+*  Version 5.1
+*  Allow numeric field numbers in addition to field names.
+* Stamped: pts_135 rotmand, /datatel/coll18/live/apphome, user #11874, 15 Mar 11, 04:41PM.
+* Allow command-line override of PP.MAIL.DELAY.INTERVAL and PP.MAIL.DELAY.TIME,
+* Stamped: pts_7 rotmand, /datatel/coll18/live/apphome, user #11085, 14 Mar 08, 07:15AM.
+* Make sure that PP.HAVE.MAIL gets set.
+* Stamped: pts_82 rotmand, /datatel/live/collive, user #29971, 19 Mar 07, 04:42PM.
+*  Version 5.0
+*  Add ATTACH.FILE option.
+* Stamped: pts_89 rotmand, /datatel/live/collive, user #17102, 31 Oct 05, 09:20AM.
+*  Remove NHEAD from SETPTR command.
+* Stamped: pts_64 bowenr, /datatel/live/collive, user #29281, 17 Jun 05, 04:47PM.
+* Change FORM to DEST as a result of Linux conversion
+*
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 09:04:49 on 02/07/1989.
+*     Last updated by LIVE (SJOQUIST) at 15:55:51 on 12/14/1988.
+* Update to 3.0
+*     Last updated by LIVE (SJOQUIST) at 14:42:39 on 02/12/1988.
+*        Allow multiple pages per run
+*     Last updated by LIVE (SJOQUIST) at 13:48:15 on 02/11/1988.
+*        Split into control program, Init sub, & Process sub
+*     Last updated by LIVE (SJOQUIST) at 09:40:01 on 01/14/1988.
+*
+*
+*************************************************************************
+*
+*  COPYRIGHT (C) 1988, 1989, ROTMAN & SJOQUIST
+*
+*      The information contained in this file is proprietary to
+*      ROTMAN & SJOQUIST and shall not be reproduced in part or
+*      in whole without their prior written authorization.
+*      This file may be modified for the internal use of this
+*      institution, but no part of this file nor any program or
+*      file derived from it may be distributed to any other
+*      individual or institution.
+*
+*************************************************************************
+*
+      $INSERT I_PRINT.PAGE.COMMON
+*1
+
+*
+*
+* MAIN CONTROL
+*
+      GOSUB SET.UP
+      IF ERRMSG THEN
+         ERRMSG<-1> = '** No processing done **'
+         GOSUB PRINT.ERRORS
+         STOP
+      END ELSE
+         CALL PRINT.PAGE.INIT
+         CALL PRINT.PAGE.LOAD(WP.DIR,WP.FILE,INFO.FILE,FORM.NUM,ERRMSG)
+         IF ERRMSG THEN
+            ERRMSG<-1> = '** Can not continue with errors in loading page **'
+            GOSUB PRINT.ERRORS
+            STOP
+         END ELSE
+            IF PP.HAVE.ATTACH THEN
+               FORM.NUM = 2
+               CALL PRINT.PAGE.LOAD(WP.DIR,PP.ATTACH.FORM.NAME,INFO.FILE,FORM.NUM,ERRMSG)
+               IF ERRMSG THEN
+                  ERRMSG<-1> = '** Can not continue with errors in loading page **'
+                  GOSUB PRINT.ERRORS
+                  STOP
+               END
+            END
+            IF PP.INITIALIZATION THEN
+               EXECUTE PP.INITIALIZATION
+            END
+            GOSUB PROCESS.PAGE
+            IF ERRMSG THEN
+               IF DISPLAY.ERRORS THEN
+                  GOSUB PRINT.ERRORS
+               END
+            END ELSE
+               IF PP.TERMINATION THEN
+                  EXECUTE PP.TERMINATION
+               END
+            END
+         END
+      END
+      GOSUB TERMINATE
+      STOP
+
+
+*
+* SET UP
+*
+SET.UP: 
+      NUM.ACTUAL.LINES = ''
+      ERRMSG = ''
+      FORM.NUM = 1
+      PROMPT ''
+      COMMAND.LINE = @SENTENCE
+      PARAM.STR = ''
+      PARAM.QUOTED = ''
+      NUM.PARAMS = 0
+      CALL PP.PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+
+      LOCATE 'HELP' IN PARAM.STR<1> SETTING POS THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      LOCATE '-HELP' IN PARAM.STR<1> SETTING POS THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      IF NUM.PARAMS < STARTING.PARAM + 2 THEN
+         ERRMSG<-1> = 'The proper syntax is:'
+         ERRMSG<-1> = '  PRINT.PAGE info.file wp.directory wp.file [-FORM form.name] [-COPIES #]'
+         ERRMSG<-1> = '  '
+         ERRMSG<-1> = '    where wp.directory is the type 1 file (directory) containing'
+         ERRMSG<-1> = '    the form definition files and wp.file is the form (record) to be printed.'
+         ERRMSG<-1> = '  '
+         ERRMSG<-1> = 'Type PRINT.PAGE HELP for more information.'
+         ERRMSG<-1> = '  '
+         RETURN
+      END
+      INFO.FILE = PARAM.STR<STARTING.PARAM>
+      WP.DIR = PARAM.STR<STARTING.PARAM + 1>
+      WP.FILE = PARAM.STR<STARTING.PARAM + 2>
+      LOCATE '-FORM' IN PARAM.STR<1> SETTING FORM.POS THEN
+         FORM.NAME = PARAM.STR<FORM.POS+1>
+      END ELSE
+         FORM.NAME = PARAM.STR<5>
+      END
+      LOCATE '-COPIES' IN PARAM.STR<1> SETTING COPIES.POS THEN
+         COPIES = PARAM.STR<COPIES.POS+1>
+      END ELSE
+         COPIES = ''
+      END
+      LOCATE '-AT' IN PARAM.STR<1> SETTING AT.POS THEN
+         AT.NAME = PARAM.STR<AT.POS+1>
+      END ELSE
+         AT.NAME = ''
+      END
+      LOCATE '-TTY' IN PARAM.STR<1> SETTING POS THEN
+         FORM.NAME = ''
+         USE.PRINTER = 0
+      END ELSE
+         USE.PRINTER = 1
+      END
+      LOCATE '-NODISPLAY' IN PARAM.STR<1> SETTING POS THEN
+         DISPLAY.COUNT = 0
+      END ELSE
+         DISPLAY.COUNT = 1
+      END
+      LOCATE '-NOERRORS' IN PARAM.STR<1> SETTING POS THEN
+         DISPLAY.ERRORS = 0
+      END ELSE
+         DISPLAY.ERRORS = 1
+      END
+*
+      MAIL.ID.FIELD = ''
+      MAIL.ID.FIELD.NUM = ''
+      MAIL.SUBJECT.DICT.REC = ''
+      MAIL.SUBJECT = ''
+      PP.HAVE.MAIL = @FALSE
+      LOCATE '-MAIL' IN PARAM.STR<1> SETTING MAIL.POS THEN
+         USE.PRINTER = @FALSE
+         PP.HAVE.MAIL = @TRUE
+         MAIL.ID.FIELD = PARAM.STR<MAIL.POS+1>
+         LOCATE '-SUBJECT' IN PARAM.STR<1> SETTING SUBJECT.POS THEN
+            MAIL.SUBJECT = PARAM.STR<SUBJECT.POS+1>
+            IF (MAIL.SUBJECT[1,1] = '%') AND (MAIL.SUBJECT[1] = '%') THEN
+               GOSUB LOAD.MAIL.SUBJECT.DICT.REC
+            END
+         END ELSE
+            MAIL.SUBJECT = WP.DIR:' ':WP.FILE
+         END
+         LOCATE '-SENDER' IN PARAM.STR<1> SETTING SENDER.POS THEN
+            MAIL.SENDER = PARAM.STR<SENDER.POS+1>
+         END ELSE
+            MAIL.SENDER = @LOGNAME
+         END
+         LOCATE '-ATTACH' IN PARAM.STR<1> SETTING ATTACH.POS THEN
+            PP.ATTACH.FORM.NAME = PARAM.STR<ATTACH.POS+1>
+            PP.HAVE.ATTACH = @TRUE
+         END ELSE
+            PP.ATTACH.FORM.NAME = ''
+            PP.HAVE.ATTACH = @FALSE
+         END
+         LOCATE '-ATTACH.FILE' IN PARAM.STR<1> SETTING ATTACH.FILE.POS THEN
+            PP.ATTACH.FILE.DIR = PARAM.STR<ATTACH.FILE.POS+1>
+            PP.ATTACH.FILE.NAME = PARAM.STR<ATTACH.FILE.POS+2>
+            PP.HAVE.ATTACH.FILE = @TRUE
+         END ELSE
+            PP.ATTACH.FILE.DIR = ''
+            PP.ATTACH.FILE.NAME = ''
+            PP.HAVE.ATTACH.FILE = @FALSE
+         END
+         LOCATE '-MAIL.DELAY.INTERVAL' IN PARAM.STR<1> SETTING MAIL.DELAY.INTERVAL.POS THEN
+            PP.MAIL.DELAY.INTERVAL = PARAM.STR<MAIL.DELAY.INTERVAL.POS+1>
+         END ELSE
+            PP.MAIL.DELAY.INTERVAL = 10 ;* PAUSE EVERY 10 RECORDS
+         END
+         LOCATE '-MAIL.DELAY.TIME' IN PARAM.STR<1> SETTING MAIL.DELAY.TIME.POS THEN
+            PP.MAIL.DELAY.TIME = PARAM.STR<MAIL.DELAY.TIME.POS+1>
+         END ELSE
+            PP.MAIL.DELAY.TIME = 60  ;* SECONDS
+         END
+      END
+*
+* MAKE SURE FILES EXIST
+*
+*3
+*
+      OPEN '',INFO.FILE TO F.INFO ELSE
+         ERRMSG<-1> = 'Can not open data file "':INFO.FILE:'"'
+      END
+      OPEN '', WP.DIR TO F.TEMP THEN
+         READV TEST FROM F.TEMP, WP.FILE, 0 ELSE
+            ERRMSG<-1> = 'Can not find "':WP.FILE:'" in "':WP.DIR:'"'
+         END
+         CLOSE F.TEMP
+      END ELSE
+         ERRMSG<-1> = 'Can not open type-1 file "':WP.DIR:'"'
+      END
+
+      TRUE = 1
+      FALSE = 0
+      NUM.SELECTED.PRIOR.TO.INIT = @SYSTEM.RETURN.CODE
+*** SETPTR CALL
+      IF USE.PRINTER THEN
+*DLR*         SETPTR.COMMAND = 'SETPTR ,,,0,0,,NFMT,NHEAD,BRIEF'
+         SETPTR.COMMAND = 'SETPTR ,,,0,0,,NFMT,BRIEF'
+         IF FORM.NAME THEN
+*RAB
+            SETPTR.COMMAND := ',DEST ':FORM.NAME
+         END
+         IF COPIES THEN
+            SETPTR.COMMAND := ',COPIES ':COPIES
+         END
+         IF AT.NAME THEN
+            SETPTR.COMMAND := ',AT ':AT.NAME
+         END
+         EXECUTE SETPTR.COMMAND
+      END
+      RETURN
+
+
+*
+*
+* TERMINATE
+*
+TERMINATE: 
+      IF FORM.NAME OR AT.NAME THEN
+         EXECUTE 'SETPTR ,,,,,,BRIEF'
+      END
+      IF USE.PRINTER THEN
+         PRINTER CLOSE
+      END
+      RETURN
+
+
+
+*
+*
+* PROCESS PAGE
+*
+PROCESS.PAGE: 
+      NUM.SELECTED.AFTER.INIT = @SYSTEM.RETURN.CODE
+      IF NUM.SELECTED.AFTER.INIT > NUM.SELECTED.PRIOR.TO.INIT THEN
+         NUM.SELECTED = NUM.SELECTED.AFTER.INIT
+      END ELSE
+         NUM.SELECTED = NUM.SELECTED.PRIOR.TO.INIT
+      END
+      IF DISPLAY.COUNT THEN
+         GOSUB DISPLAY.HEADING
+      END
+      IF USE.PRINTER THEN
+         PRINTER ON
+      END
+      IF USE.PRINTER THEN
+         JUNK = @(0,0)
+      END
+      DONE = FALSE
+      LOOP
+         READNEXT @ID ELSE DONE = TRUE
+      UNTIL DONE
+         INFO.KEY = @ID<1,1>
+         INFO.VALUE.NUM = @ID<1,2>
+         INFO.SUBVALE.NUM = @ID<1,3>
+         INFO.FOUND = TRUE
+         READ @RECORD FROM F.INFO,INFO.KEY ELSE
+            INFO.FOUND = FALSE
+         END
+         IF INFO.FOUND THEN
+            IF USE.PRINTER THEN
+               IF DISPLAY.COUNT THEN
+                  CRT CRT.POS:FMT(NUM.RECS(FORM.NUM)+1,'5R')
+               END
+            END ELSE
+               HEADING '-- RECORD KEY = "':INFO.KEY:'"        COUNT = ':NUM.RECS(FORM.NUM)+1
+            END
+            FORM.NUM = 1
+            CALL PRINT.PAGE.PROCESS(FORM.NUM,NUM.ACTUAL.LINES,ERRMSG)
+         END ELSE
+            ERRMSG<-1> = 'Record "':INFO.KEY:'" not found'
+            IF DISPLAY.COUNT THEN
+               CRT
+               CRT 'Record "':INFO.KEY:'" not found'
+            END
+         END
+      REPEAT
+      IF USE.PRINTER THEN
+         PRINTER OFF
+      END
+      RETURN
+
+*
+* DISPLAY HEADING
+*
+DISPLAY.HEADING: 
+      IF USE.PRINTER THEN
+         CRT @(-1)
+      END
+      CRT
+      CRT 'PRINT.PAGE Release 5.1'
+      CRT 'Copyright 1989-2012, Rotman & Howder'
+      CRT
+      CRT 'PAGE........: "WP" "':WP.FILE:'"'
+      CRT 'FILE........: "':INFO.FILE:'"'
+      CRT 'NUM.SELECTED: ':NUM.SELECTED
+      CRT 'NUM.FIELDS..: ':NUM.FIELDS(FORM.NUM)
+      IF MAIL.ID.FIELD THEN
+         CRT 'MAIL ID.....: ':MAIL.ID.FIELD
+         CRT 'MAIL SUBJECT: ':MAIL.SUBJECT
+      END
+      IF PP.HAVE.ATTACH THEN
+         CRT 'ATTACH FORM: ':PP.ATTACH.FORM.NAME
+      END
+      IF PP.HAVE.ATTACH.FILE THEN
+         CRT 'ATTACH FILE ':PP.ATTACH.FILE.DIR:' ':PP.ATTACH.FILE.NAME
+      END
+      IF USE.PRINTER THEN
+         CRT @(1,15):'RECORD BEING PROCESSED: ':
+         CRT.POS = @(25,15)
+      END
+      RETURN
+
+
+
+
+
+*
+*
+* PRINT ERRORS
+*
+PRINT.ERRORS: 
+      HEADING "'C'PRINT.PAGE Error Listing'LL'"
+      DELIM = 999
+      LOOP
+      UNTIL DELIM = 0
+         MSG = REMOVE(ERRMSG,DELIM)
+         PRINT MSG
+      REPEAT
+      RETURN
+
+
+DISPLAY.HELP: 
+      OPEN '','VOC' TO F.VOC ELSE
+         CRT 'Cannot open VOC file.'
+         STOP
+      END
+      READ VOC.HELP.REC FROM F.VOC, 'PRINT.PAGE.HELP' THEN
+         VOC.TYPE = FIELD(VOC.HELP.REC<1>,' ',1,1)
+         IF VOC.TYPE = 'S' OR VOC.TYPE = 'PA' OR VOC.TYPE = 'C' THEN
+            EXECUTE 'PRINT.PAGE.HELP'
+            STOP
+         END
+      END
+      CRT
+      CRT 'PRINT.PAGE.HELP is not available.  Contact your system administrator.'
+      RETURN
+
+
+LOAD.MAIL.SUBJECT.DICT.REC: 
+      OPEN 'DICT',INFO.FILE TO D.TEMP ELSE
+         CRT 'UNABLE TO OPEN DICT ':INFO.FILE:' WHILE SETTING MAIL SUBJECT'
+         STOP
+      END
+      X.TEMP = MAIL.SUBJECT[2,LEN(MAIL.SUBJECT)-2]
+      READ MAIL.SUBJECT.DICT.REC FROM D.TEMP, X.TEMP ELSE
+         CRT 'UNABLE TO READ ':X.TEMP:' FROM DICT ':INFO.FILE:' WHILE SETTING MAIL SUBJECT'
+         STOP
+      END
+      X.TEMP = MAIL.SUBJECT.DICT.REC<1>
+      X.TEMP = OCONV(X.TEMP[1,1],'MCU')
+      IF (X.TEMP = 'D') OR (X.TEMP = 'I') THEN
+         NULL
+      END ELSE
+         CRT 'MAIL.SUBJECT DICTIONARY RECORD MUST OF TYPE "D" OR "I"'
+         CRT 'FOUND ':MAIL.SUBJECT.DICT.REC<1>
+         STOP
+      END
+      MAIL.SUBJECT.DICT.REC<1> = X.TEMP
+      RETURN
+
+   END

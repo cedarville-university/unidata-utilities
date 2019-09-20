@@ -1,0 +1,673 @@
+*
+* INFO/BASIC PROGRAM
+* 3/22/90
+* DLR
+* TITLE ----- C26.USERS
+*
+*
+* MODULE :
+* PURPOSE: EMULATE INFORMATION 'USERS' COMMAND
+*          BUT DISPLAY SERVER NAMES IN PLACE OF USER NAMES
+*
+* Stamped: pts_17 rotmand, /datatel/coll18/live/apphome, user #25933, 11 Aug 16, 01:14PM.
+*    Process ID (PID) is now a 6-digit number (not 5 digits)
+*    Add HELP command.
+* Stamped: pts_19 rotmand, /datatel/coll18/live/apphome, user #9244, 14 Nov 13, 03:44PM.
+*    Include iphantm users in counts (they were already in the lists).
+* Stamped: pts_16 root, /datatel/coll18/live/apphome, user #26306, 15 Oct 12, 01:23PM.
+*    Changed the format for the UID from "3R" to "4R" as we now have
+*      UIDs in the thousands.
+* Stamped: pts_113 rotmand, /datatel/coll18/test6/apphome, user #30354, 02 Sep 10, 03:38PM.
+*    Lower-case user names entered on the command line.
+* Stamped: pts_7 rotmand, /datatel/coll18/live/apphome, user #11054, 21 Jan 09, 09:06AM.
+*    Allow SNAKE option so that all logins for a single person will
+*    usually appear on one page of the display.
+* Stamped: pts_40 howders, /datatel/live/collive, user #1530, 26 Jan 06, 05:47PM.
+*    Add 'phantom' to non root users who are running a phantom
+* Stamped: pts_13 howders, /datatel/live/collive, user #14176, 04 Jan 06, 08:42AM.
+*    Unidata 7.1
+* Stamped: pts_8 rotmand, /datatel/live/collive, user #3420, 02 Aug 05, 09:40AM.
+*    Allow for display of UDT number.
+* Stamped: pts_ta root, /datatel/live/collive, user #3736, 08 Jul 00, 03:20PM.
+*    Unidata 5.1
+* Stamped: pb rotmand, /disk1/collive, user #26976, 19 Sep 97, 10:25AM.
+*    Fix bug in FILTER option (caused records to be missed)
+*    Allow filtering on user number or process id
+* Stamped: wd rotmand, /disk1/collive, user #9194, 17 Sep 97, 04:11PM.
+*    Implement NO.PAGE option
+*    Remove blank line after header
+* Stamped: pty/ttyrd sjoquist, /disk1/collive, user #19530, 22 Jul 94, 08:26AM.
+*    display user no & user id
+* Stamped: pty/ttyp8 sjoquist, /disk1/coltest, user #1336, 24 Jun 94, 01:33PM.
+*    Updated for HP-UX
+*     Last updated by LIVE (SJOQUIST) at 13:26:45 on 06/06/1990.
+*    Mark current port with an "*" (as INFORMATION USERS does)
+*    Add BY NAME and BY UID and BY PID options
+*     Last updated by LIVE (ROTMAN) at 08:21:55 on 03/22/1990.
+*
+*
+*************************************************************************
+*
+*
+* Output from LISTUSER:
+
+* Licensed(UDT+CP)/Effective   Udt  Sql  iPhtm  Pooled    Total
+* 
+*     ( 216 + 0   ) / 216    39  0  10  0    49
+* 
+* UDTNO USRNBR     UID  USRNAME USRTYPE              TTY         TIME        DATE
+*     1  81647       0     root     udt             udcs     07:14:51 Aug 17 2016
+*     2 128638       0     root iphantm           pts/17     13:29:09 Aug 11 2016
+*     3  11541     585 coladmin     udt             udcs     18:36:00 Aug 08 2016
+*     4  62633     565  bieleka     udt            pts/4     07:27:16 Aug 15 2016
+*
+*
+* 
+      X.HAVE.UNIDATA.7.OR.HIGHER = @TRUE
+      X.HAVE.UNIDATA.5.OR.HIGHER = @TRUE
+      X.USE.UDTNO = @FALSE
+      X.ROWS.PER.PAGE = SYSTEM(3) - 3
+      X.USE.SNAKE = @FALSE
+      X.TRIPLE.ONLY = @FALSE
+
+      COMMAND.LINE = @SENTENCE
+      GOSUB SET.UP
+      GOSUB GET.USER.INFORMATION
+      BEGIN CASE
+         CASE NUM.USERS.ENTERED GT 0
+            GOSUB FILTER.USERS.NAME
+         CASE X.TRIPLE.ONLY
+            GOSUB FILTER.USERS.TRIPLE
+         CASE 1
+            NULL
+      END CASE
+      GOSUB SET.COLUMN.WIDTH
+      BEGIN CASE
+         CASE BY.KEYWORD = 'UID'
+            GOSUB SORT.USERS.BY.UID
+         CASE BY.KEYWORD = 'PID'
+            GOSUB SORT.USERS.BY.PID
+         CASE BY.KEYWORD = 'NAME'
+            GOSUB SORT.USERS.BY.NAME
+      END CASE
+      GOSUB DISPLAY.INFORMATION
+      STOP
+
+
+*
+*
+*
+SET.UP: 
+      PORT = @USERNO
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      F.VOCLIB = ''
+      CALL OPEN.FILE(F.VOCLIB,'VOCLIB',ERROR.RET,ERROR.MSG)
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      LOCATE 'HELP' IN PARAM.STR<1> SETTING X.POS THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      LOCATE '-HELP' IN PARAM.STR<1> SETTING X.POS THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      BRIEF = @FALSE
+      NO.PAGE = @FALSE
+      NUM.COLUMNS = ''
+      DISPLAY.SERVERS = @FALSE
+      BY.KEYWORD = ''
+      NUM.USERS.ENTERED = 0
+      USERS.ENTERED.LIST = ''
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      FOR WHICH.PARAM = STARTING.PARAM TO NUM.PARAMS
+         PARAM = OCONV(PARAM.STR<WHICH.PARAM>,'MCU')
+         KEYWORD.VALUE = ''
+         CALL GET.KEYWORD.VALUE(KEYWORD.VALUE,PARAM)
+         BEGIN CASE
+            CASE PARAM = 'SNAKE'
+               X.USE.SNAKE = @TRUE
+            CASE PARAM = 'TRIPLE'
+               X.TRIPLE.ONLY = @TRUE
+            CASE KEYWORD.VALUE = 'NO.PAGE'
+               NO.PAGE = @TRUE
+            CASE KEYWORD.VALUE = 'BRIEF'
+               BRIEF = @TRUE
+            CASE KEYWORD.VALUE = 'BY'
+               WHICH.PARAM += 1
+               BY.KEYWORD = PARAM.STR<WHICH.PARAM>
+               IF BY.KEYWORD = '' THEN
+                  CRT PARAM:' must be followed by "NAME", "UID", or "PID"--ignored.'
+               END
+            CASE 1
+               BEGIN CASE
+                  CASE PARAM = 'SERVERS'
+                     DISPLAY.SERVERS = @TRUE
+                  CASE PARAM = 'NUM.COLUMNS'
+                     WHICH.PARAM += 1
+                     NUM.COLUMNS = PARAM.STR<WHICH.PARAM>
+                     IF NUM.COLUMNS = '' OR NOT(NUM(NUM.COLUMNS)) OR NUM.COLUMNS < 1 THEN
+                        CRT PARAM:' must be followed by a numeric item greater than 0--ignored.'
+                        NUM.COLUMNS = ''
+                     END
+*
+* ASSUME EVERYTHING ELSE IS A USER NAME
+*
+                  CASE 1
+                     NUM.USERS.ENTERED += 1
+                     USERS.ENTERED.LIST<-1> = OCONV(PARAM.STR<WHICH.PARAM>,'MCL')
+               END CASE
+         END CASE
+      NEXT WHICH.PARAM
+      IF DISPLAY.SERVERS THEN
+         NUM.COLUMNS = 1
+      END
+      IF BY.KEYWORD THEN
+         IF BY.KEYWORD # 'NAME' AND BY.KEYWORD # 'UID' AND BY.KEYWORD # 'PID' THEN
+            CRT 'BY ':BY.KEYWORD:' is not a valid sort option--ignored'
+            BY.KEYWORD = ''
+         END
+      END
+      RETURN
+
+
+*
+*
+* GET CURRENT WIDTH OF TERMINAL & SET COLUMN WIDTH
+*
+SET.COLUMN.WIDTH: 
+      TERMINAL.WIDTH = @CRTWIDE
+*
+      IF NUM.COLUMNS < 1 THEN
+         IF TERMINAL.WIDTH > 80 THEN
+            NUM.COLUMNS = 5
+         END ELSE
+            NUM.COLUMNS = 3
+         END
+      END
+      COLUMN.WIDTH = INT(TERMINAL.WIDTH / NUM.COLUMNS)
+      COLUMN.FMT = COLUMN.WIDTH:'L'
+*
+      MAX.NUM.ROWS = INT((NUM.USERS-1)/NUM.COLUMNS) + 1
+      DIM NUM.ROWS(NUM.COLUMNS), COLUMN.OFFSET(NUM.COLUMNS)
+      MAT NUM.ROWS = MAX.NUM.ROWS
+      NUM.PARTIAL.COLUMNS = MAX.NUM.ROWS * NUM.COLUMNS - NUM.USERS
+      FOR COLUMN.CTR=(NUM.COLUMNS - NUM.PARTIAL.COLUMNS + 1) TO NUM.COLUMNS
+         NUM.ROWS(COLUMN.CTR) -= 1
+      NEXT COLUMN.CTR
+      COLUMN.OFFSET(1) = 0
+      FOR COLUMN.CTR=2 TO NUM.COLUMNS
+         COLUMN.OFFSET(COLUMN.CTR) = COLUMN.OFFSET(COLUMN.CTR-1) + NUM.ROWS(COLUMN.CTR-1)
+      NEXT COLUMN.CTR
+      RETURN
+
+
+*
+*
+*
+GET.USER.INFORMATION: 
+      PCPERFORM 'finger' CAPTURING FINGER.TEXT
+      NUM.FINGER.TEXT = COUNT(FINGER.TEXT,@FM) + 1
+*DLR*IF @LOGNAME = 'rotmand' THEN
+*DLR*   CRT 'NUM.FINGER.TEXT ':NUM.FINGER.TEXT
+*DLR*   INPUT JUNK.VARIABLE
+*DLR*END
+*DLR*IF @LOGNAME = 'rotmand' THEN
+*DLR*   CRT 'FINGER.TEXT ':FINGER.TEXT
+*DLR*   INPUT JUNK.VARIABLE
+*DLR*END
+      FOUND.LOGIN = @FALSE
+      WHICH.LINE = 0
+      LOOP
+      UNTIL FOUND.LOGIN OR WHICH.LINE >= NUM.FINGER.TEXT
+         WHICH.LINE += 1
+         IF FINGER.TEXT<WHICH.LINE>[1,5] = 'Login' THEN
+            FOUND.LOGIN = @TRUE
+         END
+      REPEAT
+*DLR*      NUM.UNIX.USERS = COUNT(FINGER.TEXT,@FM) - 1
+      NUM.UNIX.USERS = NUM.FINGER.TEXT - WHICH.LINE
+
+      EXECUTE 'LISTUSER' CAPTURING LU.TEXT
+      MAX.LINE = LU.TEXT<4>
+      MAX.LINE = TRIM(MAX.LINE)
+      MAX.UDT.USERS = FIELD(MAX.LINE,' ',2,1)
+*      MAX.UDT.USERS = TRIM(FIELD(MAX.LINE,CHAR(9),2,1))
+*      NUM.UDT.USERS = TRIM(FIELD(MAX.LINE,CHAR(9),5,1))
+      NUM.UDT.USERS = FIELD(MAX.LINE,CHAR(9),2,1)
+*      NUM.SQL.USERS = TRIM(FIELD(MAX.LINE,CHAR(9),6,1))
+      NUM.SQL.USERS = FIELD(MAX.LINE,CHAR(9),3,1)
+      NUM.IPHANTM.USERS = FIELD(MAX.LINE,CHAR(9),4,1)
+      NUM.USERS = COUNT(LU.TEXT,@FM) - 6
+      USERS.IN.UDT = ''
+      LIST.SIZE = 0
+      FOR UDT.CTR=1 TO NUM.USERS
+         USER.LINE = LU.TEXT<UDT.CTR+6>
+         IF TRIM(USER.LINE) # '' THEN
+            BEGIN CASE
+               CASE X.HAVE.UNIDATA.7.OR.HIGHER
+                  NUM.TEMP.PARAMS = 0
+                  TEMP.PARAM.QUOTED = ''
+                  TEMP.PARAM.STR = ''
+                  CALL PARSE.LINE(USER.LINE,TEMP.PARAM.STR,TEMP.PARAM.QUOTED,NUM.TEMP.TEMP.PARAMS)
+                  UDTNO = TEMP.PARAM.STR<1>
+                  PID = TEMP.PARAM.STR<2>
+                  UID = TEMP.PARAM.STR<3>
+                  USRNAME = TEMP.PARAM.STR<4>
+                  USRTYPE = TEMP.PARAM.STR<5>
+               CASE X.HAVE.UNIDATA.5.OR.HIGHER
+                  UDTNO = TRIM(USER.LINE[1,7])
+                  PID = TRIM(USER.LINE[8,5])
+                  UID = TRIM(USER.LINE[13,8])
+                  USRNAME = TRIM(USER.LINE[21,9])
+                  USRTYPE = TRIM(USER.LINE[31,7])
+               CASE 1
+                  PID = TRIM(USER.LINE[6,7])
+                  UID = TRIM(USER.LINE[13,6])
+                  USRNAME = TRIM(USER.LINE[19,9])
+                  USRTYPE = TRIM(USER.LINE[28,8])
+            END CASE
+            USE.USER = @TRUE
+            IF DISPLAY.SERVERS THEN
+               VOCLIB.KEY = USRNAME:'.':PID
+               READV SERVER.NAME FROM F.VOCLIB, VOCLIB.KEY, 2 ELSE
+                  SERVER.NAME = ''
+               END
+               IF SERVER.NAME = '' THEN
+                  USE.USER = @FALSE
+               END
+            END
+            IF USE.USER THEN
+               LIST.SIZE += 1
+               IF USRTYPE = 'phantom' AND USRNAME # 'root' THEN
+                  USRNAME = USRNAME:'/':USRTYPE
+               END
+               USERS.IN.UDT<LIST.SIZE,1> = UID
+               USERS.IN.UDT<LIST.SIZE,2> = PID
+               USERS.IN.UDT<LIST.SIZE,3> = USRNAME
+               USERS.IN.UDT<LIST.SIZE,4> = UDTNO
+            END
+         END
+      NEXT UDT.CTR
+      NUM.USERS = LIST.SIZE
+      RETURN
+
+
+*
+*
+* FILTER.USERS
+*
+FILTER.USERS.TRIPLE: 
+      OLD.NUM.USERS = NUM.USERS
+      OLD.USERS.IN.UDT = USERS.IN.UDT
+      USERS.IN.UDT = ''
+      NUM.USERS = 0
+      X.TARGET = ''
+      FOR USER.CTR=1 TO OLD.NUM.USERS
+         X.TARGET := ' $$':OLD.USERS.IN.UDT<USER.CTR,1>:'$$'
+      NEXT USER.CTR
+      FOR USER.CTR=1 TO OLD.NUM.USERS
+         X.TEMP = '$$':OLD.USERS.IN.UDT<USER.CTR,1>:'$$'
+         IF INDEX(X.TARGET,X.TEMP,3) GT 0 THEN
+            OLD.USERS.IN.UDT<USER.CTR,5> = 'Y'
+         END
+      NEXT USER.CTR
+      GOSUB PROCESS.FILTER
+      RETURN
+
+
+FILTER.USERS.NAME: 
+      OLD.NUM.USERS = NUM.USERS
+      OLD.USERS.IN.UDT = USERS.IN.UDT
+      USERS.IN.UDT = ''
+      NUM.USERS = 0
+      FOR USER.CTR=1 TO OLD.NUM.USERS
+         UID = OLD.USERS.IN.UDT<USER.CTR,1>
+         PID = OLD.USERS.IN.UDT<USER.CTR,2>
+         USER.NAME = OLD.USERS.IN.UDT<USER.CTR,3>
+         UDTNO = OLD.USERS.IN.UDT<USER.CTR,4>
+         FOR ENTERED.CTR=1 TO NUM.USERS.ENTERED
+            TARGET.NAME = USERS.ENTERED.LIST<ENTERED.CTR>
+            IF NUM(TARGET.NAME) THEN
+               IF TARGET.NAME = UID OR TARGET.NAME = PID THEN
+                  OLD.USERS.IN.UDT<USER.CTR,5> = 'Y'
+               END
+            END ELSE
+               LEN.TARGET.NAME = LEN(TARGET.NAME)
+               IF USER.NAME[1,LEN.TARGET.NAME] = TARGET.NAME THEN
+                  OLD.USERS.IN.UDT<USER.CTR,5> = 'Y'
+               END
+            END
+         NEXT ENTERED.CTR
+      NEXT USER.CTR
+      GOSUB PROCESS.FILTER
+      RETURN
+
+
+PROCESS.FILTER: 
+      NUM.USERS = 0
+      FOR USER.CTR=1 TO OLD.NUM.USERS
+         IF OLD.USERS.IN.UDT<USER.CTR,5> = 'Y' THEN
+            NUM.USERS += 1
+            FOR CTR = 1 TO 4
+               USERS.IN.UDT<NUM.USERS,CTR> = OLD.USERS.IN.UDT<USER.CTR,CTR>
+            NEXT CTR
+         END
+      NEXT USER.CTR
+      RETURN
+
+
+*
+*
+* SORT USERS BY NAME
+*
+SORT.USERS.BY.NAME: 
+      USERS.ENTERED.LIST = ''
+      UID.LIST = ''
+      PID.LIST = ''
+      UDTNO.LIST = ''
+      FOR USER.CTR = NUM.USERS TO 1 STEP -1
+         UID = USERS.IN.UDT<USER.CTR,1>
+         PID = USERS.IN.UDT<USER.CTR,2>
+         USER.NAME = USERS.IN.UDT<USER.CTR,3>
+         UDTNO = USERS.IN.UDT<USER.CTR,4>
+         LOCATE USER.NAME IN USERS.ENTERED.LIST<1> BY "AL" SETTING POS ELSE NULL
+         INS USER.NAME BEFORE USERS.ENTERED.LIST<POS>
+         INS UID BEFORE UID.LIST<POS>
+         INS PID BEFORE PID.LIST<POS>
+         INS UDTNO BEFORE UDTNO.LIST<POS>
+      NEXT USER.CTR
+      GOSUB MAKE.NEW.LIST
+      RETURN
+
+
+*
+*
+* SORT USERS BY PID
+*
+SORT.USERS.BY.PID: 
+      USERS.ENTERED.LIST = ''
+      UID.LIST = ''
+      PID.LIST = ''
+      FOR USER.CTR=1 TO NUM.USERS
+         UID = USERS.IN.UDT<USER.CTR,1>
+         PID = USERS.IN.UDT<USER.CTR,2>
+         USER.NAME = USERS.IN.UDT<USER.CTR,3>
+         UDTNO = USERS.IN.UDT<USER.CTR,4>
+         LOCATE PID IN PID.LIST<1> BY "AR" SETTING POS ELSE NULL
+         INS USER.NAME BEFORE USERS.ENTERED.LIST<POS>
+         INS UID BEFORE UID.LIST<POS>
+         INS PID BEFORE PID.LIST<POS>
+         INS UDTNO BEFORE UDTNO.LIST<POS>
+      NEXT USER.CTR
+      GOSUB MAKE.NEW.LIST
+      RETURN
+
+
+*
+*
+* SORT USERS BY UID
+*
+SORT.USERS.BY.UID: 
+      USERS.ENTERED.LIST = ''
+      UID.LIST = ''
+      PID.LIST = ''
+      FOR USER.CTR=1 TO NUM.USERS
+         UID = USERS.IN.UDT<USER.CTR,1>
+         PID = USERS.IN.UDT<USER.CTR,2>
+         USER.NAME = USERS.IN.UDT<USER.CTR,3>
+         UDTNO = USERS.IN.UDT<USER.CTR,4>
+         LOCATE UID IN UID.LIST<1> BY "AR" SETTING POS ELSE NULL
+         INS USER.NAME BEFORE USERS.ENTERED.LIST<POS>
+         INS UID BEFORE UID.LIST<POS>
+         INS PID BEFORE PID.LIST<POS>
+         INS UDTNO BEFORE UDTNO.LIST<POS>
+      NEXT USER.CTR
+      GOSUB MAKE.NEW.LIST
+      RETURN
+
+
+*
+*
+* MAKE NEW LIST
+*
+MAKE.NEW.LIST: 
+      IF X.USE.SNAKE THEN
+         FOR USER.CTR = 1 TO NUM.USERS
+*DLR*            CRT 'USER.CTR ':USER.CTR:' ':USERS.ENTERED.LIST<USER.CTR>
+            USERS.IN.UDT<USER.CTR,3> = USERS.ENTERED.LIST<USER.CTR>
+            USERS.IN.UDT<USER.CTR,1> = UID.LIST<USER.CTR>
+            USERS.IN.UDT<USER.CTR,2> = PID.LIST<USER.CTR>
+            USERS.IN.UDT<USER.CTR,4> = UDTNO.LIST<USER.CTR>
+         NEXT USER.CTR
+*DLR*         INPUT CRTJUNK
+      END ELSE
+         USER.CTR = 0
+         FOR ROW.CTR=1 TO MAX.NUM.ROWS UNTIL USER.CTR > NUM.USERS
+            FOR COLUMN.CTR=1 TO NUM.COLUMNS UNTIL USER.CTR > NUM.USERS
+               USER.CTR += 1
+               NEW.USER.CTR = ROW.CTR + COLUMN.OFFSET(COLUMN.CTR)
+               USERS.IN.UDT<USER.CTR,3> = USERS.ENTERED.LIST<NEW.USER.CTR>
+               USERS.IN.UDT<USER.CTR,1> = UID.LIST<NEW.USER.CTR>
+               USERS.IN.UDT<USER.CTR,2> = PID.LIST<NEW.USER.CTR>
+               USERS.IN.UDT<USER.CTR,4> = UDTNO.LIST<NEW.USER.CTR>
+            NEXT COLUMN.CTR
+         NEXT ROW.CTR
+      END
+      RETURN
+
+
+
+*
+*
+*
+DISPLAY.INFORMATION: 
+      GOSUB FORMULATE.HEADINGS
+      IF NO.PAGE THEN
+         BPIOCP
+      END
+      GOSUB DISPLAY.DETAIL
+      RETURN
+
+
+FORMULATE.HEADINGS: 
+      TITLE.LINE = FMT(OCONV(@TIME,'MTH'),'10L')
+      TITLE.LINE := 'User counts:'
+      TITLE.LINE := '  UDT ':NUM.UDT.USERS
+      TITLE.LINE := '  IPHANTM ':NUM.IPHANTM.USERS
+      X.TOTAL = NUM.UDT.USERS + NUM.IPHANTM.USERS
+      TITLE.LINE := '  TOTAL ':X.TOTAL
+      TITLE.LINE := ' (max. ':MAX.UDT.USERS:')'
+      TITLE.LINE := '   UniSQL ':NUM.SQL.USERS
+      TITLE.LINE := '    Unix ':NUM.UNIX.USERS
+      HEADING.HALF = "UID. PID... User..............................  "
+      IF NUM.COLUMNS > 1 THEN
+         HEADING.HALF = HEADING.HALF[1,COLUMN.WIDTH-2]:'  '
+      END
+      TITLE.LINE.1 = ''
+      FOR COLUMN.CTR=1 TO NUM.COLUMNS
+         TITLE.LINE.1 := HEADING.HALF
+      NEXT COLUMN.CTR
+      RETURN
+
+
+DISPLAY.HEADINGS: 
+      IF BRIEF THEN
+         CRT TITLE.LINE.1
+         RETURN
+      END
+      CRT TITLE.LINE
+      CRT TITLE.LINE.1[1,TERMINAL.WIDTH-1]
+      RETURN
+
+
+DISPLAY.DETAIL: 
+      IF X.USE.SNAKE THEN
+         GOSUB USE.SNAKE
+      END ELSE
+         GOSUB USE.COLUMNS
+      END
+      RETURN
+
+
+USE.SNAKE: 
+      X.USERS.PER.PAGE = X.ROWS.PER.PAGE * NUM.COLUMNS
+      X.NUM.PAGES = INT((NUM.USERS + X.USERS.PER.PAGE -1)/X.USERS.PER.PAGE)
+      IF @LOGNAME = '*rotmand' THEN
+         CRT 'NUM.USERS ':NUM.USERS
+         CRT 'NUM.COLUMNS ':NUM.COLUMNS
+         CRT 'X.USERS.PER.PAGE ':X.USERS.PER.PAGE
+         CRT 'X.NUM.PAGES ':X.NUM.PAGES
+         INPUT JUNK.VARIABLE
+         FOR WHICH.USER = 1 TO NUM.USERS
+            CRT WHICH.USER:' ':USERS.IN.UDT<WHICH.USER,3>
+         NEXT WHICH.USER
+      END
+      X.DONE = @FALSE
+      FOR WHICH.PAGE = 1 TO X.NUM.PAGES UNTIL X.DONE
+         GOSUB DISPLAY.HEADINGS
+         X.PRIOR.ROWS = (WHICH.PAGE - 1) * X.USERS.PER.PAGE
+         FOR WHICH.ROW = 1 TO X.ROWS.PER.PAGE
+            DETAIL.LINE = ''
+            FOR COLUMN.CTR = 1 TO NUM.COLUMNS
+               WHICH.FIELD = X.PRIOR.ROWS + (COLUMN.CTR - 1)*X.ROWS.PER.PAGE + WHICH.ROW
+*DLR*CRT WHICH.PAGE:' ':X.PRIOR.ROWS:' ':WHICH.ROW:' ':COLUMN.CTR:' ':WHICH.FIELD
+               IF WHICH.FIELD GE NUM.USERS THEN
+                  X.DONE = @TRUE
+               END
+               UID = USERS.IN.UDT<WHICH.FIELD,1>
+               PID = USERS.IN.UDT<WHICH.FIELD,2>
+               USER.NAME = USERS.IN.UDT<WHICH.FIELD,3>
+               UDTNO = USERS.IN.UDT<WHICH.FIELD,4>
+               IF WHICH.FIELD <= NUM.USERS THEN
+                  COLUMN.LINE = ''
+                  COLUMN.LINE := FMT(UID,'4R')
+                  COLUMN.LINE := ' '
+                  COLUMN.LINE := FMT(PID,'6R')
+                  IF PID = PORT THEN
+                     COLUMN.LINE := '*'
+                  END ELSE
+                     COLUMN.LINE := ' '
+                  END
+                  VOCLIB.KEY = USER.NAME:'.':PID
+                  READ VOCLIB.REC FROM F.VOCLIB, VOCLIB.KEY ELSE
+                     VOCLIB.REC = ''
+                  END
+                  IF DISPLAY.SERVERS THEN
+                     SERVER.NAME = VOCLIB.REC<2>
+                     SERVER.DATE = VOCLIB.REC<3>
+                     SERVER.TIME = VOCLIB.REC<4>
+                     SERVER.CMDLINE = VOCLIB.REC<5>
+                     COLUMN.LINE := FMT(USER.NAME,'10L')
+                     COLUMN.LINE := FMT(SERVER.NAME,'22L')
+                     COLUMN.LINE := FMT(OCONV(SERVER.DATE,'D2/'),'9L')
+                     COLUMN.LINE := FMT(OCONV(SERVER.TIME,'MTH'),'9L')
+                     COLUMN.LINE := SERVER.CMDLINE
+                  END ELSE
+                     SERVER.NAME = VOCLIB.REC<2>
+                     IF SERVER.NAME THEN
+                        USER.NAME := '/':SERVER.NAME
+                     END
+                     IF X.USE.UDTNO THEN
+                        COLUMN.LINE := FMT(UDTNO,'2R')
+                     END
+                     COLUMN.LINE := USER.NAME
+                  END
+                  DETAIL.LINE := FMT(COLUMN.LINE,COLUMN.FMT)[1,COLUMN.WIDTH-2]:'  '
+               END
+            NEXT COLUMN.CTR
+            CRT DETAIL.LINE
+         NEXT WHICH.ROW
+      NEXT WHICH.PAGE
+      RETURN
+
+
+USE.COLUMNS: 
+      GOSUB DISPLAY.HEADINGS
+      FOR WHICH.ID = 1 TO NUM.USERS STEP NUM.COLUMNS
+         DETAIL.LINE = ''
+         FOR COLUMN.CTR=1 TO NUM.COLUMNS
+            WHICH.FIELD = WHICH.ID + COLUMN.CTR - 1
+            UID = USERS.IN.UDT<WHICH.FIELD,1>
+            PID = USERS.IN.UDT<WHICH.FIELD,2>
+            USER.NAME = USERS.IN.UDT<WHICH.FIELD,3>
+            UDTNO = USERS.IN.UDT<WHICH.FIELD,4>
+            IF WHICH.FIELD <= NUM.USERS THEN
+               COLUMN.LINE = ''
+               COLUMN.LINE := FMT(UID,'4R')
+               COLUMN.LINE := ' '
+               COLUMN.LINE := FMT(PID,'6R')
+               IF PID = PORT THEN
+                  COLUMN.LINE := '*'
+               END ELSE
+                  COLUMN.LINE := ' '
+               END
+               VOCLIB.KEY = USER.NAME:'.':PID
+               READ VOCLIB.REC FROM F.VOCLIB, VOCLIB.KEY ELSE
+                  VOCLIB.REC = ''
+               END
+               IF DISPLAY.SERVERS THEN
+                  SERVER.NAME = VOCLIB.REC<2>
+                  SERVER.DATE = VOCLIB.REC<3>
+                  SERVER.TIME = VOCLIB.REC<4>
+                  SERVER.CMDLINE = VOCLIB.REC<5>
+                  COLUMN.LINE := FMT(USER.NAME,'10L')
+                  COLUMN.LINE := FMT(SERVER.NAME,'22L')
+                  COLUMN.LINE := FMT(OCONV(SERVER.DATE,'D2/'),'9L')
+                  COLUMN.LINE := FMT(OCONV(SERVER.TIME,'MTH'),'9L')
+                  COLUMN.LINE := SERVER.CMDLINE
+               END ELSE
+                  SERVER.NAME = VOCLIB.REC<2>
+                  IF SERVER.NAME THEN
+                     USER.NAME := '/':SERVER.NAME
+                  END
+                  IF X.USE.UDTNO THEN
+                     COLUMN.LINE := FMT(UDTNO,'2R')
+                  END
+                  COLUMN.LINE := USER.NAME
+               END
+               DETAIL.LINE := FMT(COLUMN.LINE,COLUMN.FMT)[1,COLUMN.WIDTH-2]:'  '
+            END
+         NEXT COLUMN.CTR
+         CRT TRIMB(DETAIL.LINE)
+      NEXT WHICH.ID
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT
+      CRT 'Syntax:'
+      CRT 'C26.USERS [SNAKE] [TRIPLE] [NO.PAGE] [BRIEF] [BY NAME|UID|PID]'
+      CRT '    [SERVERS] [NUM.COLUMNS n]'
+      CRT '    [Username1] [Username2] ... [UsernameN]'
+      CRT
+      CRT 'SNAKE          continue a column onto next column rather than next page'
+      CRT '               so that multiple logins for a particular user will likely'
+      CRT '               appear on the same page.'
+      CRT
+      CRT 'TRIPLE         show only those users who have 3 or more active sessions.'
+      CRT
+      CRT 'NO.PAGE        turn off screen paging (headings and pauses).'
+      CRT
+      CRT 'BRIEF          omit display of second heading line.'
+      CRT
+      CRT 'BY NAME        sort by name.'
+      CRT 'BY UID         sort by user id.'
+      CRT 'BY PID         sort by process id.'
+      CRT
+      CRT 'SERVERS        read VOCLIB to display server process names.'
+      CRT
+      CRT 'NUM.COLUMNS n  divide output into "n" columns.'
+      CRT
+      CRT '[Username1]    display only the named users.'
+      RETURN
+
+
+   END

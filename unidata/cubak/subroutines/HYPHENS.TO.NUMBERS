@@ -1,0 +1,64 @@
+      SUBROUTINE HYPHENS.TO.NUMBERS(RETURN.LIST,PASSED.ARG)
+*
+* INFO/BASIC SUBROUTINE
+* 07/15/94
+* DLR
+* TITLE ----- HYPHENS.TO.NUMBERS
+*
+*
+* MODULE :
+* PURPOSE: RETURN VALUE-LIST OF NUMBERS MATCHING ARGUMENTS WHICH MAY HAVE
+*          HYPHENS EMBEDDED
+*
+* EXAMPLE:
+*   PASSED.ARG     3 8 11-14 19
+*   RETURN.LIST    3}8}11}12}13}14}19
+*
+*
+* Stamped: pty/ttyp4 rotmand, /disk1/collive, user #18834, 15 Jul 94, 12:37PM.
+*************************************************************************
+*
+      RETURN.LIST = ''
+      HAVE.NUMBER = @TRUE
+      INTERNAL.ARG = PASSED.ARG
+      CONVERT ',' TO ' ' IN INTERNAL.ARG
+      INTERNAL.ARG = TRIM(INTERNAL.ARG)
+      HYPHEN.NUM = 1
+      LOOP
+         HYPHEN.POS = INDEX(INTERNAL.ARG,'-',HYPHEN.NUM)
+      UNTIL HYPHEN.POS LT 1
+         NUM.FIRST = 0
+         FIRST.QUOTED = ''
+         FIRST.STR = ''
+         FIRST.PART = INTERNAL.ARG[1,HYPHEN.POS-1]
+         CALL PARSE.LINE(FIRST.PART,FIRST.STR,FIRST.QUOTED,NUM.FIRST)
+         NUM.SECOND = 0
+         SECOND.QUOTED = ''
+         SECOND.STR = ''
+         SECOND.PART = INTERNAL.ARG[HYPHEN.POS+1,LEN(INTERNAL.ARG)]
+         CALL PARSE.LINE(SECOND.PART,SECOND.STR,SECOND.QUOTED,NUM.SECOND)
+         MIDDLE.PART = ''
+         IF NUM.FIRST > 0 AND NUM.SECOND > 0 THEN
+            ISTART = FIRST.STR<NUM.FIRST>
+            IEND = SECOND.STR<1>
+            IF NUM(ISTART) AND NUM(IEND) AND IEND >= ISTART THEN
+               FOR WHICH.VALUE = ISTART+1 TO IEND
+                  MIDDLE.PART := ' ':WHICH.VALUE
+               NEXT WHICH.VALUE
+            END ELSE
+               MIDDLE.PART := '-':IEND
+               HYPHEN.NUM += 1
+            END
+            INTERNAL.ARG = FIRST.PART:MIDDLE.PART
+            IF SECOND.STR<2> # '' THEN
+               INTERNAL.ARG := ' ':FIELD(SECOND.PART,' ',2,999)
+            END
+         END
+      REPEAT
+      INTERNAL.ARG = TRIM(INTERNAL.ARG)
+      CONVERT ' ' TO @VM IN INTERNAL.ARG
+      RETURN.LIST = INTERNAL.ARG
+      RETURN
+
+
+   END

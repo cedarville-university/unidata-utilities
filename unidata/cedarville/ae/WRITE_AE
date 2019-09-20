@@ -1,0 +1,49 @@
+      SUBROUTINE WRITE_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 08/14/2000
+* DLR
+* TITLE ----- WRITE_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING WRITE STATEMENTS INTO SOURCE
+*
+* Stamped: p5 rotmand, /datatel/live/collive, user #4732, 14 Aug 00, 07:55AM.
+*
+*************************************************************************
+*
+
+* Usage:
+* $WRITE FILE.NAME
+*   inserts lines:
+*    WRITE.filename:
+*          GOSUB REBUILD.filename
+*          WRITE R.filename ON F.filename,KV.filename
+*          RETURN
+*
+*    REBUILD.filename:
+*          R.filename<FIELDONE> = X.FIELDONE
+*          RETURN
+*
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      XL.FILE.NAME = FIELD(X$C,' ',1,99)
+      NUM.XL.FILE.NAME = DCOUNT(XL.FILE.NAME,' ')
+      FOR WHICH.XL.FILE.NAME = 2 TO NUM.XL.FILE.NAME
+         X.FILE.NAME = FIELD(XL.FILE.NAME,' ',WHICH.XL.FILE.NAME,1)
+         X$CC<-1> = 'I WRITE.':X.FILE.NAME:':'
+         X$CC<-1> = 'I       GOSUB REBUILD.':X.FILE.NAME
+         X$CC<-1> = 'I       WRITE R.':X.FILE.NAME:' ON F.':X.FILE.NAME:',KV.':X.FILE.NAME
+         X$CC<-1> = 'I       RETURN'
+         X$CC<-1> = 'I  '
+         X$CC<-1> = 'I  REBUILD.':X.FILE.NAME:':'
+         X$CC<-1> = 'I       R.':X.FILE.NAME:'<FIELDONE> = X.FIELDONE'
+         X$CC<-1> = 'I       RETURN'
+      NEXT WHICH.XL.FILE.NAME
+      RETURN
+
+
+   END

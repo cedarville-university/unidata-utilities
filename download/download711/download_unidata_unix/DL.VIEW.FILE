@@ -1,0 +1,64 @@
+$BASICTYPE "U"
+*
+* INFO/BASIC PROGRAM
+* 3/14/89
+* DWS
+* TITLE ----- DL.VIEW.FILE
+*
+*
+* PURPOSE: VIEW A TEXT FILE ON THE SCREEN
+*
+* Stamped: p1 rotmand, /usr/local/download, user #1043, 17 Aug 04, 07:41AM.
+* Version 7.11
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+
+      GOSUB SET.UP
+      CALL DL.VIEW.SEQ.FILE(F.SEQ.FILE,PAGE.HEADING)
+      CLOSESEQ F.SEQ.FILE
+      STOP
+
+
+*
+*
+* SET.UP
+*
+SET.UP: 
+      TEMP = @(0,0)
+      PROMPT ''
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      COMMAND.LINE = @SENTENCE
+      CALL DL.PARSE.COMMAND.LINE(COMMAND.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+      STARTING.PARAM = 2
+      FILE.NAME = PARAM.STR<STARTING.PARAM>
+      IF NOT(FILE.NAME) THEN
+         LOOP
+            CRT 'File name: ':
+            INPUT FILE.NAME
+         UNTIL FILE.NAME
+         REPEAT
+      END
+      RECORD.NAME = PARAM.STR<STARTING.PARAM+1>
+      IF NOT(RECORD.NAME) THEN
+         LOOP
+            CRT 'Record...: ':
+            INPUT RECORD.NAME
+         UNTIL RECORD.NAME
+         REPEAT
+      END
+      OPENSEQ FILE.NAME, RECORD.NAME READONLY TO F.SEQ.FILE ELSE
+         STOP 'Can not open "':FILE.NAME:'" "':RECORD.NAME:'" as a sequential file'
+      END
+      PAGE.HEADING = 'File: "':FILE.NAME:'" "':RECORD.NAME:'"'
+      RETURN
+
+
+   END

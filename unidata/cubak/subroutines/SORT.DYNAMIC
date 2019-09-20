@@ -1,0 +1,150 @@
+      SUBROUTINE SORT.DYNAMIC(DYNAMIC.ARRAY,SORT.BY.WHICH)
+*
+* INFO/BASIC SUBROUTINE
+* 4/14/88
+* DWS
+* TITLE ----- SORT.DYNAMIC
+*
+*
+* PURPOSE: SORT DYNAMIC ARRAY
+*    Sort a dynamic array using Shell sort algorithm
+*      works down to the subvalue level
+*
+*     Last updated by LIVE (SJOQUIST) at 16:06:02 on 04/14/1988.
+*
+********************************************************************
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+*
+
+*
+* MAIN CONTROL
+*
+
+      GOSUB SET.UP
+      IF SORT.BY.SUBVALUE THEN GOSUB SORT.SUBVALUE
+      IF SORT.BY.VALUE THEN GOSUB SORT.VALUE
+      IF SORT.BY.FIELD THEN GOSUB SORT.FIELD
+      RETURN
+
+
+*
+*
+* SET UP
+*
+SET.UP:
+      DIM ARRAY(1)
+*
+      CONVERT 'fvs' TO 'FVS' IN SORT.BY.WHICH
+*
+* SORT.BY.WHICH IS WHICH PORTIONS TO SWAP WHILE SORTING
+*
+      SORT.BY.FIELD = INDEX(SORT.BY.WHICH,'F',1)
+      SORT.BY.VALUE = INDEX(SORT.BY.WHICH,'V',1)
+      SORT.BY.SUBVALUE = INDEX(SORT.BY.WHICH,'S',1)
+      RETURN
+
+
+
+*
+*
+* SORT BY SUBVALUE
+*
+SORT.SUBVALUE:
+      NUM.FIELDS = COUNT(DYNAMIC.ARRAY,@FM) + 1
+      FOR FIELD.NUM=1 TO NUM.FIELDS
+         FIELD.STR = DYNAMIC.ARRAY<FIELD.NUM>
+         NUM.VALUES = COUNT(FIELD.STR,@VM) + 1
+         FOR VALUE.NUM=1 TO NUM.VALUES
+*
+* SORT SUBVALUES IN THIS VALUE (PARSE INTO MATRIX)
+*
+            VALUE.STR = FIELD.STR<1,VALUE.NUM>
+            NUM.SUBVALUES = COUNT(VALUE.STR,@SM) + 1
+            DIM ARRAY(NUM.SUBVALUES)
+            MATPARSE ARRAY FROM VALUE.STR, @SM
+            CALL SORT.MATRIX.DYNAMIC(MAT ARRAY,NUM.SUBVALUES,'A')
+*
+* REBUILD VALUE FROM SUBVALUES IN SORTED MATRIX
+*
+            VALUE.STR = ARRAY(1)
+            FOR SUBVALUE.NUM=2 TO NUM.SUBVALUES
+               VALUE.STR := @SM:ARRAY(SUBVALUE.NUM)
+            NEXT SUBVALUE.NUM
+            FIELD.STR<1,VALUE.NUM> = VALUE.STR
+         NEXT VALUE.NUM
+         DYNAMIC.ARRAY<FIELD.NUM> = FIELD.STR
+      NEXT FIELD.NUM
+      RETURN
+
+
+
+*
+*
+* SORT BY VALUE
+*
+SORT.VALUE:
+      NUM.FIELDS = COUNT(DYNAMIC.ARRAY,@FM) + 1
+      FOR FIELD.NUM=1 TO NUM.FIELDS
+*
+* SORT VALUES IN THIS FIELD (PARSE INTO MATRIX)
+*
+         FIELD.STR = DYNAMIC.ARRAY<FIELD.NUM>
+         NUM.VALUES = COUNT(FIELD.STR,@VM) + 1
+         DIM ARRAY(NUM.VALUES)
+         MATPARSE ARRAY FROM FIELD.STR, @VM
+         CALL SORT.MATRIX.DYNAMIC(MAT ARRAY,NUM.VALUES,'A')
+*
+* REBUILD FIELD FROM VALUES IN SORTED MATRIX
+*
+         FIELD.STR = ARRAY(1)
+         FOR VALUE.NUM=2 TO NUM.VALUES
+            FIELD.STR := @VM:ARRAY(VALUE.NUM)
+         NEXT VALUE.NUM
+         DYNAMIC.ARRAY<FIELD.NUM> = FIELD.STR
+      NEXT FIELD.NUM
+      RETURN
+
+
+
+*
+*
+* SORT BY FIELD
+*
+SORT.FIELD:
+*
+* SORT FIELDS IN THIS RECORD (PARSE INTO MATRIX)
+*
+      NUM.FIELDS = COUNT(DYNAMIC.ARRAY,@FM) + 1
+      DIM ARRAY(NUM.FIELDS)
+      MATPARSE ARRAY FROM DYNAMIC.ARRAY, @FM
+      CALL SORT.MATRIX.DYNAMIC(MAT ARRAY,NUM.FIELDS,'A')
+*
+* REBUILD RECORD FROM FIELDSS IN SORTED MATRIX
+*
+      DYNAMIC.ARRAY = ARRAY(1)
+      FOR FIELD.NUM=2 TO NUM.FIELDS
+         DYNAMIC.ARRAY := @FM:ARRAY(FIELD.NUM)
+      NEXT FIELD.NUM
+      RETURN
+
+   END

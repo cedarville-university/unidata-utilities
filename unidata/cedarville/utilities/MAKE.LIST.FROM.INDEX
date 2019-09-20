@@ -1,0 +1,216 @@
+*
+* UNIBASIC PROGRAM
+* 01/20/2003
+* DLR
+* TITLE ----- MAKE.LIST.FROM.INDEX
+*
+* PURPOSE:  READ A LIST OF INDEX VALUES AND RETURN THE CORRESPONDING
+*   RECORD KEYS
+*
+* Stamped: pts_7 rotmand, /datatel/coll18/live/apphome, user #12531, 07 Jan 13, 02:08PM.
+*   Add -TAB option.
+* Stamped: pts_8 rotmand, /datatel/coll18/live/apphome, user #6582, 14 Jul 12, 07:55PM.
+*   Add -DEBUG option
+*   Fix CSV option (call PARSE.COMMA.QUOTE instead of PARSE.LINE)
+* Stamped:
+*   Add -CSV option.
+* Stamped: pts_14 rotmand, /datatel/coll18/live/apphome, user #19060, 15 Aug 11, 05:42PM.
+*   Add -QUIET option.
+* Stamped: pts_6 rotmand, /datatel/coll18/live/apphome, user #27782, 31 Aug 10, 05:15PM.
+*   Add -INVERT option.
+* Stamped: pts_1 rotmand, /datatel/live/collive, user #20143, 20 Dec 05, 07:37AM.
+*    Allow @ID as an index name.
+* Stamped: p6 rotmand, /datatel/live/collive, user #2696, 20 Jan 03, 02:47PM.
+*
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+      GOSUB SET.UP
+      IF NOT(X.HAVE.QUIET) THEN
+         CRT 'Processing file ':X.FILE.NAME
+         CRT 'Using index ':X.INDEX.NAME
+         IF X.HAVE.CSV THEN
+            CRT 'Processing input as CSV.'
+         END
+         IF X.HAVE.TAB THEN
+            CRT 'Processing input as TAB.'
+         END
+         IF X.HAVE.INVERT THEN
+            CRT 'Generating list of index values that do not exist.'
+         END
+      END
+      X.OPER = 'EQ'
+      INDEX.COUNT = 0
+      KEY.COUNT = 0
+      XL.KEYS = ''
+      DONE = @FALSE
+      LOOP
+         READNEXT X.INDEX.VALUE ELSE
+            DONE = @TRUE
+         END
+      UNTIL DONE
+         IF NOT(X.HAVE.QUIET) THEN
+            INDEX.COUNT += 1
+            IF MOD(INDEX.COUNT,10) = 0 THEN
+               CRT '*':
+               IF MOD(INDEX.COUNT,500) = 0 THEN
+                  CRT ' ':INDEX.COUNT
+               END
+            END
+         END
+         GOSUB PROCESS.INDEX.VALUE
+      REPEAT
+      IF NOT(X.HAVE.QUIET) THEN
+         CRT
+         KEY.COUNT = DCOUNT(XL.KEYS,@VM)
+         CRT INDEX.COUNT:' index values read'
+         CRT KEY.COUNT:' key values generated'
+      END
+      CONVERT @VM TO @FM IN XL.KEYS
+      FORMLIST XL.KEYS
+      STOP
+
+
+
+PROCESS.INDEX.VALUE: 
+      X.ORIG = DOWNCASE(X.INDEX.VALUE)
+      IF X.HAVE.CSV THEN
+         NUM.PARAMS = 0
+         PARAM.QUOTED = ''
+         PARAM.STR = ''
+*DLR*         CALL PARSE.LINE(X.INDEX.VALUE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+         CALL PARSE.COMMA.QUOTE(X.INDEX.VALUE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+         X.INDEX.VALUE = PARAM.STR<X.FIELD.NUM>
+         IF X.HAVE.DEBUG THEN
+            CRT 'X.ORIG ':X.ORIG
+            CRT 'PARAM.STR ':PARAM.STR
+            CRT 'NUM.PARAMS ':NUM.PARAMS
+         END
+      END ELSE
+         IF X.HAVE.TAB THEN
+            X.INDEX.VALUE = FIELD(X.INDEX.VALUE,CHAR(9),X.FIELD.NUM,1)
+         END ELSE
+            X.INDEX.VALUE = FIELD(X.INDEX.VALUE,' ',X.FIELD.NUM,1)
+         END
+      END
+      IF X.HAVE.DEBUG THEN
+         CRT 'X.INDEX.VALUE ':X.INDEX.VALUE
+      END
+      IF X.INDEX.NAME = '@ID' THEN
+         XL.NEW.KEYS = X.INDEX.VALUE
+      END ELSE
+         X.INDEX.VALUE = DOWNCASE(X.INDEX.VALUE)
+         IF X.HAVE.DEBUG THEN
+            CRT 'DOWNCASE VALUE: ':X.INDEX.VALUE
+         END
+         CALL GET.INDEXED.IDS(XL.NEW.KEYS,X.INDEX.VALUE,X.INDEX.NAME,X.FILE.NAME)
+      END
+      IF X.HAVE.DEBUG THEN
+         CRT 'XL.NEW.KEYS ':XL.NEW.KEYS
+      END
+      IF XL.NEW.KEYS EQ '' THEN
+         IF X.HAVE.INVERT THEN
+            XL.KEYS<1,-1> = X.ORIG
+         END ELSE
+            IF NOT(X.HAVE.QUIET) THEN
+               CRT
+               CRT 'No keys found for index value ':X.INDEX.VALUE
+            END
+         END
+      END ELSE
+         IF NOT(X.HAVE.INVERT) THEN
+            XL.KEYS<1,-1> = XL.NEW.KEYS
+         END
+      END
+      RETURN
+
+
+SET.UP: 
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      X.FILE.NAME = PARAM.STR<STARTING.PARAM>
+      X.INDEX.NAME = PARAM.STR<STARTING.PARAM+1>
+      X.FIELD.NUM = PARAM.STR<STARTING.PARAM+2>
+      IF (X.FIELD.NUM = '') OR NOT(NUM(X.FIELD.NUM)) THEN
+         X.FIELD.NUM = 1
+      END
+      IF X.INDEX.NAME = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      LOCATE '-INVERT' IN PARAM.STR<1> SETTING X.POS THEN
+         X.HAVE.INVERT = @TRUE
+      END ELSE
+         X.HAVE.INVERT = @FALSE
+      END
+      LOCATE '-QUIET' IN PARAM.STR<1> SETTING X.POS THEN
+         X.HAVE.QUIET = @TRUE
+      END ELSE
+         X.HAVE.QUIET = @FALSE
+      END
+      LOCATE '-CSV' IN PARAM.STR<1> SETTING X.POS THEN
+         X.HAVE.CSV = @TRUE
+      END ELSE
+         X.HAVE.CSV = @FALSE
+      END
+      LOCATE '-TAB' IN PARAM.STR<1> SETTING X.POS THEN
+         X.HAVE.TAB = @TRUE
+      END ELSE
+         X.HAVE.TAB = @FALSE
+      END
+      LOCATE '-DEBUG' IN PARAM.STR<1> SETTING X.POS THEN
+         X.HAVE.DEBUG = @TRUE
+      END ELSE
+         X.HAVE.DEBUG = @FALSE
+      END
+      IF X.HAVE.DEBUG THEN
+         CRT 'X.FILE.NAME ':X.FILE.NAME
+         CRT 'X.INDEX.NAME ':X.INDEX.NAME
+         CRT 'X.FIELD.NUM ':X.FIELD.NUM
+         CRT 'X.HAVE.INVERT ':X.HAVE.INVERT
+         CRT 'X.HAVE.QUIET ':X.HAVE.QUIET
+         CRT 'X.HAVE.CSV ':X.HAVE.CSV
+         INPUT CRTJUNK
+      END
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT 'Syntax:'
+      CRT 'MAKE.LIST.FROM.INDEX FileName IndexName [FieldNumber] [-INVERT] [-QUIET] [-CSV] [-TAB]'
+      CRT '   -DEBUG'
+      CRT
+      CRT 'GET.LIST PHONE.NUMBERS'
+      CRT 'MAKE.LIST.FROM.INDEX ADDRESS ADDRESS.PHONES'
+      CRT 'SAVE.LIST ADDRESS.KEYS'
+      CRT
+      CRT
+      CRT 'GET.LIST SSN.LIST'
+      CRT 'MAKE.LIST.FROM.INDEX PERSON SSN'
+      CRT 'SAVE.LIST PERSON.ID.LIST'
+      CRT
+      CRT
+      CRT 'GET.LIST SSN.LIST'
+      CRT 'MAKE.LIST.FROM.INDEX PERSON SSN 3'
+      CRT 'SAVE.LIST PERSON.ID.LIST'
+      CRT '   (assumes that the active list is actually was actually from a CSV file)'
+      CRT
+      CRT 'The -INVERT option creates a save list of those record keys for'
+      CRT 'which the index does not exist.'
+      CRT
+      CRT 'The -QUIET option suppresses all messages (such as index values not found).'
+      CRT
+      CRT 'The -CSV option will process input files delimited by commas and quotes.'
+      CRT 'The -TAB option will process input files delimited bytab characters.'
+      RETURN
+
+
+   END

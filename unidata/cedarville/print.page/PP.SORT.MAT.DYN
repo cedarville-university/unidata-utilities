@@ -1,0 +1,108 @@
+      SUBROUTINE PP.SORT.MAT.DYN(MAT PASSED.ARRAY,PASSED.NUMBER,ORDER)
+*
+* INFO/BASIC SUBROUTINE
+* 7/22/87
+* DWS
+* TITLE ----- PP.SORT.MAT.DYN
+*
+*
+* PURPOSE: (ADAPTED FROM SORT.ARRAY)
+*    Sort an array using Shell sort algorithm
+*      eg.
+*         FOR I=1 TO NUM
+*           INPUT NAME(I)
+*         NEXT I
+*         CALL PP.SORT.MAT.DYN(MAT NAME,NUM,'A')
+*         FOR I=1 TO NUM
+*          PRINT I,NAME(I)
+*         NEXT I
+*
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 12:28:52 on 04/14/1988.
+* COMPARE FIELD,VALUE,& SUBVALUES TO DETERMINE SORT ORDER
+*     Last updated by LIVE (SJOQUIST) at 11:21:32 on 04/14/1988.
+* MAKE 2 SEPARATE SUBROUTINES FOR ASCENDING & DESCENDING FOR PERFORMANCE
+*     Last updated by LIVE (SJOQUIST) at 13:32:59 on 07/23/1987.
+*
+********************************************************************
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+*
+
+
+      DIM PASSED.ARRAY(PASSED.NUMBER)
+
+*
+*
+* IF DESCENDING, DO THE REPEAT LOOP UNTIL
+*   ITEM.A IS NOT < ITEM.B
+* IF ASCENDING, DO UNTIL
+*   ITEM.A IS NOT > ITEM.B
+* (THIS HANDLES EQUALITY THE FASTEST, DOES NOT SWAP EQUALS)
+*
+
+      IF ORDER[1,1]='D' THEN
+         UNORDERED.FLAG = '<'
+      END ELSE
+         UNORDERED.FLAG = '>'
+      END
+*
+* CHOOSE INITIAL GAP
+*
+      GAP = 1
+      LOOP
+         GAP = GAP*3 + 1
+      UNTIL GAP > PASSED.NUMBER
+      REPEAT
+
+*
+* SORT THE LIST
+*
+      LOOP
+         GAP = INT(GAP/3)
+         FOR I=GAP+1 TO PASSED.NUMBER
+            V = PASSED.ARRAY(I)
+            J = I
+            LOOP
+               ITEM.A = PASSED.ARRAY(J-GAP)
+               ITEM.B = V
+*
+* COMPARE.DYNAMIC RETURNS '<','=', OR '>'
+*
+               ITEM.ORDER = ''
+               CALL PP.COMPARE.DYN(ITEM.A,ITEM.B,ITEM.ORDER)
+            UNTIL ITEM.ORDER # UNORDERED.FLAG
+               PASSED.ARRAY(J) = PASSED.ARRAY(J-GAP)
+               J = J - GAP
+               IF J <= GAP THEN GOTO DONE
+            REPEAT
+DONE:       
+            PASSED.ARRAY(J) = V
+         NEXT I
+      UNTIL GAP = 1
+      REPEAT
+
+      RETURN
+   END

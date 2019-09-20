@@ -1,0 +1,43 @@
+$BASICTYPE "U"
+      SUBROUTINE FLIP.8TH.BIT(RETURN.VALUE, ORIGINAL.VALUE)
+*
+* INFO/BASIC SUBROUTINE
+* 3/14/91
+* DWS
+* TITLE ----- FLIB.8TH.BIT
+*
+*
+* PURPOSE: GO THROUGH A STRING & FLIP THE 8TH BIT
+*         (USED INITIALLY FOR DOWNLOAD PROGRAM TO CREATE
+*          A FULL WORDPERFECT FILE THAT CAN BE DOWNLOADED USING
+*          PRIME-KERMIT WITH 8TH BIT PREFIXING TO PRESERVE
+*          THE NECESSARY HEADER INFO)
+*
+*
+*
+* Stamped: p7 rotmand, /user/local/collive, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+      LEN.ORIGINAL = LEN(ORIGINAL.VALUE)
+      RETURN.VALUE = ''
+      FOR CTR=1 TO LEN.ORIGINAL
+         CH = ORIGINAL.VALUE[CTR,1]
+         BYTE = SEQ(CH)
+         IF BYTE < 128 THEN
+            BYTE += 128
+         END ELSE
+            BYTE -= 128
+         END
+         RETURN.VALUE := CHAR(BYTE)
+      NEXT CTR
+      RETURN
+
+   END

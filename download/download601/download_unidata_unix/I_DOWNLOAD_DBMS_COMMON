@@ -1,0 +1,27 @@
+*
+* Common for DOWNLOAD programs
+* 10/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD_DBMS_COMMON
+*
+*
+* PURPOSE: DBMS VALUES (SET BY DOWNLOAD.INIT DEPENDING ON VALUE OF DBMS)
+*
+*
+*************************************************************************
+* Stamped: p7 rotmand, /user/local/collive, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*
+*
+*
+*
+*
+*
+*
+
+      COMMON /DL.DBMS/ DBMS.NAME,
+      DBMS.ACCOUNT.PATH.NAME,
+      DBMS.HEADING.GAP.OPTION,
+      DBMS.SPARE3,
+      DBMS.SPARE2,
+      DBMS.SPARE1

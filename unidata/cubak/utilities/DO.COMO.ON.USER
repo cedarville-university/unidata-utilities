@@ -1,0 +1,40 @@
+*
+* INFO/BASIC PROGRAM
+* 5/23/91
+* DWS
+* TITLE ----- DO.COMO.ON.USER
+*
+*
+* PURPOSE: START A COMO WITH A DATE & TIME ON A PARTICULAR USER
+*          AND SEND MAIL TO CC STAFF
+*
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #4292, 24 Jun 94, 03:37PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAN) at 09:01:07 on 11/04/1991.
+* Add NO.REMIND option.
+*     Last updated by LIVE (SJOQUIST) at 10:35:49 on 05/23/1991.
+*
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAM = 0
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QU,NUM.PARAM)
+
+      USER.LIST = OCONV(FIELD(PARAM.STR,@FM,2,NUM.PARAM),'MCU')
+      LOCATE @LOGNAME IN USER.LIST<1> SETTING POS ELSE
+         STOP
+      END
+
+      COMO.NAME = @LOGNAME:'_':@DATE:'_':INT(@TIME)
+      COMMAND = 'HUSH ON'
+      COMMAND<-1> = 'COMO ON ':COMO.NAME
+      LOCATE 'NO.REMIND' IN USER.LIST<1> SETTING POS ELSE
+         COMMAND<-1> = 'REMIND ROTMAND STARTED COMO "':COMO.NAME:'"'
+         COMMAND<-1> = 'REMIND SJOQUISTD STARTED COMO "':COMO.NAME:'"'
+      END
+      COMMAND<-1> = 'HUSH OFF'
+      EXECUTE COMMAND
+   END

@@ -1,0 +1,742 @@
+*
+* INFO/BASIC PROGRAM
+* 5/13/88
+* DWS
+* TITLE ----- LIST.RECORDS
+*
+*
+* PURPOSE: LIST RECORDS SIDE BY SIDE FOR A VISUAL COMPARISON
+*
+*     Last updated by LIVE (ROTMAN) at 08:25:06 on 11/07/1988.
+* DISPLAY '(Not on file)' WHEN RECORD IS NOT ON FILE
+*     Last updated by LIVE (SJOQUIST) at 14:03:15 on 10/18/1988.
+* Use 'FIELD.NO' index for '-DICT' option if the index exists
+*     Last updated by LIVE (SJOQUIST) at 10:34:04 on 05/20/1988.
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+
+      COMMON/LISTREC/ LISTREC.FILE.NAME,
+      FIELD.NAMES(999), CONV.CODE(999),
+      HIGHEST.DICT.FIELD.USED
+
+
+      GOSUB SET.UP
+      GOSUB CHECK.SELECT.LIST
+      GOSUB SET.COL.WIDTH
+      IF USE.DICT THEN
+         IF LISTREC.FILE.NAME # FILE.NAME OR RELOAD.DICT THEN
+            LISTREC.FILE.NAME = FILE.NAME
+            MAT FIELD.NAMES = ''
+            MAT CONV.CODE = ''
+            HIGHEST.DICT.FIELD.USED = 0
+            GOSUB LOAD.DICT
+         END
+      END
+      GOSUB LIST.RECORDS
+      STOP
+
+
+
+
+*
+*
+* SET UP
+*
+SET.UP: 
+      GOSUB GET.TERMINAL.WIDTH
+      COMMAND.LINE = @SENTENCE
+      PARAM.QUOTED = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF NUM.PARAMS < 2 THEN
+         CRT
+         CRT 'You must specify a file name on the command line'
+         CRT '  Other options include:'
+         CRT '     list of record ids, an active select list, or both'
+         CRT '      DICT        use dictionary names instead of field numbers'
+         CRT '      CONV        use conv code in dictionary (only valid with -DICT)'
+         CRT '      TRANSLATE   translate control characters'
+         CRT '      WIDTH #     sets column width for each record'
+         CRT '      DIFF        only prints field/values that are different'
+         CRT '      NO.NULLS    only prints non-null fields'
+         CRT '      FIELDS n m  prints only field numbers n through m'
+         CRT '      FIELD.LIST n1 n2 ...  prints only field numbers n1, n2, etc.'
+         CRT '      VALUES n m  prints only value numbers n through m'
+         CRT '      VALUE.LIST n1 n2 ...  prints only value numbers n1, n2, etc.'
+         CRT '      LPTR        print to printer'
+         STOP
+      END
+      FILE.NAME = PARAM.STR<2>
+      OPEN'',FILE.NAME TO F.INFO ELSE
+      STOP 'CAN NOT OPEN "':FILE.NAME:'"'
+      END
+*
+* WIDTH OPTION
+*
+      COL.WIDTH = ''
+      WIDTH.POS = 0
+      LOCATE '-WIDTH' IN PARAM.STR<1> SETTING POS THEN
+         WIDTH.POS = POS
+      END
+      LOCATE 'WIDTH' IN PARAM.STR<1> SETTING POS THEN
+         WIDTH.POS = POS
+      END
+      IF WIDTH.POS THEN
+         COL.WIDTH = PARAM.STR<WIDTH.POS+1>
+         DEL PARAM.STR<WIDTH.POS+1>
+         DEL PARAM.STR<WIDTH.POS>
+         NUM.PARAMS -= 2
+      END
+
+*
+* VALUES OPTION
+*
+      START.VALUE = ''
+      END.VALUE = ''
+      HAVE.VALUES.OPTION = @FALSE
+      VALUES.POS = ''
+      LOCATE '-VALUES' IN PARAM.STR<1> SETTING POS THEN
+         VALUES.POS = POS
+      END
+      LOCATE 'VALUES' IN PARAM.STR<1> SETTING POS THEN
+         VALUES.POS = POS
+      END
+      IF VALUES.POS THEN
+         HAVE.VALUES.OPTION = @TRUE
+         START.VALUE = PARAM.STR<VALUES.POS+1>
+         END.VALUE = PARAM.STR<VALUES.POS+2>
+         DEL PARAM.STR<VALUES.POS+2>
+         DEL PARAM.STR<VALUES.POS+1>
+         DEL PARAM.STR<VALUES.POS>
+         NUM.PARAMS -= 3
+         IF START.VALUE = '' OR NOT(NUM(START.VALUE)) THEN
+            CRT 'Non-numeric starting value number...VALUES option ignored.'
+            HAVE.VALUES.OPTION = @FALSE
+         END
+         IF END.VALUE = '' OR NOT(NUM(END.VALUE)) THEN
+            CRT 'Non-numeric ending value number...VALUES option ignored.'
+            HAVE.VALUES.OPTION = @FALSE
+         END
+      END
+
+*
+* VALUE.LIST OPTION
+*
+      VALUE.LIST = ''
+      HAVE.VALUE.LIST.OPTION = @FALSE
+      VALUE.LIST.POS = ''
+      LOCATE '-VALUE.LIST' IN PARAM.STR<1> SETTING POS THEN
+         VALUE.LIST.POS = POS
+      END
+      LOCATE 'VALUE.LIST' IN PARAM.STR<1> SETTING POS THEN
+         VALUE.LIST.POS = POS
+      END
+      IF VALUE.LIST.POS THEN
+         HAVE.VALUE.LIST.OPTION = @TRUE
+         FOR CHECK.CTR=(VALUE.LIST.POS+1) TO NUM.PARAMS
+            CHECK.VALUE = PARAM.STR<CHECK.CTR>
+            IF NOT(NUM(CHECK.VALUE)) THEN
+               CRT 'Non-numeric value number...VALUE.LIST option ignored.'
+               HAVE.VALUE.LIST.OPTION = @FALSE
+            END
+         NEXT CHECK.CTR
+         VALUE.LIST = FIELD(PARAM.STR,@FM,VALUE.LIST.POS+1,NUM.PARAMS)
+         PARAM.STR = FIELD(PARAM.STR,@FM,1,VALUE.LIST.POS-1)
+         NUM.PARAMS = VALUE.LIST.POS-1
+      END
+
+*
+* FIELDS OPTION
+*
+      START.FIELD = ''
+      END.FIELD = ''
+      HAVE.FIELDS.OPTION = @FALSE
+      FIELDS.POS = ''
+      LOCATE '-FIELDS' IN PARAM.STR<1> SETTING POS THEN
+         FIELDS.POS = POS
+      END
+      LOCATE 'FIELDS' IN PARAM.STR<1> SETTING POS THEN
+         FIELDS.POS = POS
+      END
+      IF FIELDS.POS THEN
+         HAVE.FIELDS.OPTION = @TRUE
+         START.FIELD = PARAM.STR<FIELDS.POS+1>
+         END.FIELD = PARAM.STR<FIELDS.POS+2>
+         DEL PARAM.STR<FIELDS.POS+2>
+         DEL PARAM.STR<FIELDS.POS+1>
+         DEL PARAM.STR<FIELDS.POS>
+         NUM.PARAMS -= 3
+         IF START.FIELD = '' OR NOT(NUM(START.FIELD)) THEN
+            CRT 'Non-numeric starting field number...FIELDS option ignored.'
+            HAVE.FIELDS.OPTION = @FALSE
+         END
+         IF END.FIELD = '' OR NOT(NUM(END.FIELD)) THEN
+            CRT 'Non-numeric ending field number...FIELDS option ignored.'
+            HAVE.FIELDS.OPTION = @FALSE
+         END
+      END
+
+*
+* FIELD.LIST OPTION
+*
+      FIELD.LIST = ''
+      HAVE.FIELD.LIST.OPTION = @FALSE
+      FIELD.LIST.POS = ''
+      LOCATE '-FIELD.LIST' IN PARAM.STR<1> SETTING POS THEN
+         FIELD.LIST.POS = POS
+      END
+      LOCATE 'FIELD.LIST' IN PARAM.STR<1> SETTING POS THEN
+         FIELD.LIST.POS = POS
+      END
+      IF FIELD.LIST.POS THEN
+         HAVE.FIELD.LIST.OPTION = @TRUE
+         FOR CHECK.CTR=(FIELD.LIST.POS+1) TO NUM.PARAMS
+            CHECK.FIELD = PARAM.STR<CHECK.CTR>
+            IF NOT(NUM(CHECK.FIELD)) THEN
+               CRT 'Non-numeric field number...FIELD.LIST option ignored.'
+               HAVE.FIELD.LIST.OPTION = @FALSE
+            END
+         NEXT CHECK.CTR
+         FIELD.LIST = FIELD(PARAM.STR,@FM,FIELD.LIST.POS+1,NUM.PARAMS)
+         PARAM.STR = FIELD(PARAM.STR,@FM,1,FIELD.LIST.POS-1)
+         NUM.PARAMS = FIELD.LIST.POS-1
+      END
+*
+* PRINT OPTION
+*
+      LPTR.POS = 0
+      LOCATE '-LPTR' IN PARAM.STR<1> SETTING POS THEN
+         LPTR.POS = POS
+      END
+      LOCATE 'LPTR' IN PARAM.STR<1> SETTING POS THEN
+         LPTR.POS = POS
+      END
+      IF LPTR.POS THEN
+         PRINTER ON
+         DEL PARAM.STR<LPTR.POS>
+         NUM.PARAMS -= 1
+      END
+*
+* USE DICTIONARY NAMES INSTEAD OF FIELD NUMBERS
+*
+      USE.DICT = 0
+      DICT.POS = 0
+      LOCATE '-DICT' IN PARAM.STR<1> SETTING POS THEN
+         DICT.POS = POS
+      END
+      LOCATE 'DICT' IN PARAM.STR<1> SETTING POS THEN
+         DICT.POS = POS
+      END
+      IF DICT.POS THEN
+         DEL PARAM.STR<DICT.POS>
+         NUM.PARAMS -= 1
+         USE.DICT = 1
+      END
+*
+* LIST ALL FIELD NAMES IN DICTIONARY FOR THIS FIELD
+*
+      USE.ALL.DICT.NAMES = 0
+      ALL.DICT.FIELDS.POS = 0
+      LOCATE '-ALL.DICT.NAMES' IN PARAM.STR<1> SETTING POS THEN
+         ALL.DICT.FIELDS.POS = POS
+      END
+      LOCATE 'ALL.DICT.NAMES' IN PARAM.STR<1> SETTING POS THEN
+         ALL.DICT.FIELDS.POS = POS
+      END
+      IF ALL.DICT.FIELDS.POS THEN
+         DEL PARAM.STR<ALL.DICT.FIELDS.POS>
+         NUM.PARAMS -= 1
+         USE.ALL.DICT.NAMES = 1
+         USE.DICT = 1
+      END
+*
+* USE FIELD NAMES IN A CERTAIN ASSOCIATION
+*
+      USE.ASSOC = 0
+      ASSOC.POS = 0
+      LOCATE '-ASSOC' IN PARAM.STR<1> SETTING POS THEN
+         ASSOC.POS = POS
+      END
+      LOCATE 'ASSOC' IN PARAM.STR<1> SETTING POS THEN
+         ASSOC.POS = POS
+      END
+      ASSOC.NAME = ''
+      IF ASSOC.POS THEN
+         ASSOC.NAME = PARAM.STR<ASSOC.POS+1>
+         DEL PARAM.STR<ASSOC.POS>
+         DEL PARAM.STR<ASSOC.POS>
+         NUM.PARAMS -= 2
+         USE.ASSOC = 1
+         USE.DICT = 1
+      END
+*
+* USE CONV IN DICTIONARY (OPTIONAL)
+*
+      USE.CONV = 0
+      CONV.POS = 0
+      LOCATE '-CONV' IN PARAM.STR<1> SETTING POS THEN
+         CONV.POS = POS
+      END
+      LOCATE 'CONV' IN PARAM.STR<1> SETTING POS THEN
+         CONV.POS = POS
+      END
+      IF CONV.POS THEN
+         DEL PARAM.STR<CONV.POS>
+         NUM.PARAMS -= 1
+         IF USE.DICT THEN
+            USE.CONV = 1
+         END ELSE
+            CRT '"CONV" ONLY VALID WITH "DICT" OPTION'
+         END
+      END
+*
+* ONLY PRINT DIFFERENT DATA
+*
+      DO.COMPARE = 0
+      DIFF.POS = 0
+      LOCATE '-DIF' IN PARAM.STR<1> SETTING POS THEN
+         DIFF.POS = POS
+      END
+      LOCATE 'DIF' IN PARAM.STR<1> SETTING POS THEN
+         DIFF.POS = POS
+      END
+      LOCATE 'DIFF' IN PARAM.STR<1> SETTING POS THEN
+         DIFF.POS = POS
+      END
+      IF DIFF.POS THEN
+         DEL PARAM.STR<DIFF.POS>
+         NUM.PARAMS -= 1
+         DO.COMPARE = 1
+      END
+*
+* ONLY PRINT NON-NULL DATA
+*
+      SKIP.NULL = 0
+      NO.NULLS.POS = 0
+      LOCATE '-SKIP.NULL' IN PARAM.STR<1> SETTING POS THEN
+         NO.NULLS.POS = POS
+      END
+      LOCATE 'SKIP.NULL' IN PARAM.STR<1> SETTING POS THEN
+         NO.NULLS.POS = POS
+      END
+      LOCATE 'NO.NULLS' IN PARAM.STR<1> SETTING POS THEN
+         NO.NULLS.POS = POS
+      END
+      IF NO.NULLS.POS THEN
+         DEL PARAM.STR<NO.NULLS.POS>
+         NUM.PARAMS -= 1
+         IF DO.COMPARE THEN
+            CRT '"NO.NULLS" IS NOT NEEDED WHEN USING THE "DIFF" OPTION"'
+         END
+         SKIP.NULL = 1
+      END
+*
+* TRANSLATE CONTROL CHARACTERS
+*
+      TRANSLATE.KEYS = 0
+      TRANSLATE.POS = 0
+      LOCATE 'TRANSLATE' IN PARAM.STR<1> SETTING POS THEN
+         TRANSLATE.POS = POS
+      END
+      LOCATE '-TRANSLATE' IN PARAM.STR<1> SETTING POS THEN
+         TRANSLATE.POS = POS
+      END
+      IF TRANSLATE.POS THEN
+         DEL PARAM.STR<TRANSLATE.POS>
+         NUM.PARAMS -= 1
+         TRANSLATE.KEYS = 1
+      END
+
+      LOCATE 'RELOAD.DICT' IN PARAM.STR<1> SETTING POS THEN
+         DEL PARAM.STR<POS>
+         RELOAD.DICT = @TRUE
+      END ELSE
+         RELOAD.DICT = @FALSE
+      END
+
+*
+      IF USE.DICT THEN
+         FN.WIDTH = 25
+      END ELSE
+         FN.WIDTH = 7
+      END
+      INDEX.NAME = 'FIELD.NO'
+      RETURN
+
+
+
+*
+*
+* GET CURRENT WIDTH OF TERMINAL
+*
+GET.TERMINAL.WIDTH: 
+      TERMINAL.WIDTH = @CRTWIDE-1
+      RETURN
+
+
+
+
+*
+*
+* LOAD DICT
+*
+LOAD.DICT: 
+      OPEN 'DICT',FILE.NAME TO F.DICT ELSE
+         STOP 'CAN NOT OPEN "DICT" "':FILE.NAME:'"'
+      END
+      SELECTINDEX INDEX.NAME FROM F.DICT TO 1
+      READLIST INDEX.LIST FROM 1 ELSE
+         INDEX.LIST = ''
+      END
+      IF INDEX.LIST THEN
+         GOSUB LOAD.DICT.BY.INDEX
+      END ELSE
+         SELECT F.DICT TO 1
+         GOSUB LOAD.DICT.NORMAL
+      END
+      RETURN
+
+
+*
+*
+* LOAD DICT WITH AN INDEX ON 'FIELD.NO' (IN DICT.DICT)
+*
+LOAD.DICT.BY.INDEX: 
+      FORMLIST INDEX.LIST TO 2
+      DONE.INDEX = 0
+      LOOP
+         READNEXT INDEX.KEY FROM 2 ELSE DONE.INDEX = 1
+      UNTIL DONE.INDEX
+         SELECTINDEX INDEX.NAME, INDEX.KEY FROM F.DICT TO 1
+         GOSUB LOAD.DICT.NORMAL
+      REPEAT
+
+
+*
+*
+* LOAD DICT WITH OUT AN INDEX (NORMAL)
+*
+LOAD.DICT.NORMAL: 
+      DONE = 0
+      LOOP
+         READNEXT DICT.KEY FROM 1 ELSE DONE = 1
+      UNTIL DONE
+         READ DICT.REC FROM F.DICT, DICT.KEY ELSE
+            DICT.REC = ''
+         END
+         TYPE = DICT.REC<1>
+         FIELD.LOC = DICT.REC<2>
+         IF TYPE[1,1] = 'D' THEN
+            IF FIELD.LOC > 0 THEN
+               IF FIELD.LOC > HIGHEST.DICT.FIELD.USED THEN
+                  HIGHEST.DICT.FIELD.USED = FIELD.LOC
+               END
+               CONV = DICT.REC<3>
+               LOAD.FIELD.NAME = @FALSE
+               IF DICT.REC<7> = ASSOC.NAME THEN
+                  LOAD.FIELD.NAME = @TRUE
+               END
+               IF FIELD.NAMES(FIELD.LOC) = '' THEN
+                  LOAD.FIELD.NAME = @TRUE
+               END
+               IF FIELD.NAMES(FIELD.LOC) MATCHES '...USER...' THEN
+                  LOAD.FIELD.NAME = @TRUE
+               END
+               IF DICT.KEY MATCHES '...USER...' AND FIELD.NAMES(FIELD.LOC) # '' THEN
+                  LOAD.FIELD.NAME = @FALSE
+               END
+               IF USE.ALL.DICT.NAMES THEN
+                  LOAD.FIELD.NAME = @TRUE
+               END
+               IF LOAD.FIELD.NAME THEN
+                  IF USE.ALL.DICT.NAMES THEN
+                     FIELD.NAMES(FIELD.LOC)<-1> = DICT.KEY
+                  END ELSE
+                     FIELD.NAMES(FIELD.LOC) = DICT.KEY
+                  END
+                  CONV.CODE(FIELD.LOC) = CONV
+               END
+            END
+         END
+      REPEAT
+      RETURN
+
+
+
+
+*
+*
+* LOAD RECORD IDS FROM THE COMMAND LINE
+* IF THERE IS A SELECT LIST, ADD IT TO THE LIST
+*
+CHECK.SELECT.LIST: 
+      READLIST RECORD.LIST THEN
+         CONVERT @IM TO @FM IN RECORD.LIST
+      END ELSE
+         RECORD.LIST = FIELD(PARAM.STR,@FM,3,NUM.PARAMS)
+      END
+      NUM.RECS = COUNT(RECORD.LIST,@FM) + (RECORD.LIST # '')
+      IF NUM.RECS = 0 THEN
+         STOP 'No records to list'
+      END
+      RETURN
+
+
+*
+*
+* SET COLUMN WIDTH (IF NOT SET WITH '-WIDTH ##' COMMAND)
+*  ALLOW SPACE BETWEEN EACH RECORD & 1 SPACE FOR 'DIFFERENCE.FLAG'
+*
+SET.COL.WIDTH: 
+      IF COL.WIDTH = '' THEN
+         COL.WIDTH = INT((TERMINAL.WIDTH - FN.WIDTH - 1 - NUM.RECS)/NUM.RECS)
+         IF COL.WIDTH < 1 THEN
+            STOP 'TOO MANY RECORDS TO DISPLAY ON CURRENT SCREEN'
+         END
+      END
+      RETURN
+
+
+
+
+
+
+*
+*
+* LIST RECORDS SIDE BY SIDE
+*     (COMPARE & PRINT BY VALUE, NOT JUST FIELD)
+*
+LIST.RECORDS: 
+      BPIOCP
+      GOSUB SET.UP.FIELDS
+      FIRST.FIELD.FOR.LOOP = 1
+      IF USE.DICT THEN
+         LAST.FIELD.FOR.LOOP = HIGHEST.DICT.FIELD.USED
+      END ELSE
+         LAST.FIELD.FOR.LOOP = NUM.FIELDS
+      END
+      IF HAVE.FIELDS.OPTION THEN
+         IF START.FIELD > 1 THEN
+            FIRST.FIELD.FOR.LOOP = START.FIELD
+         END
+         IF END.FIELD < LAST.FIELD.FOR.LOOP THEN
+            LAST.FIELD.FOR.LOOP = END.FIELD
+         END
+      END
+      FOR FIELD.NUM = FIRST.FIELD.FOR.LOOP TO LAST.FIELD.FOR.LOOP
+         USE.FIELD = @TRUE
+         IF HAVE.FIELD.LIST.OPTION THEN
+            LOCATE FIELD.NUM IN FIELD.LIST<1> SETTING POS ELSE
+               USE.FIELD = @FALSE
+            END
+         END
+         IF USE.FIELD THEN
+            GOSUB DETERMINE.MAX.VALUES
+            FV.PRINTED = 0
+            WHICH.FIELD.NAME = 0
+            FIRST.VALUE.FOR.LOOP = 1
+            LAST.VALUE.FOR.LOOP = MAX.VALUES
+            IF HAVE.VALUES.OPTION THEN
+               IF START.VALUE > 1 THEN
+                  FIRST.VALUE.FOR.LOOP = START.VALUE
+               END
+               IF END.VALUE < LAST.VALUE.FOR.LOOP THEN
+                  LAST.VALUE.FOR.LOOP = END.VALUE
+               END
+            END
+            FOR VALUE.NUM = FIRST.VALUE.FOR.LOOP TO LAST.VALUE.FOR.LOOP
+               USE.VALUE = @TRUE
+               IF HAVE.VALUE.LIST.OPTION THEN
+                  LOCATE VALUE.NUM IN VALUE.LIST<1> SETTING POS ELSE
+                     USE.VALUE = @FALSE
+                  END
+               END
+               IF USE.VALUE THEN
+                  GOSUB CHECK.FOR.DIFFERENCE
+                  BEGIN CASE
+                     CASE DO.COMPARE
+                        IF DIFFERENT THEN
+                           GOSUB PRINT.LINE
+                        END
+                     CASE SKIP.NULL
+                        GOSUB CHECK.FOR.NULL
+                        IF NOT(ALL.NULL) THEN
+                           GOSUB PRINT.LINE
+                        END
+                     CASE 1
+                        GOSUB PRINT.LINE
+                  END CASE
+               END
+            NEXT VALUE.NUM
+            IF USE.ALL.DICT.NAMES THEN
+               LOOP
+                  WHICH.FIELD.NAME += 1
+               UNTIL FIELD.NAMES(FIELD.NUM)<WHICH.FIELD.NAME> = ''
+                  PRINT '    ':FIELD.NAMES(FIELD.NUM)<WHICH.FIELD.NAME>[1,FN.WIDTH-4]
+               REPEAT
+            END
+         END
+      NEXT FIELD.NUM
+      RETURN
+
+
+
+
+
+
+*
+* SET UP FIELD HEADINGS & RECORDS
+*
+SET.UP.FIELDS: 
+      H1 = FMT("FIELD",(FN.WIDTH+1):'L')[1,FN.WIDTH+1]
+      H2 = FMT(" ",(FN.WIDTH+1):'L')
+      DIM RECS(NUM.RECS)
+      NUM.FIELDS = 0
+      FOR REC.CTR=1 TO NUM.RECS
+         REC.ID = RECORD.LIST<REC.CTR>
+         H1 := ' ':FMT(REC.ID[1,COL.WIDTH],COL.WIDTH:'L')
+         READ RECS(REC.CTR) FROM F.INFO, REC.ID THEN
+            H2 := ' ':FMT(' ',COL.WIDTH:'L')
+         END ELSE
+            H2 := ' ':FMT('(Not on file)',COL.WIDTH:'L')[1,COL.WIDTH]
+            RECS(REC.CTR) = ''
+         END
+         IF TRANSLATE.KEYS THEN
+            GOSUB TRANSLATE.REC
+         END
+         N = COUNT(RECS(REC.CTR),@FM) + 1
+         IF N > NUM.FIELDS THEN
+            NUM.FIELDS = N
+         END
+      NEXT I
+      NL = "'L'"
+      HEADING H1:NL:H2
+      RETURN
+
+
+
+*
+*
+* TRANSLATE RECORD
+*
+TRANSLATE.REC: 
+      NEW.REC = ''
+      LEN.REC = LEN(RECS(REC.CTR))
+      FOR CH.CTR=1 TO LEN.REC
+         CH = RECS(REC.CTR)[CH.CTR,1]
+         CH.NUM = SEQ(CH)
+         IF CH.NUM < 32 OR (CH.NUM > 126 AND CH.NUM < 250) THEN
+            NEW.REC := '<':CH.NUM:'>'
+         END ELSE
+            NEW.REC := CH
+         END
+      NEXT CH.CTR
+      RECS(REC.CTR) = NEW.REC
+      RETURN
+
+
+*
+*  DETERMINE MAX VALUES
+*
+DETERMINE.MAX.VALUES: 
+      MAX.VALUES = 1
+      FOR REC.NUM = 1 TO NUM.RECS
+         DATA.FIELD = RECS(REC.NUM)<FIELD.NUM>
+         NUM.VALUES = COUNT(DATA.FIELD,@VM) + (DATA.FIELD # '')
+         IF NUM.VALUES > MAX.VALUES THEN
+            MAX.VALUES = NUM.VALUES
+         END
+      NEXT REC.NUM
+      RETURN
+
+
+
+
+*
+*
+* CHECK FOR DIFFERENCE
+*
+CHECK.FOR.DIFFERENCE: 
+      DIFFERENT = 0
+      FOR I=1 TO (NUM.RECS-1) UNTIL DIFFERENT
+         I.VALUE = RECS(I)<FIELD.NUM,VALUE.NUM>
+         FOR J=(I+1) TO NUM.RECS UNTIL DIFFERENT
+            J.VALUE = RECS(J)<FIELD.NUM,VALUE.NUM>
+            IF I.VALUE # J.VALUE THEN
+               DIFFERENT = 1
+            END
+         NEXT J
+      NEXT I
+      RETURN
+
+*
+*
+* CHECK FOR ALL NULL VALUES
+*
+CHECK.FOR.NULL: 
+      ALL.NULL = 1
+      FOR I=1 TO NUM.RECS UNTIL NOT(ALL.NULL)
+         IF RECS(I)<FIELD.NUM,VALUE.NUM> # '' THEN
+            ALL.NULL = 0
+         END
+      NEXT I
+      RETURN
+
+*
+* SET UP THE PRINT LINES
+*
+PRINT.LINE: 
+      WHICH.FIELD.NAME += 1
+      IF FV.PRINTED THEN
+         DISP.FN = '    ':FMT(FIELD.NAMES(FIELD.NUM)<WHICH.FIELD.NAME>,FN.WIDTH:'L')[1,FN.WIDTH-4]
+      END ELSE
+         IF USE.DICT THEN
+            DISP.FN = FMT(FIELD.NUM,'3"0"R'):'|':FIELD.NAMES(FIELD.NUM)<WHICH.FIELD.NAME>
+         END ELSE
+            DISP.FN = FMT(FIELD.NUM,'3"0"R'):'|'
+         END
+         DISP.FN = DISP.FN:STR(".",FN.WIDTH)
+         DISP.FN = DISP.FN[1,FN.WIDTH]
+      END
+      IF MAX.VALUES > 1 THEN
+         DISP.FN = DISP.FN[1,FN.WIDTH-4]:'(':FMT(VALUE.NUM,'2"0"R'):')'
+      END
+      IF DIFFERENT THEN
+         DIFFERENT.FLAG = '*'
+      END ELSE
+         DIFFERENT.FLAG = ':'
+      END
+      PRINT.LINE = DISP.FN:DIFFERENT.FLAG
+*
+      FOR REC.NUM = 1 TO NUM.RECS
+         IF CONV.CODE(FIELD.NUM) AND USE.CONV THEN
+            PRINT.DATA = OCONV(RECS(REC.NUM)<FIELD.NUM,VALUE.NUM>,CONV.CODE(FIELD.NUM))
+         END ELSE
+            PRINT.DATA = RECS(REC.NUM)<FIELD.NUM,VALUE.NUM>
+         END
+         PRINT.LINE := ' ':FMT(PRINT.DATA,COL.WIDTH:'L')[1,COL.WIDTH]
+      NEXT REC.NUM
+      PRINT PRINT.LINE
+      FV.PRINTED = 1
+      RETURN
+
+
+   END

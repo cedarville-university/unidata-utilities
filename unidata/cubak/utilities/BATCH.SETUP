@@ -1,0 +1,114 @@
+*
+* INFO/BASIC PROGRAM
+* 3/8/88
+* DWS
+* TITLE ----- BATCH.SETUP
+* REL 1.0
+*
+*
+* MODULE : BATCH
+* PURPOSE: LOAD PARAMETERS FROM BATCH.PARAMETERS FILE INTO APPROPRIATE
+*            RECORD IN PARAMETERS SO DATATEL PROGRAMS WILL RUN CORRECTLY
+*
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #23157, 04 Jul 94, 08:19AM.
+*     Last updated by LIVE (SJOQUIST) at 09:05:54 on 11/03/1988.
+* HANDLE MULTIPLE PRINT UNITS (SEE "BATCH.PROCESS")
+*     Last updated by LIVE (ROTMAN) at 21:13:14 on 06/03/1988.
+* IMPLEMENT SETPTR CALL USING PASSED SETTINGS
+*     Last updated by LIVE (SJOQUIST) at 10:22:26 on 03/08/1988.
+*
+***********************************************************************SPN
+*
+*  COPYRIGHT (C) 1995, ROTMAN & SJOQUIST
+*
+*      The information contained in this file is proprietary to
+*      ROTMAN & SJOQUIST.  This file may be modified for the
+*      internal use of this institution, but no part of this file
+*      nor any program derived from it may be distributed to any
+*      other individual or institution.  Unmodified copies of this
+*      file may be distributed to other individuals or institutions
+*      provided that no charge is made for the copies.
+*
+***********************************************************************EPN
+*
+
+      $INSERT I_RS.COMMON
+      $INSERT I_BATCH.COMMON
+
+
+*
+*
+* READ RECORD FROM BATCH.PARAMETERS USING THE KEY ON THE COMMAND.LINE
+*  AND SAVE IT IN PARAMETERS
+*
+
+      COMMAND.LINE = TRIM(@SENTENCE)
+      CONVERT ' ' TO @VM IN COMMAND.LINE
+      LOCATE 'BATCH.SETUP' IN COMMAND.LINE<1,1> SETTING POS ELSE
+         POS = 0
+      END
+      IF POS THEN
+         BATCH.KEY = COMMAND.LINE<1,POS+1>
+      END ELSE
+         STOP 'MUST BE RUN AS "BATCH.SETUP"'
+      END
+
+*
+*
+* THE PORT NUMBER IS USED AS THE KEY TO THE PARAMETERS FILE
+*
+      READ PARAMETERS FROM BATCHQ.F.BATCH.PARAMETERS, BATCH.KEY ELSE
+         CALL FATAL.ERROR('MISSING.ITEM',BATCH.KEY:@FM:'BATCH.PARAMETERS')
+      END
+      WRITE PARAMETERS TO BATCHQ.F.PARAMETERS, @USERNO
+
+*
+* HANDLE MULTIPLE PRINT UNITS (ALSO SEE "BATCH.PROCESS")
+*
+      READ PRINTER.REC FROM BATCHQ.F.BATCH.PRINTERS, BATCH.KEY ELSE
+         CALL FATAL.ERROR('MISSING.ITEM',BATCH.KEY:@FM:'BATCH.PRINTERS')
+      END
+
+*
+*
+* PRIME NOTE:
+* DUE TO PROBLEMS USING '!SETPU' WITH THE SPOOL OPTIONS FLAG, WE CURRENTLY
+* RESORT TO AN EXECUTION OF SETPTR...
+*
+      MAX.PRINT.UNITS = 6
+      FOR PRT.UNIT=0 TO MAX.PRINT.UNITS
+         SETPTR.COMMAND = PRINTER.REC<PRT.UNIT+1>:',BRIEF'
+         EXECUTE SETPTR.COMMAND
+*PRIME*         PMODE = PRINTER.REC<1+PRT.UNIT*14>
+*PRIME*         PWIDTH = PRINTER.REC<2+PRT.UNIT*14>
+*PRIME*         PLENGTH = PRINTER.REC<3+PRT.UNIT*14>
+*PRIME*         PTOP = PRINTER.REC<4+PRT.UNIT*14>
+*PRIME*         PBOTTOM = PRINTER.REC<5+PRT.UNIT*14>
+*PRIME*         PFORM = PRINTER.REC<9+PRT.UNIT*14>
+*PRIME*         PBANNER = PRINTER.REC<10+PRT.UNIT*14>
+*PRIME*         PCOPIES = PRINTER.REC<12+PRT.UNIT*14>
+*PRIME*         PCOMMAND = "SETPTR ":PRT.UNIT:",":PWIDTH:",":PLENGTH:",":PTOP:",":PBOTTOM:",":PMODE:",BRIEF,NFMT"
+*PRIME*         PCOMMAND := ",COPIES ":PCOPIES
+*PRIME*         IF PFORM THEN
+*PRIME*            PCOMMAND := ",FORM ":PFORM
+*PRIME*         END
+*PRIME*         IF PMODE = 3 THEN
+*PRIME*            PBANNER = 'UNIQUE ':@LOGNAME
+*PRIME*         END
+*PRIME*         IF PBANNER THEN
+*PRIME*            PCOMMAND :=",BANNER ":PBANNER
+*PRIME*         END ELSE
+*PRIME*            PCOMMAND :=",NHEAD"
+*PRIME*         END
+*PRIME*         EXECUTE PCOMMAND
+      NEXT PRT.UNIT
+
+
+*DLR*      PRINTER ON
+*DLR*      FOR WHICH.PARAM = 1 TO 14
+*DLR*         CALL !SETPU(WHICH.PARAM,0,PRINTER.REC<WHICH.PARAM>,RETURN.CODE)
+*DLR*      NEXT WHICH.PARAM
+*DLR*      PRINTER OFF
+
+
+   END

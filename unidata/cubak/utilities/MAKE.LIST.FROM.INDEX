@@ -1,0 +1,94 @@
+*
+* UNIBASIC PROGRAM
+* 01/20/2003
+* DLR
+* TITLE ----- MAKE.LIST.FROM.INDEX
+*
+* PURPOSE:  READ A LIST OF INDEX VALUES AND RETURN THE CORRESPONDING
+*   RECORD KEYS
+*
+* Stamped: p6 rotmand, /datatel/live/collive, user #2696, 20 Jan 03, 02:47PM.
+*
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+      GOSUB SET.UP
+      CRT 'Processing file ':X.FILE.NAME
+      CRT 'Using index ':X.INDEX.NAME
+      X.OPER = 'EQ'
+      INDEX.COUNT = 0
+      KEY.COUNT = 0
+      XL.KEYS = ''
+      DONE = @FALSE
+      LOOP
+         READNEXT X.INDEX.VALUE ELSE
+            DONE = @TRUE
+         END
+      UNTIL DONE
+         INDEX.COUNT += 1
+         IF MOD(INDEX.COUNT,10) = 0 THEN
+            CRT '*':
+            IF MOD(INDEX.COUNT,500) = 0 THEN
+               CRT ' ':INDEX.COUNT
+            END
+         END
+         GOSUB PROCESS.INDEX.VALUE
+      REPEAT
+      CRT
+      KEY.COUNT = DCOUNT(XL.KEYS,@VM)
+      CRT INDEX.COUNT:' index values read'
+      CRT KEY.COUNT:' key values generated'
+      CONVERT @VM TO @FM IN XL.KEYS
+      FORMLIST XL.KEYS
+      STOP
+
+
+
+PROCESS.INDEX.VALUE: 
+      X.INDEX.VALUE = FIELD(X.INDEX.VALUE,' ',1,1)
+      CALL GET.INDEXED.IDS(XL.NEW.KEYS,X.INDEX.VALUE,X.INDEX.NAME,X.FILE.NAME)
+      IF XL.NEW.KEYS EQ '' THEN
+         CRT
+         CRT 'No keys found for index value ':X.INDEX.VALUE
+      END ELSE
+         XL.KEYS<1,-1> = XL.NEW.KEYS
+      END
+      RETURN
+
+
+SET.UP: 
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      X.FILE.NAME = PARAM.STR<STARTING.PARAM>
+      X.INDEX.NAME = PARAM.STR<STARTING.PARAM+1>
+      IF X.INDEX.NAME = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT 'Syntax:'
+      CRT 'MAKE.LIST.FROM.INDEX FileName IndexName'
+      CRT
+      CRT 'GET.LIST PHONE.NUMBERS'
+      CRT 'MAKE.LIST.FROM.INDEX ADDRESS ADDRESS.PHONES'
+      CRT 'SAVE.LIST ADDRESS.KEYS'
+      CRT
+      CRT
+      CRT 'GET.LIST SSN.LIST'
+      CRT 'MAKE.LIST.FROM.INDEX PERSON SSN'
+      CRT 'SAVE.LIST PERSON.ID.LIST'
+      RETURN
+
+
+   END

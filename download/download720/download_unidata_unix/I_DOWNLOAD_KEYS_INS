@@ -1,0 +1,20 @@
+* I_DOWNLOAD.KEYS.INS
+*
+*
+*  contains the necessary constants for PRIMOS.OPEN.FILE,
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*
+*
+*
+*
+*
+*
+*  PRIMOS.WRITE.FILE, and PRIMOS.CLOSE.FILE to compile and run.
+*
+      EQUATE K$READ TO          1
+      EQUATE K$WRIT TO          2
+      EQUATE K$TRNC TO          4
+      EQUATE K$EXST TO          6
+      EQUATE K$CLOS TO          4
+      EQUATE K$GETU TO      16384

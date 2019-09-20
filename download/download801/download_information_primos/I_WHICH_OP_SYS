@@ -1,0 +1,23 @@
+*
+* Set which operating system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_OP_SYS_PRIMOS
+*
+*
+*
+*
+*************************************************************************
+*
+* Stamped: p12 rotmand, /usr/local/download, user #2048, 29 Sep 15, 07:41AM.
+* Version 8.01
+*
+********************************************************************
+*
+*
+
+*
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIX LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.PRIMOS LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.WINDOWS LIT '*'
+      OP.SYS.NAME = 'PRIMOS'

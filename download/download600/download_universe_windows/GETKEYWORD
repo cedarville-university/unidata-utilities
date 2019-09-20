@@ -1,0 +1,45 @@
+      SUBROUTINE GETKEYWORD(KEYWORD.VALUE,KEYWORD.NAME)
+*
+* INFO/BASIC SUBROUTINE
+* 2/27/89
+* DLR
+* TITLE ----- GETKEYWORD
+* REL 0.0
+*
+*
+* MODULE :
+* PURPOSE: RETURN KEYWORD VALUE FROM VOC FILE
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #184, 05 Nov 02, 07:56AM.
+*   Version 6.00
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+      KEYWORD.VALUE = ''
+      IF KEYWORD.NAME = '' THEN
+         RETURN
+      END
+
+      ERROR.RETURN = 0
+      ERROR.MSG = ''
+      F.VOC = ''
+      CALL OPENFILE(F.VOC,'VOC',ERROR.RETURN,ERROR.MSG)
+
+      READ VOC.REC FROM F.VOC,KEYWORD.NAME ELSE
+         RETURN
+      END
+      VOC.REC.TYPE = FIELD(VOC.REC<1>,' ',1,1)
+      IF VOC.REC.TYPE = 'K' OR VOC.REC.TYPE = 'k' THEN
+         KEYWORD.VALUE = VOC.REC<2>
+      END
+      RETURN
+
+
+   END

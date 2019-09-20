@@ -1,0 +1,117 @@
+      SUBROUTINE CALLUB.MASTER(RETURN.CODE,PASSED.ARGUMENTS)
+*
+* UNIBASIC SUBROUTINE
+* 11/19/2001
+* DAVE ROTMAN
+* TITLE ----- CALLUB.MASTER
+*
+*
+* MODULE :
+* PURPOSE: PROCESS REQUESTS FROM RESTRICTED-SHELL USERS
+*          (WHO ARE COMING IN VIA WORLD WIDE WEB ACCESS)
+*
+*
+*
+* Stamped: p1 rotmand, /datatel/live/collive, user #10466, 19 Nov 01, 02:26PM.
+*  Based on a demonstration program by
+*  21 June 1995 Jackie Burhans, Unidata
+*
+*************************************************************************
+*
+*
+*  This program calls the subroutine found in QUERY_STRING
+*
+
+
+      GOSUB GET.ENVIRONMENT.VARIABLES
+      GOSUB SET.UP
+      GOSUB GET.PARAMETERS
+      GOSUB SET.HTML.VARIABLES
+      BEGIN CASE
+         CASE SUBR.FORMAT = 'CACHE'
+            PRINT 'Content-type: text/html'
+            PRINT
+         CASE SUBR.FORMAT = 'HTML'
+            PRINT 'Content-type: text/html'
+            PRINT 'Pragma: no-cache'
+            PRINT
+         CASE SUBR.FORMAT = 'MANAGE.HTML'
+            NULL
+         CASE SUBR.FORMAT = 'CQ'
+            NULL
+         CASE 1
+            PRINT 'Content-type: text/html'
+            PRINT 'Pragma: no-cache'
+            PRINT
+      END CASE
+      GOSUB CHECK.SECURITY
+      GOSUB PROCESS.REQUEST
+      STOP
+
+
+
+SET.UP: 
+      PROGRAM.TEXT = 'Information Request'
+
+      ACTIVE.SUBROUTINES = ''
+      ACTIVE.FORMATS = ''
+
+      ACTIVE.SUBROUTINES<1,-1> = 'CUSTOMER.LOOKUP'
+      ACTIVE.FORMATS<1,-1> = 'MANAGE.HTML'
+
+      ACTIVE.SUBROUTINES<1,-1> = 'SALES.ENTRY'
+      ACTIVE.FORMATS<1,-1> = 'HTML'
+
+      RETURN
+
+
+* For testing from a colon prompt:
+*   CALLUB.MASTER CallingRoutine SubroutineName ...[other arguments]...
+*
+*
+GET.ENVIRONMENT.VARIABLES: 
+      IF @LOGNAME = 'rotmand' THEN
+         CALLUB.QUERY_STRING = @SENTENCE
+         CRT 'USING CALLUB.QUERY_STRING ':CALLUB.QUERY_STRING
+      END ELSE
+         CALLUB.QUERY_STRING   = GETENV('QUERY_STRING')
+      END
+      RETURN
+
+
+SET.HTML.VARIABLES: 
+      RETURN
+
+
+GET.PARAMETERS: 
+      CALLUB.NUM.ITEMS = 0
+      PARAM.QUOTED = ''
+      CALLUB.VALUE.LIST = ''
+      CALL PARSE.LINE(CALLUB.QUERY_STRING,CALLUB.VALUE.LIST,PARAM.QUOTED,CALLUB.NUM.ITEMS)
+      V.CALLING.SCRIPT = CALLUB.VALUE.LIST<2>
+      V.PASSED.SUBR = OCONV(CALLUB.VALUE.LIST<3>,'MCU')
+      LOCATE V.PASSED.SUBR IN ACTIVE.SUBROUTINES<1,1> SETTING SUBR.POS ELSE
+         SUBR.POS = ''
+      END
+      CALLUB.WANT.FEEDBACK = @TRUE
+      IF SUBR.POS > 0 THEN
+         SUBR.FORMAT = ACTIVE.FORMATS<SUBR.POS>
+      END ELSE
+         CRT 'SUBROUTINE ':V.PASSED.SUBR:' IS NOT DEFINED'
+         STOP
+      END
+      CALLUB.SUBR = 'CALLUB.':V.PASSED.SUBR
+      RETURN
+
+
+CHECK.SECURITY: 
+      ID.NO.STRING = OCONV(CALLUB.VALUE.LIST<3>,'MCU')
+      RETURN
+
+
+PROCESS.REQUEST: 
+      RETURN.CODE = ''
+      CALL @CALLUB.SUBR(RETURN.CODE,CALLUB.VALUE.LIST)
+      RETURN
+
+   END

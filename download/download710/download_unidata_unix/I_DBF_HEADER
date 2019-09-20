@@ -1,0 +1,16 @@
+*
+*
+* Stamped: p2 rotmand, /datatel/live/collive, user #2463, 17 Feb 04, 10:49AM.
+* Version 7.10
+*
+*
+*
+*
+*
+*
+* HEADER INFO FOR dBASE IV 'DBF' FILE
+*
+
+      DBF.BUF.SIZE = 512
+      DBF.WORDS.TO.WRITE = DBF.BUF.SIZE / 2
+      DBF.DEFAULT.LENGTH.VALUE = 8

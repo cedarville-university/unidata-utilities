@@ -1,0 +1,98 @@
+* I_PP.OPERATORS.COMMON
+* PRINT.PAGE operators for EVALUATE data fields
+*
+ 
+ 
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+ 
+ 
+*
+* INSERT
+*   1. OPERATOR
+*   2. EQUIVALENCE (VALUE)
+*   3. PRECEDENCE (0=HIGHEST)
+*   4. CANCEL CONV CODE (DETERMINES WHETHER OR NOT TO CONVERT LITERALS)
+*   5. OPERATION TYPE
+*             0 = PARENTHESIS
+*             1 = ARITHMETIC
+*             2 = STRING
+*             3 = COMPARISON
+*             4 = LOGICAL
+*  THE OPERATOR IS WHAT IS USED IN THE INFIX STRING
+*     (WITH EXCEPTION OF UNARY -/+, THEY ARE CONVERTED TO U- & U+ IN SUBR)
+*  THE EQUIVALENCE (OP.VALUE) IS WHAT IS STORED IN THE POSTFIX STRING
+*    (EACH OP.VALUE OR TOKEN MUST HAVE A CORRESPONDING SUBROUTINE
+*          IN 'EVALUATE.POSTFIX')
+*  THE PRECEDENCE DETERMINES ORDER OF OPERATIONS
+*
+*
+      COMMON/PP.OPER/ OP.PREC(38), OP.VALUE(38), OPS, ORIG.OPS(99),
+         OP.CANCEL.CONV(99), OP.TYPE(99)
+      IF NOT(OPS) THEN
+*
+* OPERATOR, PRECEDENCE, TOKEN VALUE
+*
+         OPS.INFO = '(ý0ý0ý0ý0'
+         OPS.INFO := @FM:'U-ý1ý1ý0ý1'
+         OPS.INFO := @FM:'U+ý1ý2ý0ý1'
+         OPS.INFO := @FM:'**ý2ý3ý0ý1'
+         OPS.INFO := @FM:'^ý2ý3ý0ý1'
+         OPS.INFO := @FM:'*ý3ý4ý0ý1'
+         OPS.INFO := @FM:'/ý3ý5ý0ý1'
+         OPS.INFO := @FM:'+ý4ý6ý0ý1'
+         OPS.INFO := @FM:'-ý4ý7ý0ý1'
+         OPS.INFO := @FM:':ý5ý8ý1ý2'
+         OPS.INFO := @FM:'CATý5ý8ý1ý2'
+         OPS.INFO := @FM:'LTý6ý9ý0ý3'
+         OPS.INFO := @FM:'<ý6ý9ý0ý3'
+         OPS.INFO := @FM:'GTý6ý10ý0ý3'
+         OPS.INFO := @FM:'>ý6ý10ý0ý3'
+         OPS.INFO := @FM:'EQý6ý11ý0ý3'
+         OPS.INFO := @FM:'=ý6ý11ý0ý3'
+         OPS.INFO := @FM:'NEý6ý12ý0ý3'
+         OPS.INFO := @FM:'<>ý6ý12ý0ý3'
+         OPS.INFO := @FM:'><ý6ý12ý0ý3'
+         OPS.INFO := @FM:'#ý6ý12ý0ý3'
+         OPS.INFO := @FM:'LEý6ý13ý0ý3'
+         OPS.INFO := @FM:'<=ý6ý13ý0ý3'
+         OPS.INFO := @FM:'=<ý6ý13ý0ý3'
+         OPS.INFO := @FM:'#>ý6ý13ý0ý3'
+         OPS.INFO := @FM:'GEý6ý14ý0ý3'
+         OPS.INFO := @FM:'>=ý6ý14ý0ý3'
+         OPS.INFO := @FM:'=>ý6ý14ý0ý3'
+         OPS.INFO := @FM:'#<ý6ý14ý0ý3'
+         OPS.INFO := @FM:'MATCHý6ý15ý0ý3'
+         OPS.INFO := @FM:'MATCHESý6ý15ý0ý3'
+         OPS.INFO := @FM:'LIKEý6ý15ý0ý3'
+         OPS.INFO := @FM:'NOTý7ý16ý0ý4'
+         OPS.INFO := @FM:'ANDý8ý17ý0ý4'
+         OPS.INFO := @FM:'&ý8ý17ý0ý4'
+         OPS.INFO := @FM:'ORý9ý18ý0ý4'
+         OPS.INFO := @FM:'!ý9ý18ý0ý4'
+         OPS.INFO := @FM:')ý99ý99ý0ý99'
+         CALL PP.SORT.DYN(OPS.INFO,'F')
+         MAT OP.PREC = ''
+         MAT OP.VALUE = ''
+         MAT ORIG.OPS = ''
+         MAT OP.TYPE = ''
+         NUM.OPS = 0
+         OPS = ''
+         LOOP
+            NUM.OPS += 1
+            REMOVE OPSI.OP FROM OPS.INFO SETTING DELIM
+            REMOVE OPSI.PREC FROM OPS.INFO SETTING DELIM
+            REMOVE OPSI.VALUE FROM OPS.INFO SETTING DELIM
+            REMOVE OPSI.CANCEL.CONV FROM OPS.INFO SETTING DELIM
+            REMOVE OPSI.TYPE FROM OPS.INFO SETTING DELIM
+            OPS := @FM:OPSI.OP
+            OP.VALUE(NUM.OPS) = OPSI.VALUE
+            OP.PREC(NUM.OPS) = OPSI.PREC
+            ORIG.OPS(OPSI.VALUE) = OPSI.OP
+            OP.CANCEL.CONV(OPSI.VALUE) = OPSI.CANCEL.CONV
+            OP.TYPE(OPSI.VALUE) = OPSI.TYPE
+         UNTIL DELIM = 0
+         REPEAT
+         OPS = OPS[2,32000]
+      END

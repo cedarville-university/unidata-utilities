@@ -1,0 +1,42 @@
+$BASICTYPE "U"
+      SUBROUTINE DL.GET.KEYWORD.VALUE(KEYWORD.VALUE,KEYWORD.NAME)
+*
+* INFO/BASIC SUBROUTINE
+* 2/27/89
+* DLR
+* TITLE ----- DL.GET.KEYWORD.VALUE
+* REL 0.0
+*
+*
+* MODULE :
+* PURPOSE: RETURN KEYWORD VALUE FROM VOC FILE
+*
+*
+*
+* Stamped: p21 rotmand, /usr/local/download, user #1976, 22 Nov 13, 07:48AM.
+* Version 8.00
+*
+*************************************************************************
+*
+
+      KEYWORD.VALUE = ''
+      IF KEYWORD.NAME = '' THEN
+         RETURN
+      END
+
+      ERROR.RETURN = 0
+      ERROR.MSG = ''
+      F.VOC = ''
+      CALL DL.OPEN.FILE(F.VOC,'VOC',ERROR.RETURN,ERROR.MSG)
+
+      READ VOC.REC FROM F.VOC,KEYWORD.NAME ELSE
+         RETURN
+      END
+      VOC.REC.TYPE = FIELD(VOC.REC<1>,' ',1,1)
+      IF VOC.REC.TYPE = 'K' OR VOC.REC.TYPE = 'k' THEN
+         KEYWORD.VALUE = VOC.REC<2>
+      END
+      RETURN
+
+
+   END

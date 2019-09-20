@@ -1,0 +1,480 @@
+      SUBROUTINE LOOKUP.NAME(RETURN.ID.LIST, PASSED.NAME, EXACT.MATCH)
+*
+* INFO/BASIC SUBROUTINE
+* 8/3/89
+* DWS
+* TITLE ----- LOOKUP.NAME
+*
+*
+* PURPOSE: FIND ALL ID#S THAT MATCH GIVEN NAME
+*
+* Stamped: pts_15 rotmand, /datatel/coll18/live/apphome, user #9998, 15 Oct 14, 08:23AM.
+*   Fix bug when checking NETWORK.LOGINS (return empty list of the SELECT fails to
+*      find any records).
+* Stamped: pts_15 rotmand, /datatel/coll18/live/apphome, user #9998, 14 Oct 14, 10:16AM.
+*   Undid the double-negative logic for PERSON.CORP.INDICATOR (was IF X NE Z THEN ELSE,
+*       now is IF X EQ Z THEN ELSE).
+*   Corrected logic bug that was selecting all corporations that had a partial-name
+*       match even if the end user submitted more of the name.
+*   Add X.DEBUG logic.
+* Stamped: pts_29 rotmand, /datatel/coll18/live/apphome, user #15765, 30 Jun 09, 06:27PM.
+*   Call GET.INDEXED.IDS (our routine) rather than S.GET.INDEX to avoid
+*   invoking Envision (faster for CedarInfo)
+* Stamped: pts_99 howders, /datatel/coll18/live/apphome, user #22396, 01 Feb 08, 01:48PM.
+*   Modified CHECK.NAME to treat corporations a bit differently.
+* Stamped: pts_7 rotmand, /datatel/live/collive, user #22975, 28 Dec 06, 03:31PM.
+*   If no matches are found, remove "throw away" tokens from last
+*   name and try again (useful for corporation searches such as
+*   "Word of Life" where the index is based on "WORD LIFE").
+* Stamped: q3 rotmand, /datatel/live/collive, user #11884, 10 Sep 04, 12:32PM.
+*   Allow semicolon expressions for restricting matches to
+*   particular city, state, country, reunion class
+* Stamped: p2 rotmand, /datatel/live/collive, user #8534, 14 Jan 04, 03:33PM.
+*   Fix bug in logic for exact name match.
+* Stamped: p1 rotmand, /datatel/live/collive, user #16434, 06 Feb 03, 08:58AM.
+*   Check login name
+* Stamped: pty_ttys1 voumardb, /datatel/live/collive, user #26127, 18 Nov 02, 04:48PM.
+*   Compare to NICKNAME and NAME.HISTORY.LAST.NAME
+* Stamped: qc howders, /datatel/live/collive, user #22437, 24 Oct 02, 02:43PM.
+*   Handle names with apostrophes
+* Stamped: p6 rotmand, /datatel/live/collive, user #17778, 20 Jul 02, 11:17AM.
+*   Native indexing (partial-name index is now on the PERSON file)
+* Stamped: p1 rotmand, /datatel/live/collive, user #775, 14 Sep 01, 12:17PM.
+*   Modify filter routine to handle maiden (birth) names.
+* Stamped: t2 rotmand, /disk1/collive, user #28861, 15 Dec 99, 03:55PM.
+*   Modify filter routine to handle missing first names in search
+*   criteria.
+* Stamped: rb rotmand, /disk1/collive, user #18257, 07 Aug 97, 06:46AM.
+*   Release 14 (much slower!)
+*   Last updated by LIVE (SJOQUIST) at 14:38:01 on 08/03/1989.
+*************************************************************************
+*
+
+      X.DEBUG = @FALSE
+      IF @LOGNAME = '*rotmand' THEN
+         X.DEBUG = @TRUE
+      END
+
+
+      $INSERT I_PERSON FROM CORE.SOURCE
+
+      NAME.FILTER.IS.ACTIVE = @TRUE
+      X.SECONDARY.LOAD.ACTIVE = @FALSE
+
+
+      X.PERSON.OPEN = @FALSE
+
+      X.HAVE.F.NETWORK.LOGINS = @TRUE
+      OPEN '','NETWORK.LOGINS' TO F.NETWORK.LOGINS ELSE
+         X.HAVE.F.NETWORK.LOGINS = @FALSE
+      END
+      X.HAVE.F.CORE.VALCODES = @TRUE
+      OPEN '','CORE.VALCODES' TO F.CORE.VALCODES ELSE
+         X.HAVE.F.CORE.VALCODES = @FALSE
+      END
+*
+*
+      RETURN.ID.LIST = ''
+      IF PASSED.NAME = '' THEN
+         RETURN
+      END
+      USE.NAME = TRIM(FIELD(PASSED.NAME,';',1,1))
+      USE.EXTRA.RESTRICTION = FIELD(PASSED.NAME,';',2,99)
+      USE.LAST = FIELD(USE.NAME,',',1,1)
+      USE.FIRST.MIDDLE = TRIM(FIELD(USE.NAME,',',2,99))
+      USE.FIRST = FIELD(USE.FIRST.MIDDLE,' ',1,1)
+      USE.MIDDLE = FIELD(USE.FIRST.MIDDLE,' ',2,99)
+      UPPER.LAST = OCONV(USE.LAST,'MCU')
+      UPPER.FIRST = OCONV(USE.FIRST,'MCU')
+      UPPER.MIDDLE = OCONV(USE.MIDDLE,'MCU')
+      LEN.LAST = LEN(UPPER.LAST)
+      LEN.FIRST = LEN(UPPER.FIRST)
+      LEN.MIDDLE = LEN(UPPER.MIDDLE)
+      GOSUB BUILD.PRIMARY.KEY
+      GOSUB READ.INDEX.PARTIAL.NAME
+      IF XL.KEYS = '' THEN
+         GOSUB CHECK.CORP
+         IF XL.KEYS = '' THEN
+            GOSUB LOAD.SECONDARY.RECORDS
+         END ELSE
+            RETURN.ID.LIST = XL.KEYS
+         END
+      END ELSE
+         RETURN.ID.LIST = XL.KEYS
+      END
+      IF NAME.FILTER.IS.ACTIVE THEN
+         GOSUB FILTER.NAMES
+      END
+      IF RETURN.ID.LIST = '' THEN
+         GOSUB CHECK.NETWORK.LOGINS
+         RETURN.ID.LIST = XL.KEYS
+      END
+      IF X.DEBUG THEN
+         CRT 'Before processing restrictions, found ':DCOUNT(RETURN.ID.LIST,@VM):' records'
+      END
+      IF USE.EXTRA.RESTRICTION NE '' THEN
+         GOSUB PROCESS.RESTRICTIONS
+      END
+      NUM.ID.LIST = DCOUNT(RETURN.ID.LIST,@VM)
+      IF X.DEBUG THEN
+         CRT 'Returning ':NUM.ID.LIST:' record keys...'
+      END
+      RETURN
+
+
+FILTER.NAMES: 
+      GOSUB OPEN.PERSON
+      FILTER.ID.LIST = RETURN.ID.LIST
+      RETURN.ID.LIST = ''
+      NUM.ID = DCOUNT(FILTER.ID.LIST,@VM)
+      TEMP.UPPER.LAST = UPPER.LAST
+      CONVERT "- '" TO "" IN TEMP.UPPER.LAST
+      LEN.TEMP.UPPER.LAST = LEN(TEMP.UPPER.LAST)
+      TEMP.UPPER.FIRST = UPPER.FIRST
+      CONVERT "- '" TO "" IN TEMP.UPPER.FIRST
+      LEN.TEMP.UPPER.FIRST = LEN(TEMP.UPPER.FIRST)
+      IF X.DEBUG THEN
+         CRT ' '
+         CRT 'Searching for:'
+         CRT 'TEMP.UPPER.LAST ':TEMP.UPPER.LAST
+         CRT 'TEMP.UPPER.FIRST ':TEMP.UPPER.FIRST
+         INPUT CRTJUNK
+      END
+      FOR WHICH.ID = 1 TO NUM.ID
+         ID.NO = FILTER.ID.LIST<1,WHICH.ID>
+         KV.PERSON = ID.NO
+         GOSUB READ.PERSON
+         GOSUB CHECK.NAME
+         IF X.USE.THIS.ONE THEN
+            RETURN.ID.LIST<1,-1> = ID.NO
+         END ELSE
+            V.LAST.NAME = R.PERSON<BIRTH.NAME.LAST>
+            IF V.LAST.NAME # '' THEN
+               V.FIRST.NAME = R.PERSON<BIRTH.NAME.FIRST>
+               V.MIDDLE.NAME = R.PERSON<BIRTH.NAME.MIDDLE>
+               V.NICK.NAME = R.PERSON<NICKNAME>
+               IF V.FIRST.NAME = '' THEN
+                  V.FIRST.NAME = R.PERSON<FIRST.NAME>
+               END
+               GOSUB CHECK.NAME
+               IF X.USE.THIS.ONE THEN
+                  RETURN.ID.LIST<1,-1> = ID.NO
+               END
+            END
+         END
+      NEXT WHICH.ID
+      RETURN
+
+
+BUILD.PRIMARY.KEY: 
+      KEY.LAST = UPPER.LAST
+      CONVERT " '" TO "" IN KEY.LAST
+      INDEX.PARTIAL.NAME.KEY = ''
+      IF LEN(KEY.LAST) > 4 THEN
+         INDEX.PARTIAL.NAME.KEY := KEY.LAST[1,5]
+      END ELSE
+         INDEX.PARTIAL.NAME.KEY := KEY.LAST[1,2]
+      END
+      IF LEN.FIRST > 0 THEN
+         INDEX.PARTIAL.NAME.KEY := '_'
+         IF LEN.FIRST > 2 THEN
+            INDEX.PARTIAL.NAME.KEY := UPPER.FIRST[1,1]:UPPER.FIRST[3,1]
+         END ELSE
+            INDEX.PARTIAL.NAME.KEY := UPPER.FIRST[1,1]
+         END
+      END
+      RETURN
+
+
+READ.INDEX.PARTIAL.NAME: 
+      IF X.DEBUG THEN
+         CRT 'INDEX.PARTIAL.NAME.KEY ':INDEX.PARTIAL.NAME.KEY
+         INPUT CRTJUNK
+      END
+*DLR*      CALL S.GET.INDEX(XL.KEYS,'PERSON','PERSON.PARTIAL.VALUES','EQ',INDEX.PARTIAL.NAME.KEY)
+      CALL GET.INDEXED.IDS(XL.KEYS, INDEX.PARTIAL.NAME.KEY, 'PERSON.PARTIAL.VALUES', 'PERSON')
+      IF XL.KEYS = '' THEN
+         X.FOUND.INDEX.PARTIAL.NAME = @TRUE
+      END ELSE
+         X.FOUND.INDEX.PARTIAL.NAME = @FALSE
+      END
+      IF X.DEBUG THEN
+         IF XL.KEYS = '' THEN
+            CRT 'PARTIAL.NAME SEARCH FOUND NO RECORDS'
+         END ELSE
+            CRT 'PARTIAL.NAME.SEARCH FOUND ':DCOUNT(XL.KEYS,@VM):' RECORDS'
+         END
+      END
+      RETURN
+
+
+
+LOAD.SECONDARY.RECORDS: 
+      IF X.SECONDARY.LOAD.ACTIVE THEN
+         KEY.RIGHT.PART = INDEX.PARTIAL.NAME.KEY[5,999]
+         NUM.SECONDARY.KEYS = XL.KEYS<4>
+         IF NUM.SECONDARY.KEYS = '' OR NOT(NUM(NUM.SECONDARY.KEYS)) THEN
+            CRT 'Field 4 of INDEX.PARTIAL.NAME record ':INDEX.PARTIAL.NAME.KEY:' is not numeric.'
+            RETURN
+         END
+         FOR WHICH.SECONDARY.KEY = 1 TO NUM.SECONDARY.KEYS
+            INDEX.PARTIAL.NAME.KEY = FMT(WHICH.SECONDARY.KEY,'4"0"R'):KEY.RIGHT.PART
+            GOSUB READ.INDEX.PARTIAL.NAME
+            INDEX.PARTIAL.NAME.FIELD1 = XL.KEYS<1>
+            IF INDEX.PARTIAL.NAME.FIELD1 = '' THEN
+               CRT 'Null id list for INDEX.PARTIAL.NAME record ':INDEX.PARTIAL.NAME.KEY
+            END ELSE
+               RETURN.ID.LIST<1,-1> = INDEX.PARTIAL.NAME.FIELD1
+            END
+         NEXT WHICH.SECONDARY.KEY
+      END
+      RETURN
+
+*
+*
+* PROCESS LAST.INFO
+
+*
+*
+* PROCESS FIRST.INFO
+*
+*DLR*PROCESS.FIRST.INFO:
+*DLR*      NUM.MIDDLE = COUNT(FIRST.INFO,@SM)
+*DLR*      ID.LIST = ''
+*DLR*      DONE.MIDDLE = 0
+*DLR*      FOR MIDDLE.CTR=1 TO NUM.MIDDLE UNTIL DONE.MIDDLE
+*DLR*         INDEX.PARTIAL.NAME.MIDDLE = FIELD(FIRST.INFO<1,1,MIDDLE.CTR+1>,'\',1,1)
+*DLR*         IF EXACT.MATCH THEN
+*DLR*            CHECK.MIDDLE = INDEX.PARTIAL.NAME.MIDDLE
+*DLR*         END ELSE
+*DLR*            CHECK.MIDDLE = INDEX.PARTIAL.NAME.MIDDLE[1,LEN.MIDDLE]
+*DLR*         END
+*DLR*         IF CHECK.MIDDLE = UPPER.MIDDLE THEN
+*DLR*            ID.LIST = FIELD(FIRST.INFO<1,1,MIDDLE.CTR+1>,'\',2,1)
+*DLR*            GOSUB PROCESS.ID.LIST
+*DLR*            IF EXACT.MATCH THEN
+*DLR*               DONE.MIDDLE = 1
+*DLR*            END
+*DLR*         END
+*DLR*      NEXT MIDDLE.CTR
+*DLR*      RETURN
+
+
+*DLR**
+*DLR**
+*DLR** PROCESS ID.LIST
+*DLR**
+*DLR*PROCESS.ID.LIST:
+*DLR*      CONVERT ',' TO @VM IN ID.LIST
+*DLR*      RETURN.ID.LIST<1,-1> = ID.LIST
+*DLR*      RETURN
+
+
+CHECK.NAME: 
+      X.USE.THIS.ONE = @FALSE
+      TEMP.LAST.NAME = V.LAST.NAME
+      CONVERT "- '" TO "" IN TEMP.LAST.NAME
+      TEMP.VALUE = OCONV(TEMP.LAST.NAME,'MCU')[1,LEN.TEMP.UPPER.LAST]
+      IF X.DEBUG THEN
+         CRT '==========INSIDE CHECK.NAME'
+         CRT 'V.LAST.NAME ':V.LAST.NAME
+         CRT 'TEMP.VALUE ':TEMP.VALUE
+      END
+      IF TEMP.VALUE = TEMP.UPPER.LAST THEN
+         IF X.DEBUG THEN
+            CRT 'SKIPPING FORMER NAME CHECK AND CORP.INDICATOR CHECK'
+            CRT 'TEMP.VALUE ':TEMP.VALUE
+            CRT 'TEMP.UPPER.LAST ':TEMP.UPPER.LAST
+            INPUT CRTJUNK
+         END
+      END ELSE
+         IF V.PERSON.CORP.INDICATOR = 'Y' THEN
+            TEMP.LAST.NAME.UPPER = OCONV(TEMP.LAST.NAME,'MCU')
+            IF INDEX(TEMP.LAST.NAME.UPPER,TEMP.UPPER.LAST,1) > 0 THEN
+               IF X.DEBUG THEN
+                  CRT 'CORP.INDICATOR IS Y AND NAMES MATCH, SO WE ARE USING THIS ONE'
+               END
+               X.USE.THIS.ONE = @TRUE
+               RETURN
+* DLR CHANGE HERE 10/14/2014
+* ADDED "END ELSE" WITH A RETURN STATEMENT
+            END ELSE
+               IF X.DEBUG THEN
+                  CRT 'SKIPPING PARTIAL MATCH ':TEMP.UPPER.LAST:' ':TEMP.LAST.NAME.UPPER
+               END
+               RETURN
+* END DLR CHANGE 10/14/2014
+            END
+         END ELSE
+            VL.NAME.HISTORY.LAST.NAME = R.PERSON<NAME.HISTORY.LAST.NAME>
+            NUM.NAME.HISTORY = DCOUNT(VL.NAME.HISTORY.LAST.NAME,@VM)
+            FOR WHICH.NAME.HISTORY = 1 TO NUM.NAME.HISTORY WHILE X.USE.THIS.ONE = @FALSE
+               CHECK.NAME = OCONV(VL.NAME.HISTORY.LAST.NAME<1,WHICH.NAME.HISTORY>,'MCU')
+               CHECK.NAME = CHECK.NAME[1,LEN.TEMP.UPPER.LAST]
+               IF TEMP.UPPER.LAST EQ CHECK.NAME THEN
+                  X.USE.THIS.ONE = @TRUE
+               END
+            NEXT WHICH.NAME.HISTORY
+            IF NOT(X.USE.THIS.ONE) THEN
+               RETURN
+            END
+         END
+      END
+      IF LEN.FIRST GT 0 THEN
+         TEMP.VALUE = OCONV(V.FIRST.NAME,'MCU')[1,LEN.TEMP.UPPER.FIRST]
+         IF TEMP.VALUE # TEMP.UPPER.FIRST THEN
+            TEMP.VALUE = OCONV(V.NICKNAME,'MCU')[1,LEN.TEMP.UPPER.FIRST]
+            IF TEMP.VALUE # TEMP.UPPER.FIRST THEN
+               RETURN
+            END
+         END
+      END
+      X.USE.THIS.ONE = @TRUE
+      IF X.DEBUG THEN
+         CRT 'ACCEPTING THIS ONE BY DEFAULT'
+         CRT 'TEMP.UPPER.LAST ':TEMP.UPPER.LAST
+         CRT 'V.LAST.NAME ':V.LAST.NAME
+         INPUT CRTJUNK
+      END
+      RETURN
+
+
+CHECK.NETWORK.LOGINS: 
+      IF NOT(X.HAVE.F.NETWORK.LOGINS) THEN
+         RETURN
+      END
+      USE.LAST.UC = OCONV(USE.LAST,'MCU')
+      SELECTINDEX 'C26NL.LOGIN.NAME.INDEX', USE.LAST.UC FROM F.NETWORK.LOGINS TO 9
+      READLIST NETWORK.LOGINS.KEY.LIST FROM 9 THEN
+         CONVERT @FM:@IM TO @VM:@VM IN NETWORK.LOGINS.KEY.LIST
+         XL.KEYS = NETWORK.LOGINS.KEY.LIST
+      END ELSE
+         XL.KEYS = ''
+      END
+      IF X.DEBUG THEN
+         CRT 'GETTING MATCHING RECORDS FROM NETWORK.LOGINS'
+         CRT 'USE.LAST.US ':USE.LAST.UC
+         CRT 'FOUND ':DCOUNT(XL.KEYS,@VM):' RECORDS'
+         INPUT CRTJUNK
+      END
+      RETURN
+
+
+OPEN.PERSON: 
+      IF NOT(X.PERSON.OPEN) THEN
+         OPEN '','PERSON' TO F.PERSON ELSE
+            STOP 'CAN NOT OPEN "PERSON"'
+         END
+      END
+      X.PERSON.OPEN = @TRUE
+      RETURN
+
+
+PROCESS.RESTRICTIONS: 
+      XL.TEMP = USE.EXTRA.RESTRICTION
+      CONVERT ';' TO @VM IN XL.TEMP
+      NUM.XL.TEMP = DCOUNT(XL.TEMP,@VM)
+      FOR WHICH.XL.TEMP = 1 TO NUM.XL.TEMP
+         X.TEMP = XL.TEMP<1,WHICH.XL.TEMP>
+         X.RESTRICTION.TYPE = OCONV(FIELD(X.TEMP,' ',1,1),'MCU')
+         X.RESTRICTION.VALUE = FIELD(X.TEMP,' ',2,99)
+         GOSUB PROCESS.RESTRICTION
+      NEXT WHICH.XL.TEMP
+      RETURN
+
+
+PROCESS.RESTRICTION: 
+      IF RETURN.ID.LIST EQ '' THEN
+         RETURN
+      END
+      X.COMMAND = 'SELECT PERSON'
+      BEGIN CASE
+         CASE X.RESTRICTION.TYPE = 'C'
+            X.COMMAND := ' WITH C26PER.BEST.CITY = "':X.RESTRICTION.VALUE:'"'
+         CASE X.RESTRICTION.TYPE = 'F'
+            X.COMMAND := ' WITH C26PER.COUNTRY = "':X.RESTRICTION.VALUE:'"'
+         CASE X.RESTRICTION.TYPE = 'ST'
+            X.COMMAND := ' WITH C26PER.BEST.STATE = "':X.RESTRICTION.VALUE:'"'
+         CASE X.RESTRICTION.TYPE = 'Z'
+            X.COMMAND := ' WITH C26PER.BEST.ZIP.FIVE = "':X.RESTRICTION.VALUE:'"'
+         CASE X.RESTRICTION.TYPE = 'Y'
+            X.COMMAND := ' WITH REUNION.CLASS = "':X.RESTRICTION.VALUE:'"'
+         CASE X.RESTRICTION.TYPE = 'SS'
+            IF INDEX(X.RESTRICTION.VALUE,'-',1) LT 1 THEN
+               X.RESTRICTION.VALUE = FMT(X.RESTRICTION.VALUE,'###-##-####')
+            END
+            X.COMMAND := ' WITH SSN = "':X.RESTRICTION.VALUE:'"'
+         CASE 1
+            X.COMMAND := ' WITH ':X.RESTRICTION.TYPE:' = "':X.RESTRICTION.VALUE:'"'
+            NULL
+      END CASE
+      IF X.DEBUG THEN
+         CRT 'EXECUTING:'
+         CRT 'X.COMMAND ':X.COMMAND
+      END
+      XL.TEMP = RETURN.ID.LIST
+      CONVERT @VM TO @FM IN XL.TEMP
+      FORMLIST XL.TEMP
+      EXECUTE X.COMMAND CAPTURING X.OUTPUT
+      IF X.DEBUG THEN
+         CRT 'X.OUTPUT ':X.OUTPUT
+      END
+      READLIST RETURN.ID.LIST ELSE
+         RETURN.ID.LIST = ''
+      END
+      CONVERT @IM:@FM TO @VM:@VM IN RETURN.ID.LIST
+      RETURN
+
+
+READ.PERSON: 
+      READ R.PERSON FROM F.PERSON, KV.PERSON THEN
+         X.HAVE.PERSON = @TRUE
+      END ELSE
+         R.PERSON = ''
+         X.HAVE.PERSON = @FALSE
+      END
+      GOSUB PARSE.PERSON
+      RETURN
+
+
+PARSE.PERSON: 
+      V.LAST.NAME = R.PERSON<LAST.NAME>
+      V.FIRST.NAME = R.PERSON<FIRST.NAME>
+      V.MIDDLE.NAME = R.PERSON<MIDDLE.NAME>
+      V.NICKNAME = R.PERSON<NICKNAME>
+      VL.REUNION.CLASS = R.PERSON<REUNION.CLASS>
+      V.PERSON.CORP.INDICATOR = R.PERSON<PERSON.CORP.INDICATOR>
+      RETURN
+
+
+CHECK.CORP: 
+      IF NOT(X.HAVE.F.CORE.VALCODES) THEN
+         RETURN
+      END
+      KV.CORE.VALCODES = 'CORP.NAME.TOKENS'
+      READ R.CORE.VALCODES FROM F.CORE.VALCODES,KV.CORE.VALCODES ELSE
+         R.CORE.VALCODES = ''
+      END
+      XL.THROW.AWAY = R.CORE.VALCODES<1>
+      XL.USE.LAST = OCONV(USE.LAST,'MCU')
+      CONVERT ' ' TO @VM IN XL.USE.LAST
+      NUM.XL.USE.LAST = DCOUNT(XL.USE.LAST,@VM)
+      XL.NEW.USE.LAST = ''
+      FOR WHICH.XL.USE.LAST = 1 TO NUM.XL.USE.LAST
+         X.USE.LAST = XL.USE.LAST<1,WHICH.XL.USE.LAST>
+         LOCATE X.USE.LAST IN XL.THROW.AWAY<1,1> SETTING X.POS ELSE
+            XL.NEW.USE.LAST<1,-1> = X.USE.LAST
+         END
+      NEXT WHICH.XL.USE.LAST
+      NEW.USE.LAST = XL.NEW.USE.LAST
+      CONVERT @VM TO ' ' IN NEW.USE.LAST
+      USE.LAST = NEW.USE.LAST
+      UPPER.LAST = USE.LAST
+      LEN.LAST = LEN(UPPER.LAST)
+      GOSUB BUILD.PRIMARY.KEY
+      GOSUB READ.INDEX.PARTIAL.NAME
+      RETURN
+
+
+
+   END

@@ -1,0 +1,427 @@
+427 LINES
+*-------------------------- FTP SUBMISSION FORM --------------------------
+*--- PROGRAM NAME...: CT State tax subroutines
+*--- 40-CHAR DESC...: HR-PE tax subroutines for CT
+*--- KEYWORDS.......: HR PE PES EETT STATE TAX
+*--- SUBMISSION DATE: 19 June 1996
+*--- COMPANY NAME...: Quinnipiac College
+*--- CONTACT NAME...: Eric Spitzner
+*--- CONTACT PHONE#.: 203/281-8615
+*--- CONTACT EMAIL..: spitzner@quinnipiac.edu
+*--- LONG DESC......: UniBasic subroutines for calculating Connecticut
+*---                : state income tax deductions beginning 1 July 1996
+*---                : for the four filing statuses available in the state.
+*---                : Colleague Release 13.6 + HR
+*---                : HR > PE > PES > EETT > #6 (Special Tax Subroutine)
+*-------------------------------------------------------------------------
+FILE/RECORD INFORMATION:
+  1 CUSTOM.SOURCE...................... PR.TAX.CTA
+  2 CUSTOM.SOURCE...................... PR.TAX.CTB
+  3 CUSTOM.SOURCE...................... PR.TAX.CTC
+  4 CUSTOM.SOURCE...................... PR.TAX.CTD
+ ##### FILE CUSTOM.SOURCE #########################    4 RECORDS ######
+ ======== RECORD PR.TAX.CTA =======================   113 FIELDS ======
+   SUBROUTINE PR.TAX.CTA
+ * 6 June 1996
+ * UniBasic Subroutine
+ * Eric Spitzner, CDP
+ * PR.TAX.CTA
+ * 13.6
+ * Connecticut State tax - For filing status "A"
+ * Effective July 1, 1996 - single; married filing separately;
+ * or married filing jointly, both spouses work, combined income
+ * is $100,500 or less
+ * Last updated by ...
+ * Stamped: q8 spitzner, /data4/test/coll/coltest, user #30676, 12 Jun
+C96, 03:51PM.
+ *
+   $INSERT I_COMMON                      FROM UT.INSERTS
+   $INSERT I_SYSTEM.COMMON               FROM SOURCE.INSERTS
+   $INSERT I_PR.COMMON                   FROM HR.SOURCE
+   $INSERT I_PR.TAX.COMMON               FROM HR.SOURCE
+   $INSERT I_PR.CALC.COMMON              FROM HR.SOURCE
+   $INSERT I_PR.CALC.SPEC.COMMON         FROM HR.SOURCE
+   $INSERT I_PAYPRDS                     FROM HR.SOURCE
+   $INSERT I_TAX.ARRAY.REC               FROM HR.SOURCE
+
+
+
+   IF ANNUAL.TAXABLE GE 3500000 THEN
+     W.EXEMPTION.AMOUNT = 0
+   END ELSE
+     W.EXEMPTION.AMOUNT = (35 - INT(ANNUAL.TAXABLE / 100000)) * 100000
+     IF W.EXEMPTION.AMOUNT GT 1200000 THEN
+       W.EXEMPTION.AMOUNT = 1200000
+     END
+   END
+
+   W.ANNUAL.TAXABLE = ANNUAL.TAXABLE - W.EXEMPTION.AMOUNT
+
+   IF W.ANNUAL.TAXABLE GT 0 THEN
+     IF W.ANNUAL.TAXABLE GT 450000 THEN
+       W.INITIAL.WITHHOLDING = INT(((W.ANNUAL.TAXABLE - 450000) * .045)
+C + 13500.5)
+     END ELSE
+       W.INITIAL.WITHHOLDING = INT((W.ANNUAL.TAXABLE * .03) + .5)
+     END
+
+     BEGIN CASE
+       CASE ANNUAL.TAXABLE LE 1500000
+         W.CREDIT.PCT = .75
+       CASE ANNUAL.TAXABLE LE 1550000
+         W.CREDIT.PCT = .70
+       CASE ANNUAL.TAXABLE LE 1600000
+         W.CREDIT.PCT = .65
+       CASE ANNUAL.TAXABLE LE 1650000
+         W.CREDIT.PCT = .60
+       CASE ANNUAL.TAXABLE LE 1700000
+         W.CREDIT.PCT = .55
+       CASE ANNUAL.TAXABLE LE 1750000
+         W.CREDIT.PCT = .50
+       CASE ANNUAL.TAXABLE LE 1800000
+         W.CREDIT.PCT = .45
+       CASE ANNUAL.TAXABLE LE 1850000
+         W.CREDIT.PCT = .40
+       CASE ANNUAL.TAXABLE LE 2000000
+         W.CREDIT.PCT = .35
+       CASE ANNUAL.TAXABLE LE 2050000
+         W.CREDIT.PCT = .30
+       CASE ANNUAL.TAXABLE LE 2100000
+         W.CREDIT.PCT = .25
+       CASE ANNUAL.TAXABLE LE 2150000
+         W.CREDIT.PCT = .20
+       CASE ANNUAL.TAXABLE LE 2500000
+         W.CREDIT.PCT = .15
+       CASE ANNUAL.TAXABLE LE 2550000
+         W.CREDIT.PCT = .14
+       CASE ANNUAL.TAXABLE LE 2600000
+         W.CREDIT.PCT = .13
+       CASE ANNUAL.TAXABLE LE 2650000
+         W.CREDIT.PCT = .12
+       CASE ANNUAL.TAXABLE LE 2700000
+         W.CREDIT.PCT = .11
+       CASE ANNUAL.TAXABLE LE 4800000
+         W.CREDIT.PCT = .10
+       CASE ANNUAL.TAXABLE LE 4850000
+         W.CREDIT.PCT = .09
+       CASE ANNUAL.TAXABLE LE 4900000
+         W.CREDIT.PCT = .08
+       CASE ANNUAL.TAXABLE LE 4950000
+         W.CREDIT.PCT = .07
+       CASE ANNUAL.TAXABLE LE 5000000
+         W.CREDIT.PCT = .06
+       CASE ANNUAL.TAXABLE LE 5050000
+         W.CREDIT.PCT = .05
+       CASE ANNUAL.TAXABLE LE 5100000
+         W.CREDIT.PCT = .04
+       CASE ANNUAL.TAXABLE LE 5150000
+         W.CREDIT.PCT = .03
+       CASE ANNUAL.TAXABLE LE 5200000
+         W.CREDIT.PCT = .02
+       CASE ANNUAL.TAXABLE LE 5250000
+         W.CREDIT.PCT = .01
+       CASE 1
+         W.CREDIT.PCT = 0
+     END CASE
+
+     W.INITIAL.WITHHOLDING = INT(W.INITIAL.WITHHOLDING * (1.00 - W.CRED
+CIT.PCT) + .5)
+   END ELSE
+     W.INITIAL.WITHHOLDING = 0
+   END
+
+   TAX = W.INITIAL.WITHHOLDING
+
+   RETURN
+
+
+
+ END
+ ======== END OF RECORD ===============================================
+ ======== RECORD PR.TAX.CTB =======================   113 FIELDS ======
+   SUBROUTINE PR.TAX.CTB
+ * 6 June 1996
+ * UniBasic Subroutine
+ * Eric Spitzner, CDP
+ * PR.TAX.CTB
+ * 13.6
+ * Connecticut State tax - For filing status "B"
+ * Effective July 1, 1996 - head of household on federal tax return
+ *
+ *
+ * Last updated by ...
+ * Stamped: q8 spitzner, /data4/test/coll/coltest, user #30676, 12 Jun
+C96, 03:51PM.
+ *
+   $INSERT I_COMMON                      FROM UT.INSERTS
+   $INSERT I_SYSTEM.COMMON               FROM SOURCE.INSERTS
+   $INSERT I_PR.COMMON                   FROM HR.SOURCE
+   $INSERT I_PR.TAX.COMMON               FROM HR.SOURCE
+   $INSERT I_PR.CALC.COMMON              FROM HR.SOURCE
+   $INSERT I_PR.CALC.SPEC.COMMON         FROM HR.SOURCE
+   $INSERT I_PAYPRDS                     FROM HR.SOURCE
+   $INSERT I_TAX.ARRAY.REC               FROM HR.SOURCE
+
+
+
+   IF ANNUAL.TAXABLE GE 5600000 THEN
+     W.EXEMPTION.AMOUNT = 0
+   END ELSE
+     W.EXEMPTION.AMOUNT = (56 - INT(ANNUAL.TAXABLE / 100000)) * 100000
+     IF W.EXEMPTION.AMOUNT GT 1900000 THEN
+       W.EXEMPTION.AMOUNT = 1900000
+     END
+   END
+
+   W.ANNUAL.TAXABLE = ANNUAL.TAXABLE - W.EXEMPTION.AMOUNT
+
+   IF W.ANNUAL.TAXABLE GT 0 THEN
+     IF W.ANNUAL.TAXABLE GT 700000 THEN
+       W.INITIAL.WITHHOLDING = INT(((W.ANNUAL.TAXABLE - 700000) * .045)
+C + 21000.5)
+     END ELSE
+       W.INITIAL.WITHHOLDING = INT((W.ANNUAL.TAXABLE * .03) + .5)
+     END
+
+     BEGIN CASE
+       CASE ANNUAL.TAXABLE LE 2400000
+         W.CREDIT.PCT = .75
+       CASE ANNUAL.TAXABLE LE 2450000
+         W.CREDIT.PCT = .70
+       CASE ANNUAL.TAXABLE LE 2500000
+         W.CREDIT.PCT = .65
+       CASE ANNUAL.TAXABLE LE 2550000
+         W.CREDIT.PCT = .60
+       CASE ANNUAL.TAXABLE LE 2600000
+         W.CREDIT.PCT = .55
+       CASE ANNUAL.TAXABLE LE 2650000
+         W.CREDIT.PCT = .50
+       CASE ANNUAL.TAXABLE LE 2700000
+         W.CREDIT.PCT = .45
+       CASE ANNUAL.TAXABLE LE 2750000
+         W.CREDIT.PCT = .40
+       CASE ANNUAL.TAXABLE LE 3400000
+         W.CREDIT.PCT = .35
+       CASE ANNUAL.TAXABLE LE 3450000
+         W.CREDIT.PCT = .30
+       CASE ANNUAL.TAXABLE LE 3500000
+         W.CREDIT.PCT = .25
+       CASE ANNUAL.TAXABLE LE 3550000
+         W.CREDIT.PCT = .20
+       CASE ANNUAL.TAXABLE LE 4400000
+         W.CREDIT.PCT = .15
+       CASE ANNUAL.TAXABLE LE 4450000
+         W.CREDIT.PCT = .14
+       CASE ANNUAL.TAXABLE LE 4500000
+         W.CREDIT.PCT = .13
+       CASE ANNUAL.TAXABLE LE 4550000
+         W.CREDIT.PCT = .12
+       CASE ANNUAL.TAXABLE LE 4600000
+         W.CREDIT.PCT = .11
+       CASE ANNUAL.TAXABLE LE 7400000
+         W.CREDIT.PCT = .10
+       CASE ANNUAL.TAXABLE LE 7450000
+         W.CREDIT.PCT = .09
+       CASE ANNUAL.TAXABLE LE 7500000
+         W.CREDIT.PCT = .08
+       CASE ANNUAL.TAXABLE LE 7550000
+         W.CREDIT.PCT = .07
+       CASE ANNUAL.TAXABLE LE 7600000
+         W.CREDIT.PCT = .06
+       CASE ANNUAL.TAXABLE LE 7650000
+         W.CREDIT.PCT = .05
+       CASE ANNUAL.TAXABLE LE 7700000
+         W.CREDIT.PCT = .04
+       CASE ANNUAL.TAXABLE LE 7750000
+         W.CREDIT.PCT = .03
+       CASE ANNUAL.TAXABLE LE 7800000
+         W.CREDIT.PCT = .02
+       CASE ANNUAL.TAXABLE LE 7850000
+         W.CREDIT.PCT = .01
+       CASE 1
+         W.CREDIT.PCT = 0
+     END CASE
+
+     W.INITIAL.WITHHOLDING = INT(W.INITIAL.WITHHOLDING * (1.00 - W.CRED
+CIT.PCT) + .5)
+   END ELSE
+     W.INITIAL.WITHHOLDING = 0
+   END
+
+   TAX = W.INITIAL.WITHHOLDING
+
+   RETURN
+
+
+
+ END
+ ======== END OF RECORD ===============================================
+ ======== RECORD PR.TAX.CTC =======================   113 FIELDS ======
+   SUBROUTINE PR.TAX.CTC
+ * 6 June 1996
+ * UniBasic Subroutine
+ * Eric Spitzner, CDP
+ * PR.TAX.CTC
+ * 13.6
+ * Connecticut State tax - For filing status "C"
+ * Effective July 1, 1996 - married filing jointly and spouse not emplo
+Cyed
+ *
+ *
+ * Last updated by ...
+ * Stamped: q8 spitzner, /data4/test/coll/coltest, user #30676, 12 Jun
+C96, 03:51PM.
+ *
+   $INSERT I_COMMON                      FROM UT.INSERTS
+   $INSERT I_SYSTEM.COMMON               FROM SOURCE.INSERTS
+   $INSERT I_PR.COMMON                   FROM HR.SOURCE
+   $INSERT I_PR.TAX.COMMON               FROM HR.SOURCE
+   $INSERT I_PR.CALC.COMMON              FROM HR.SOURCE
+   $INSERT I_PR.CALC.SPEC.COMMON         FROM HR.SOURCE
+   $INSERT I_PAYPRDS                     FROM HR.SOURCE
+   $INSERT I_TAX.ARRAY.REC               FROM HR.SOURCE
+
+
+
+   IF ANNUAL.TAXABLE GE 7100000 THEN
+     W.EXEMPTION.AMOUNT = 0
+   END ELSE
+     W.EXEMPTION.AMOUNT = (71 - INT(ANNUAL.TAXABLE / 100000)) * 100000
+     IF W.EXEMPTION.AMOUNT GT 2400000 THEN
+       W.EXEMPTION.AMOUNT = 2400000
+     END
+   END
+
+   W.ANNUAL.TAXABLE = ANNUAL.TAXABLE - W.EXEMPTION.AMOUNT
+
+   IF W.ANNUAL.TAXABLE GT 0 THEN
+     IF W.ANNUAL.TAXABLE GT 900000 THEN
+       W.INITIAL.WITHHOLDING = INT(((W.ANNUAL.TAXABLE - 900000) * .045)
+C + 27000.5)
+     END ELSE
+       W.INITIAL.WITHHOLDING = INT((W.ANNUAL.TAXABLE * .03) + .5)
+     END
+
+     BEGIN CASE
+       CASE ANNUAL.TAXABLE LE 3000000
+         W.CREDIT.PCT = .75
+       CASE ANNUAL.TAXABLE LE 3050000
+         W.CREDIT.PCT = .70
+       CASE ANNUAL.TAXABLE LE 3100000
+         W.CREDIT.PCT = .65
+       CASE ANNUAL.TAXABLE LE 3150000
+         W.CREDIT.PCT = .60
+       CASE ANNUAL.TAXABLE LE 3200000
+         W.CREDIT.PCT = .55
+       CASE ANNUAL.TAXABLE LE 3250000
+         W.CREDIT.PCT = .50
+       CASE ANNUAL.TAXABLE LE 3300000
+         W.CREDIT.PCT = .45
+       CASE ANNUAL.TAXABLE LE 3350000
+         W.CREDIT.PCT = .40
+       CASE ANNUAL.TAXABLE LE 4000000
+         W.CREDIT.PCT = .35
+       CASE ANNUAL.TAXABLE LE 4050000
+         W.CREDIT.PCT = .30
+       CASE ANNUAL.TAXABLE LE 4100000
+         W.CREDIT.PCT = .25
+       CASE ANNUAL.TAXABLE LE 4150000
+         W.CREDIT.PCT = .20
+       CASE ANNUAL.TAXABLE LE 5000000
+         W.CREDIT.PCT = .15
+       CASE ANNUAL.TAXABLE LE 5050000
+         W.CREDIT.PCT = .14
+       CASE ANNUAL.TAXABLE LE 5100000
+         W.CREDIT.PCT = .13
+       CASE ANNUAL.TAXABLE LE 5150000
+         W.CREDIT.PCT = .12
+       CASE ANNUAL.TAXABLE LE 5200000
+         W.CREDIT.PCT = .11
+       CASE ANNUAL.TAXABLE LE 9600000
+         W.CREDIT.PCT = .10
+       CASE ANNUAL.TAXABLE LE 9650000
+         W.CREDIT.PCT = .09
+       CASE ANNUAL.TAXABLE LE 9700000
+         W.CREDIT.PCT = .08
+       CASE ANNUAL.TAXABLE LE 9750000
+         W.CREDIT.PCT = .07
+       CASE ANNUAL.TAXABLE LE 9800000
+         W.CREDIT.PCT = .06
+       CASE ANNUAL.TAXABLE LE 9850000
+         W.CREDIT.PCT = .05
+       CASE ANNUAL.TAXABLE LE 9900000
+         W.CREDIT.PCT = .04
+       CASE ANNUAL.TAXABLE LE 9950000
+         W.CREDIT.PCT = .03
+       CASE ANNUAL.TAXABLE LE 10000000
+         W.CREDIT.PCT = .02
+       CASE ANNUAL.TAXABLE LE 10050000
+         W.CREDIT.PCT = .01
+       CASE 1
+         W.CREDIT.PCT = 0
+     END CASE
+
+     W.INITIAL.WITHHOLDING = INT(W.INITIAL.WITHHOLDING * (1.00 - W.CRED
+CIT.PCT) + .5)
+   END ELSE
+     W.INITIAL.WITHHOLDING = 0
+   END
+
+   TAX = W.INITIAL.WITHHOLDING
+
+   RETURN
+
+
+
+ END
+ ======== END OF RECORD ===============================================
+ ======== RECORD PR.TAX.CTD =======================    45 FIELDS ======
+   SUBROUTINE PR.TAX.CTD
+ * 6 June 1996
+ * UniBasic Subroutine
+ * Eric Spitzner, CDP
+ * PR.TAX.CTD
+ * 13.6
+ * Connecticut State tax - For filing status "D"
+ * Effective July 1, 1996 - married filing jointly, both spouses work,
+ * and combined income is more than $100,500.
+ *
+ * Last updated by ...
+ * Stamped: q8 spitzner, /data4/test/coll/coltest, user #30676, 12 Jun
+C96, 03:52PM.
+ *
+   $INSERT I_COMMON                      FROM UT.INSERTS
+   $INSERT I_SYSTEM.COMMON               FROM SOURCE.INSERTS
+   $INSERT I_PR.COMMON                   FROM HR.SOURCE
+   $INSERT I_PR.TAX.COMMON               FROM HR.SOURCE
+   $INSERT I_PR.CALC.COMMON              FROM HR.SOURCE
+   $INSERT I_PR.CALC.SPEC.COMMON         FROM HR.SOURCE
+   $INSERT I_PAYPRDS                     FROM HR.SOURCE
+   $INSERT I_TAX.ARRAY.REC               FROM HR.SOURCE
+
+
+
+   W.EXEMPTION.AMOUNT = 0
+
+   W.ANNUAL.TAXABLE = ANNUAL.TAXABLE - W.EXEMPTION.AMOUNT
+
+   IF W.ANNUAL.TAXABLE GT 0 THEN
+     IF W.ANNUAL.TAXABLE GT 450000 THEN
+       W.INITIAL.WITHHOLDING = INT(((W.ANNUAL.TAXABLE - 450000) * .045)
+C + 13500.5)
+     END ELSE
+       W.INITIAL.WITHHOLDING = INT((W.ANNUAL.TAXABLE * .03) + .5)
+     END
+   END ELSE
+     W.INITIAL.WITHHOLDING = 0
+   END
+
+   TAX = W.INITIAL.WITHHOLDING
+
+   RETURN
+
+
+
+ END
+ ======== END OF RECORD ===============================================
+ ### END OF FILE ######################################################

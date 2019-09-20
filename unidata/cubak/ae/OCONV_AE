@@ -1,0 +1,90 @@
+      SUBROUTINE OCONV_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 09/17/2004
+* DLR (DAVE ROTMAN)
+* TITLE ----- OCONV_AE
+*
+*
+* MODULE :
+* PURPOSE: APPLY OCONV OPERANDS TO MULTIPLE LINES
+*
+* Stamped: pts_tb rotmand, /datatel/live/collive, user #28511, 17 Sep 04, 07:17AM.
+*
+*************************************************************************
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+
+
+      PASSED.COMMAND = X$C
+      OCONV.STRING = FIELD(PASSED.COMMAND,' ',2,1)
+      NUMBER.TO.OCONV = FIELD(PASSED.COMMAND,' ',3,1)
+      IF NUMBER.TO.OCONV = '' OR NOT(NUM(NUMBER.TO.OCONV)) THEN
+         GOSUB DISPLAY.HELP
+         RETURN
+      END
+      MAX.LINES = X$B.CT
+      IF MAX.LINES < 1000 THEN
+         LINE.FMT = '3"0"R'
+      END ELSE
+         LINE.FMT = LEN(MAX.LINES):'"0"R'
+      END
+      NUMBER.LINES = 0
+      IF NUMBER.TO.OCONV GT 0 THEN
+         GOSUB SEARCH.FORWARD
+      END ELSE
+         GOSUB SEARCH.BACKWARD
+      END
+      RETURN
+
+
+SEARCH.FORWARD: 
+      LOOP
+      UNTIL NUMBER.LINES = NUMBER.TO.OCONV OR X$PO = MAX.LINES
+         X$PO += 1
+         GOSUB APPLY.CHANGE
+         NUMBER.LINES += 1
+      REPEAT
+      IF X$PO = MAX.LINES THEN
+         CRT 'End of file'
+      END
+      RETURN
+
+
+SEARCH.BACKWARD: 
+      LOOP
+      UNTIL NUMBER.LINES = NUMBER.TO.OCONV OR X$PO = 0
+         X$PO -= 1
+         GOSUB APPLY.CHANGE
+         NUMBER.LINES -= 1
+      REPEAT
+      IF X$PO = 0 THEN
+         CRT 'Top of file'
+      END
+      RETURN
+
+
+APPLY.CHANGE: 
+      X.OLD = X$REC<X$PO>
+      X.NEW = OCONV(X.OLD,OCONV.STRING)
+      IF X.OLD NE X.NEW THEN
+         CRT X.NEW
+         X$REC<X$PO> = X.NEW
+      END
+      RETURN
+
+
+      X$REC<X$PO> = OCONV(X$REC<X$PO>,OCONV.STRING)
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT 'You must specify the conversion code and number of lines to change.'
+      CRT 'eg:'
+      CRT '$OCONV MCU 58'
+      RETURN
+
+
+   END

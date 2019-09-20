@@ -1,0 +1,39 @@
+      SUBROUTINE E_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 05/20/2004
+* DLR (DAVE ROTMAN)
+* TITLE ----- E_AE
+*
+*
+* MODULE :
+* PURPOSE: EXECUTE THE CURRENT LINE OR SPECIFIED NUMBER OF LINES
+*  WHILE EDITING A PARAGRAPH
+*
+* Stamped: p4 rotmand, /datatel/live/collive, user #24247, 20 May 04, 07:50AM.
+*
+*************************************************************************
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      X.START.LINE =  FIELD(X$C,' ',2,1)
+      IF X.START.LINE = ''  OR NOT(NUM(X.START.LINE)) THEN
+         X.START.LINE = X$PO
+         NUM.LINES.TO.EXECUTE = 1
+      END ELSE
+         X.END.LINE =  FIELD(X$C,' ',3,1)
+         IF NUM(X.END.LINE) AND X.END.LINE GT 0 THEN
+            NUM.LINES.TO.EXECUTE = X.END.LINE - X.START.LINE + 1
+            IF NUM.LINES.TO.EXECUTE LT 1 THEN
+               NUM.LINES.TO.EXECXUTE = 1
+            END
+         END ELSE
+            NUM.LINES.TO.EXECUTE = 1
+         END
+      END
+      TEMP.OUT = FIELD(X$REC,@FM,X.START.LINE,NUM.LINES.TO.EXECUTE)
+      CRT 'About to execute: ':TEMP.OUT
+      EXECUTE TEMP.OUT
+      RETURN
+   END

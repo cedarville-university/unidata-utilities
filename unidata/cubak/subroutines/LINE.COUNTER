@@ -1,0 +1,25 @@
+      SUBROUTINE LINE.COUNTER(RETURN.LIST,BEG.NUM,END.NUM)
+*
+* INFO/BASIC SUBROUTINE
+* 2/29/88
+* DWS
+* TITLE ----- LINE.COUNTER
+*
+*
+* PURPOSE: RETURN MV LIST OF NUMBERS
+*
+*     Last updated by LIVE (SJOQUIST) at 11:50:18 on 02/29/1988.
+*
+********************************************************************
+*
+
+
+      RETURN.LIST = ''
+      IF END.NUM >= BEG.NUM THEN
+         RETURN.LIST = BEG.NUM
+         FOR I=BEG.NUM + 1 TO END.NUM
+            RETURN.LIST := @VM:I
+         NEXT I
+      END
+      RETURN
+END

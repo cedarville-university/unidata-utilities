@@ -1,0 +1,83 @@
+      SUBROUTINE IF.SUM(TOTAL,VALUES,FIELD.1,OPERATOR,FIELD.2,SM.FLAG)
+*
+* SELECTIVE SUMMATION OF PARAMETER "VALUES"
+*  IF FIELD.1 (WHICH IS MV ASSOC WITH "VALUES") COMPARES FAVORABLY
+*    (BASED ON THE "OPERATOR") TO FIELD.2 (IF SM.FLAG IS 'S' THEN
+*     IT REUSES FIELD.2, OTHERWISE IT DOES A VALUE BY VALUE COMPARE)
+*     THEN THEN ASSOCIATED VALUE IN "VALUES" IS ADDED TO THE TOTAL.
+*
+* Stamped: pty/ttyp7 rotmand, /disk1/collive, user #26787, 09 Jul 96, 07:56AM.
+* Use SUM(VALUES<1,I>) so that subvalues can be processed.
+*     Last updated by LIVE (SJOQUIST) at 16:01:13 on 06/24/1988.
+* Add 'IN' & 'NOTIN' operators
+*     Last updated by LIVE (ROTMAN) at 12:53:01 on 02/05/1988.
+* IF 'VALUES' IS NULL, WE RETURN A SUM OF NULL
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      TOTAL = ''
+      IF VALUES = '' THEN
+         RETURN
+      END
+      NUM.FIELDS = COUNT(VALUES,@VM) + 1
+      TOTAL = 0
+      FOR I=1 TO NUM.FIELDS
+         IF SM.FLAG = 'M' THEN
+            I2 = I
+         END ELSE
+            I2 = 1
+         END
+         BEGIN CASE
+            CASE OPERATOR = '='
+               IF FIELD.1<1,I> = FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = '<'
+               IF FIELD.1<1,I> < FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = '>'
+               IF FIELD.1<1,I> > FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = '<='
+               IF FIELD.1<1,I> <= FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = '>='
+               IF FIELD.1<1,I> >= FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = '#'
+               IF FIELD.1<1,I> # FIELD.2<1,I2> THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = 'IN'
+               LOCATE FIELD.1<1,I> IN FIELD.2<1,1> SETTING POS THEN
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+            CASE OPERATOR = 'NOTIN'
+               LOCATE FIELD.1<1,I> IN FIELD.2<1,1> SETTING POS ELSE
+                  TOTAL += SUM(VALUES<1,I>)
+               END
+         END CASE
+      NEXT I
+      RETURN
+   END

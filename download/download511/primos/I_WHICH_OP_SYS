@@ -1,0 +1,28 @@
+*
+* Set which operating system/environment this program is running on
+* 10/04/91
+* DWS
+* TITLE -----  I_WHICH_OP_SYS
+*
+*
+*
+*
+* Stamped: p1 rotmand, /disk1/test, user #17092, 25 Feb 02, 02:16PM.
+*   Version 5.11
+*************************************************************************
+*
+
+*
+* IF THIS IS RUNNING UNDER PRIME INFORMATION, THEN USE THE FOLLOWING
+* LITERAL EQU STATEMENTS (THE DEFAULT)
+*
+*NOT USED FOR UNIX*      EQU COMMENT.OUT.UNIX LIT '*'
+*NOT USED FOR UNIX*      EQU COMMENT.OUT.PRIMOS LIT ''
+*NOT USED FOR UNIX*      OP.SYS = 'PRIMOS'
+
+*
+* IF RUNNING UNDER UNIX, THEN USE THESE
+*
+      EQU COMMENT.OUT.UNIX LIT ''
+      EQU COMMENT.OUT.PRIMOS LIT '*'
+      OP.SYS = 'UNIX'

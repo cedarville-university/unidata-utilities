@@ -1,0 +1,268 @@
+      SUBROUTINE DOWNLOAD.BUILD.TEST.FILE
+*
+* UNIBASIC PROGRAM
+* 09/12/2002
+* DLR
+* TITLE ----- DOWNLOAD.BUILD.TEST.FILE
+*
+*
+* PURPOSE: BUILD A FILE OF TEST DATA TO BE USED IN VERIFYING
+*   A SUCCESSFUL INSTALLATION OF DOWNLOAD
+*
+*
+*************************************************************************
+*
+* Stamped: p17 rotmand, /usr/local/download, user #1026, 09 Mar 12, 06:48AM.
+* Version 7.41
+*
+*
+*
+
+      $INCLUDE I_DOWNLOAD_DBMS_COMMON
+      $INCLUDE I_DOWNLOAD_OP_SYS_COMMON
+      $INCLUDE I_WHICH_DBMS
+
+      TRUE = 1
+      FALSE = 0
+      PROMPT ''
+
+      X.PROGRAM.NAME = 'DOWNLOAD.BUILD.TEST.FILE'
+      X.DEFAULT.FILE.NAME = 'DOWNLOAD.TEST.FILE'
+      CRT X.PROGRAM.NAME
+      CRT
+
+      GOSUB DBMS.SET.UP
+      GOSUB PARSE.INITIAL.COMMAND.LINE
+      GOSUB OPEN.FILES
+      GOSUB BUILD.DICT.RECORDS
+      GOSUB BUILD.DATA.RECORDS
+      GOSUB COMPILE.DICT.RECORDS
+      CRT 'Build complete.'
+      STOP
+
+
+BUILD.DICT.RECORDS: 
+      CRT 'Starting build of dictionary for ':X.FILE.NAME
+      KVD.FILE.NAME = 'TEXT.FIELD'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '1'
+      RD.FILE.NAME<4> = 'Text':@VM:'Field'
+      RD.FILE.NAME<5> = '17L'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'DATE.FIELD.MV'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '2'
+      RD.FILE.NAME<3> = 'D4/'
+      RD.FILE.NAME<4> = 'Date':@VM:'Field'
+      RD.FILE.NAME<5> = '10R'
+      RD.FILE.NAME<6> = 'M'
+      RD.FILE.NAME<7> = 'XASSOC'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'MONEY.FIELD.MV'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '3'
+      RD.FILE.NAME<3> = 'MD2,'
+      RD.FILE.NAME<4> = 'Money':@VM:'Field'
+      RD.FILE.NAME<5> = '6R'
+      RD.FILE.NAME<6> = 'M'
+      RD.FILE.NAME<7> = 'XASSOC'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'NUMERIC.FIELD'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'D'
+      RD.FILE.NAME<2> = '4'
+      RD.FILE.NAME<3> = 'MD0'
+      RD.FILE.NAME<4> = 'Numeric':@VM:'Field'
+      RD.FILE.NAME<5> = '7R'
+      RD.FILE.NAME<6> = 'S'
+      RD.FILE.NAME<7> = ''
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'XASSOC'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'PH'
+      RD.FILE.NAME<2> = 'DATE.FIELD.MV MONEY.FIELD.MV'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = '@'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'PH'
+      RD.FILE.NAME<2> = 'TEXT.FIELD DATE.FIELD.MV TOTAL MONEY.FIELD.MV TOTAL NUMERIC.FIELD VFIELD'
+      GOSUB WRITE.D.FILE.NAME
+      KVD.FILE.NAME = 'VFIELD'
+      RD.FILE.NAME = ''
+      RD.FILE.NAME<1> = 'I'
+      RD.FILE.NAME<2> = 'IF (NUMERIC.FIELD GT 5) THEN "Greater" ELSE "Not Greater"'
+      RD.FILE.NAME<4> = 'Virtual':@VM:'Field'
+      RD.FILE.NAME<5> = '11L'
+      RD.FILE.NAME<6> = 'S'
+      GOSUB WRITE.D.FILE.NAME
+      RETURN
+
+
+WRITE.D.FILE.NAME: 
+      CRT '   ':KVD.FILE.NAME
+      WRITE RD.FILE.NAME ON D.FILE.NAME, KVD.FILE.NAME
+      RETURN
+
+
+WRITE.F.FILE.NAME: 
+      CRT '   ':KV.FILE.NAME
+      WRITE R.FILE.NAME ON F.FILE.NAME, KV.FILE.NAME
+      RETURN
+
+
+BUILD.DATA.RECORDS: 
+      CRT 'Starting build of data records for ':X.FILE.NAME
+      KV.FILE.NAME = 'REC1'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'simple record 1'
+      R.FILE.NAME<2> = '12780'
+      R.FILE.NAME<3> = '5825'
+      R.FILE.NAME<4> = '4'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC2'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'complex record 2'
+      R.FILE.NAME<2> = '12780':@VM:'12793':@VM:'12795'
+      R.FILE.NAME<3> = '175':@VM:@VM:'320'
+      R.FILE.NAME<4> = '8'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC3'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'complex record 3'
+      R.FILE.NAME<2> = '12400':@VM:'12508':@VM:'13085':@VM:'13100':@VM:'13108'
+      R.FILE.NAME<3> = '100':@VM:'200':@VM:'300':@VM:'400':@VM:'500'
+      R.FILE.NAME<4> = '1'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC4'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'simple record 4'
+      R.FILE.NAME<2> = '12780'
+      R.FILE.NAME<3> = '500'
+      R.FILE.NAME<4> = '7'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC5'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'complex record 5'
+      R.FILE.NAME<2> = '12508':@VM:'12795':@VM:'13100':@VM:'13108'
+      R.FILE.NAME<3> = '150':@VM:'260':@VM:'370':@VM:'480'
+      R.FILE.NAME<4> = '3'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC6'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'complex record 6'
+      R.FILE.NAME<2> = '13070':@VM:'13180':@VM:'13407':@VM:'13408'
+      R.FILE.NAME<3> = '125':@SM:'126':@VM:'201':@VM:'315':@SM:'318':@SM:'320':@VM:'5710':@SM:'5720':@SM:'5730'
+      R.FILE.NAME<4> = '8'
+      GOSUB WRITE.F.FILE.NAME
+      KV.FILE.NAME = 'REC7'
+      R.FILE.NAME = ''
+      R.FILE.NAME<1> = 'complex record 7'
+      R.FILE.NAME<2> = '13070':@VM:'14408'
+      R.FILE.NAME<3> = '1010':@SM:'1020':@SM:'1030':@SM:'1040':@SM:'1050':@VM:'2010':@SM:'2020':@SM:'2030':@SM:'2040':@SM:'2050':@SM:'2060':@SM:'2070':@SM:'2080'
+      R.FILE.NAME<4> = '11'
+      GOSUB WRITE.F.FILE.NAME
+      RETURN
+
+
+COMPILE.DICT.RECORDS: 
+      CRT 'Compiling dictionary ':X.FILE.NAME
+      X.COMMAND = 'CD ':X.FILE.NAME
+      EXECUTE X.COMMAND
+      RETURN
+
+
+OPEN.FILES: 
+      OPEN '',X.FILE.NAME TO F.FILE.NAME ELSE
+         CRT 'UNABLE TO OPEN ':X.FILE.NAME
+         STOP
+      END
+      OPEN 'DICT',X.FILE.NAME TO D.FILE.NAME ELSE
+         CRT 'UNABLE TO OPEN DICT ':X.FILE.NAME
+         STOP
+      END
+      RETURN
+
+
+DBMS.SET.UP: 
+      BEGIN CASE
+         CASE DBMS.NAME = 'INFORMATION'
+            GOSUB DBMS.INFORMATION.SET.UP
+         CASE DBMS.NAME = 'UNIDATA'
+            GOSUB DBMS.UNIDATA.SET.UP
+         CASE DBMS.NAME = 'UNIVERSE'
+            GOSUB DBMS.UNIVERSE.SET.UP
+      END CASE
+      RETURN
+
+DBMS.INFORMATION.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 3
+      DBMS.ACCOUNT.PATH.NAME = @PATH
+      DBMS.DICT.FIELD.TO.CHECK = 17
+      DBMS.PATH.DELIM = '>'
+      DBMS.HIGHEST.SELECT.UNIT = 10
+      DBMS.VOC.ITEM.TYPE.LIST = 'D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+DBMS.UNIDATA.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 1
+      DBMS.ACCOUNT.PATH.NAME = @ACCOUNT
+      DBMS.DICT.FIELD.TO.CHECK = 8
+      DBMS.PATH.DELIM = '/'
+      DBMS.HIGHEST.SELECT.UNIT = 9
+      DBMS.VOC.ITEM.TYPE.LIST = 'DIR,D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+
+DBMS.UNIVERSE.SET.UP: 
+      DBMS.COMMAND.LINE = @SENTENCE
+      DBMS.COMMAND.LINE.ITEMS.TO.SKIP = 1
+      DBMS.ACCOUNT.PATH.NAME = @ACCOUNT
+      DBMS.DICT.FIELD.TO.CHECK = 17
+      DBMS.PATH.DELIM = '/'
+      DBMS.HIGHEST.SELECT.UNIT = 9
+      DBMS.VOC.ITEM.TYPE.LIST = 'DIR,D,I,X,F,K,PH'
+      CONVERT ',' TO @FM IN DBMS.VOC.ITEM.TYPE.LIST
+      RETURN
+
+
+PARSE.INITIAL.COMMAND.LINE: 
+      EXPAND.VOC.PHRASES = FALSE
+      OTHER.SEPARATORS = '(':@FM:')':@FM:','
+      ITEMS.DONE = FALSE
+      ITEM.CTR = 0
+      PARAM.LIST = ''
+      PARAM.QUOTED.LIST = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(DBMS.COMMAND.LINE, PARAM.LIST, PARAM.QUOTED.LIST, NUM.PARAMS, OTHER.SEPARATORS)
+*
+* SKIP BEGINNING ITEMS ON COMMAND LINE
+*
+      IF PARAM.LIST<1> = 'RUN' THEN
+         DBMS.COMMAND.LINE.ITEMS.TO.SKIP += 2
+      END
+      NUM.ITEMS = NUM.PARAMS - DBMS.COMMAND.LINE.ITEMS.TO.SKIP
+      BEG.ITEM.NUM = DBMS.COMMAND.LINE.ITEMS.TO.SKIP + 1
+      X.FILE.NAME = PARAM.LIST<BEG.ITEM.NUM>
+      IF X.FILE.NAME = '' OR X.FILE.NAME = 'DOWNLOAD.SOURCE' OR X.FILE.NAME = 'DLSOURCE' THEN
+         CRT 'Defaulting to file ':X.DEFAULT.FILE.NAME
+         X.FILE.NAME = X.DEFAULT.FILE.NAME
+      END
+      CRT 'Using file ':X.FILE.NAME:' for writing test data and dictionary items.'
+      CRT 'Enter Y to continue, any other character to exit: ':
+      INPUT X.ANSWER
+      IF OCONV(X.ANSWER,'MCU') NE 'Y' THEN
+         CRT 'Process aborted.'
+         STOP
+      END
+      RETURN
+
+
+   END

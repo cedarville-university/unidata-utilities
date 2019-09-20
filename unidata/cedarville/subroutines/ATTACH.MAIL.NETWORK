@@ -1,0 +1,175 @@
+      SUBROUTINE ATTACH.MAIL.NETWORK(RETURN.MESSAGE,PASSED.ADDRESSEE,PASSED.SENDER,SUBJECT,INCLUDE.MESSAGE,ATTACH.MESSAGE,X.USE.LANDSCAPE,X.CHARS.PER.LINE)
+*
+* UNIBASIC PROGRAM
+* 06/21/99
+* DLR
+* TITLE ----- ATTACH.MAIL.NETWORK
+*
+* MODULE : I-MAIL
+* PURPOSE: SEND MAIL AS AN ATTACHMENT TO A NETWORK ADDRESS
+*
+* Stamped: pts_7 rotmand, /datatel/coll18/live/apphome, user #15581, 24 Nov 08, 03:18PM.
+* Call ATTACH.BINARY.NETWORK instead of trying to do the work here.
+* Stamped: pd rotmand, /datatel/live/collive, user #6162, 02 Mar 05, 04:55PM.
+*  Suppress command results (creating PDF) if user is rsh1, rsh2, etc.
+*  We need this for CALLUB usage.
+* Stamped: p1 rotmand, /datatel/live/collive, user #16886, 23 Dec 04, 04:28PM.
+* Call CREATE.PDF.FILE instead of doing the work here.
+* Stamped: p2 rotmand, /datatel/live/collive, user #15859, 16 Sep 02, 11:45AM.
+*  Use current time and a two-digit random number to make key base
+*  more unique.
+* Stamped: p2 rotmand, /datatel/live/collive, user #14097, 11 Jul 00, 02:23PM.
+* New version of a2ps requires slightly different arguments.
+* Stamped: t4 rotmand, /disk1/collive, user #26060, 21 Jun 99, 03:23PM.
+*
+*************************************************************************
+*
+
+      $INSERT I_I.MAIL
+
+*DLR*      IF @LOGNAME = 'rotmand' THEN
+*DLR*         GOSUB USE.NEW.APPROACH
+*DLR*         RETURN
+*DLR*      END
+      GOSUB USE.NEW.APPROACH
+      IF DATE() THEN
+         RETURN
+      END
+
+      X.USE.MIME = @FALSE
+      IF @LOGNAME = 'rotmand' THEN
+         X.USE.MIME = @TRUE
+      END
+
+      IF X.USE.MIME THEN
+         X.MIME.KEY = 'xmimekey':TIME()
+      END
+
+      GOSUB SET.UP
+      USE.MESSAGE = ATTACH.MESSAGE
+      CONVERT @VM TO @FM IN USE.MESSAGE
+      RETURN.MESSAGE = ''
+      NUM.ADDRESSEES = COUNT(PASSED.ADDRESSEE,@VM) + (PASSED.ADDRESSEE # '')
+      FOR ADDRESSEE.CTR=1 TO NUM.ADDRESSEES
+         ADDRESSEE = PASSED.ADDRESSEE<1,ADDRESSEE.CTR>
+         IF COUNT(ADDRESSEE,'@') = 0 THEN
+            ADDRESSEE := '@':IMAILCM.TCP.ROUTER
+         END
+         ADDRESSEE = OCONV(ADDRESSEE,'MCL')
+         SMTP.MAIL.REC = ''
+         GOSUB BUILD.HEADER
+         GOSUB SEND.MESSAGE
+      NEXT ADDRESSEE.CTR
+      RETURN
+
+
+
+SET.UP: 
+      ACTUAL.SENDER = OCONV(PASSED.SENDER<1,1>,'MCL')
+      FULL.NAME = PASSED.SENDER<1,2>
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      F.HOLD = ''
+      CALL OPEN.FILE(F.HOLD,'_HOLD_',ERROR.RET,ERROR.MSG)
+      RETURN
+
+BUILD.HEADER: 
+      SMTP.MAIL.REC<-1> = 'To: ':ADDRESSEE
+      IF ACTUAL.SENDER THEN
+         USE.SENDER = ACTUAL.SENDER
+      END ELSE
+         USE.SENDER = 'S':OCONV(@LOGNAME,'MCU'):'@':IMAILCM.TCP.ROUTER
+      END
+      SMTP.MAIL.REC<-1> = 'From: ':USE.SENDER
+      IF SUBJECT THEN
+         SMTP.MAIL.REC<-1> = 'Subject: ':SUBJECT
+      END ELSE
+         SMTP.MAIL.REC<-1> = 'Subject: E-mail from ':USE.SENDER
+      END
+      IF NOT(X.USE.MIME) THEN
+         SMTP.MAIL.REC<-1> = 'Organization: Administrative Message'
+         SMTP.MAIL.REC<-1> = ' '
+      END
+      IF X.USE.MIME THEN
+         SMTP.MAIL.REC<-1> = 'MIME-version: 1.0'
+         SMTP.MAIL.REC<-1> = 'Content-Type: multipart/mixed; boundary="':X.MIME.KEY:'"'
+         SMTP.MAIL.REC<-1> = 'Content-Disposition: inline'
+         SMTP.MAIL.REC<-1> = '--':X.MIME.KEY
+         SMTP.MAIL.REC<-1> = 'Content-Type: text/plain; charset=us-ascii'
+         SMTP.MAIL.REC<-1> = 'Content-Disposition: inline'
+         SMTP.MAIL.REC<-1> = ' '
+         SMTP.MAIL.REC<-1> = ' '
+         SMTP.MAIL.REC<-1> = 'last disappearing line'
+      END
+      IF INCLUDE.MESSAGE # '' THEN
+         X.TEMP = INCLUDE.MESSAGE
+         CONVERT @VM TO @FM IN X.TEMP
+         SMTP.MAIL.REC<-1> = X.TEMP
+      END
+      RETURN
+
+
+*
+GENERATE.KEYS: 
+      TEXT.KEY = KEY.BASE:'.txt'
+      PS.KEY = KEY.BASE:'.ps'
+      SMTP.KEY = KEY.BASE:'.smtp'
+      SH.KEY = KEY.BASE:'.sh'
+      RETURN
+
+
+SEND.MESSAGE: 
+      A.RETURN.CODE = ''
+      A.RETURN.PDF.KEY = ''
+      CALL CREATE.PDF.FILE(A.RETURN.CODE,A.RETURN.PDF.KEY,USE.MESSAGE,X.USE.LANDSCAPE,X.CHARS.PER.LINE)
+      IF A.RETURN.CODE NE '' THEN
+         RETURN
+      END
+      PDF.KEY = A.RETURN.PDF.KEY
+      KEY.BASE = PDF.KEY[1,LEN(PDF.KEY)-4]
+      X.PATH = './_HOLD_/'
+      GOSUB GENERATE.KEYS
+      SH.REC = ''
+      SH.REC<-1> = 'cat ':X.PATH:SMTP.KEY
+      SH.REC<-1> = 'uuencode ':X.PATH:PDF.KEY:' ':PDF.KEY
+      IF X.USE.MIME THEN
+         SMTP.MAIL.REC<-1> = '--':X.MIME.KEY
+         SMTP.MAIL.REC<-1> = 'Content-Type: application/pdf'
+         SMTP.MAIL.REC<-1> = 'Content-Disposition: attachment; filename="':PDF.KEY:'"'
+         SMTP.MAIL.REC<-1> = 'Content-Transfer-Encoding: base64'
+      END
+      WRITE SMTP.MAIL.REC ON F.HOLD, SMTP.KEY
+      WRITE USE.MESSAGE ON F.HOLD, TEXT.KEY
+      WRITE SH.REC ON F.HOLD, SH.KEY
+      R.SCRIPT = ''
+      R.SCRIPT<-1> = 'sh ':X.PATH:SH.KEY:'|/usr/sbin/sendmail -t -F"':USE.SENDER:'"'
+      NUM.SCRIPT = DCOUNT(R.SCRIPT,@FM)
+      FOR WHICH.SCRIPT = 1 TO NUM.SCRIPT
+         X.SCRIPT = R.SCRIPT<WHICH.SCRIPT>
+         PCPERFORM X.SCRIPT CAPTURING XL.OUTPUT
+*RAB*         IF @LOGNAME[1,3] NE 'rsh' THEN
+*RAB*            CRT XL.OUTPUT
+*RAB*         END
+      NEXT WHICH.SCRIPT
+      RETURN.MESSAGE<-1> = 'NET':@SM:'via gateway ':IMAILCM.TCP.ROUTER:' key ':SMTP.KEY
+      RETURN
+
+
+USE.NEW.APPROACH: 
+      RETURN.MESSAGE = ''
+      A.RETURN.CODE = ''
+      A.RETURN.PDF.KEY = ''
+      USE.MESSAGE = ATTACH.MESSAGE
+      CONVERT @VM TO @FM IN USE.MESSAGE
+      CALL CREATE.PDF.FILE(A.RETURN.CODE,A.RETURN.PDF.KEY,USE.MESSAGE,X.USE.LANDSCAPE,X.CHARS.PER.LINE)
+      IF A.RETURN.CODE NE '' THEN
+         RETURN
+      END
+      PDF.KEY = A.RETURN.PDF.KEY
+      KEY.BASE = PDF.KEY[1,LEN(PDF.KEY)-4]
+      ATTACH.PATH = './_HOLD_'
+      A.SPARE = ''
+      CALL ATTACH.BINARY.NETWORK(RETURN.MESSAGE,PASSED.ADDRESSEE,PASSED.SENDER,SUBJECT,INCLUDE.MESSAGE,ATTACH.PATH,PDF.KEY,A.SPARE)
+      RETURN
+
+   END

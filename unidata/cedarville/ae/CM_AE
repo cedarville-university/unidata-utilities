@@ -1,0 +1,32 @@
+      SUBROUTINE CM_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 08/11/2016
+* DLR (DAVE ROTMAN)
+* TITLE ----- CM_AE
+*
+*
+* MODULE :
+* PURPOSE: INSERT COLUMN MARKERS TO BE ABLE TO COUNT CHARACTERS ON A LINE
+*
+* Stamped: pts_2 rotmand, /datatel/coll18/live/apphome, user #1900, 11 Aug 16, 01:30PM.
+*
+*************************************************************************
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      FIRST.LINE =  '         1         2         3         4'
+      FIRST.LINE := '         5         6         7'
+      X.TEMP = '1234567890'
+      SECOND.LINE = X.TEMP:X.TEMP:X.TEMP:X.TEMP
+      SECOND.LINE := X.TEMP:X.TEMP:X.TEMP
+
+      COMMAND.TO.STORE = "I ":FIRST.LINE
+      X$CC<-1> = COMMAND.TO.STORE
+      COMMAND.TO.STORE = "I ":SECOND.LINE
+      X$CC<-1> = COMMAND.TO.STORE
+      RETURN
+
+
+   END

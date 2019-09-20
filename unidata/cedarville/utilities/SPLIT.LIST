@@ -1,0 +1,138 @@
+*
+* INFO/BASIC PROGRAM
+* 3/25/94
+* SJH
+* TITLE ----- SPLIT.LIST
+*
+*
+* MODULE :
+* PURPOSE:  SPLIT A SAVED LIST INTO SMALLER CONSECUTIVE LISTS SAVING
+*               THE ORIGINAL ORDER
+*
+* Stamped: pts_16 rotmand, /datatel/coll18/live/apphome, user #25767, 25 Jan 10, 11:13AM.
+* Remove all COMMON statements (they were not being used)
+* Improve readability of output (show each list name)
+* Stamped: pty/ttyv2 howders, /disk1/collive, user #26962, 28 Aug 97, 03:51PM.
+*     REL 14 CHANGES
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #6096, 24 Jun 94, 05:02PM.
+* Updated for HP-UX
+*     Last updated by LIVE (HOWDERS) at 09:13:53 on 03/25/1994.
+*
+*************************************************************************
+*
+*
+
+*SJH REL14*      $INCLUDE UT.INSERTS I_COMMON
+*SJH REL14*      $INCLUDE SOURCE.INSERTS I_SYSTEM.COMMON
+
+
+*DLR*$INSERT I_COMMON FROM UT.INSERTS
+*DLR*$INSERT I_COMMON FROM CORE.SOURCE
+*DLR*$INSERT I_SYSTEM.COMMON FROM CORE.INSERTS
+*DLR*$INSERT I_OPEN.SELECT.TABLES FROM CORE.SOURCE
+*DLR*$INSERT I_C26.OPENS FROM LOCAL.SOURCE
+
+
+
+
+      SYNTAX = 'Usage:  '
+      SYNTAX<-1> = 'SPLIT.LIST new.list.prefix sublist.size'
+
+      GOSUB SET.UP
+      REC.COUNT = 0
+      READNEXT REC.KEY ELSE
+         CRT 'A Select list must be active...'
+         STOP
+      END
+      SUBLIST.NUMBER = 0
+      DONE = @FALSE
+      GOSUB START.NEW.SUBLIST
+      LOOP
+      UNTIL DONE
+         REC.COUNT += 1
+         IF MOD(REC.COUNT,10) = 0 THEN
+            CRT '*':
+            IF MOD(REC.COUNT,500) = 0 THEN
+               CRT ' ':REC.COUNT
+            END
+         END
+         IF SUBLIST.COUNT >= SUBLIST.SIZE THEN
+            GOSUB FINISH.OLD.SUBLIST
+            GOSUB START.NEW.SUBLIST
+         END
+         SUBLIST.COUNT += 1
+         SUBLIST.KEYS<SUBLIST.COUNT> = REC.KEY
+*
+         READNEXT REC.KEY ELSE DONE = @TRUE
+      REPEAT
+      GOSUB FINISH.OLD.SUBLIST
+      STOP
+
+
+
+SET.UP: 
+      FALSE = 0
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      COMMAND.LINE = @SENTENCE
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      IF NUM.PARAMS < STARTING.PARAM+1 THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+      LIST.PREFIX = PARAM.STR<STARTING.PARAM>
+      SUBLIST.SIZE = PARAM.STR<STARTING.PARAM+1>
+      IF NUM(SUBLIST.SIZE) = FALSE THEN
+         CRT 'Non-numeric value for sublist size.'
+         STOP
+      END
+*
+      SELECT.UNIT = ''
+      CALL GET.UNUSED.SELECT.LIST(SELECT.UNIT)
+*
+      RETURN
+
+
+
+DISPLAY.HELP: 
+      COUNT.SYNTAX = COUNT(SYNTAX,@FM) + 1
+      FOR WHICH.SYNTAX = 1 TO COUNT.SYNTAX
+         CRT SYNTAX<WHICH.SYNTAX>
+      NEXT WHICH.SYNTAX
+      RETURN
+
+
+
+
+*
+*
+* START NEW SUBLIST
+*
+START.NEW.SUBLIST: 
+      SUBLIST.COUNT = 0
+      SUBLIST.KEYS = ''
+      SUBLIST.NUMBER += 1
+      LIST.NAME = LIST.PREFIX:'.':SUBLIST.NUMBER
+      RETURN
+
+
+*
+*
+* FINISH OLD SUBLIST
+*
+FINISH.OLD.SUBLIST: 
+      FORMLIST SUBLIST.KEYS TO SELECT.UNIT
+      CRT
+      CRT LIST.NAME
+      EXECUTE 'SAVE.LIST ':LIST.NAME:' FROM ':SELECT.UNIT
+      RETURN
+
+
+   END

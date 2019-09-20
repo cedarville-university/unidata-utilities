@@ -1,0 +1,219 @@
+*
+* INFO/BASIC PROGRAM
+* 11/22/89
+* DLR
+* TITLE ----- PARA.IF
+*
+*
+* MODULE :
+* PURPOSE: GENERAL-PURPOSE PROGRAM TO SIMULATE USER-DEFINABLE
+*          VARIABLES IN 'IF' STATEMENTS
+*
+* Stamped: pts_11 howders, /datatel/coll18/live/apphome, user #5924, 03 Mar 10, 08:23AM.
+*   Added webrun as a WEB user.
+* Stamped: pts_108 rotmand, /datatel/coll18/live/apphome, user #18108, 24 Apr 09, 10:23AM.
+* Display help if command line does not contain enough arguments.
+* Stamped: pts_57 howders, /datatel/coll18/live/apphome, user #19238, 05 Jan 09, 05:25PM.
+*   Added wwwrun to list of WEB users.
+* Stamped: pts_91 howders, /datatel/coll18/test3/apphome, user #32495, 22 Jun 07, 10:21AM.
+*  Add ACCOUNT
+* Stamped: pts_5 rotmand, /datatel/coll18/live/apphome, user #20171, 11 Jun 07, 03:16PM.
+* Add COMPSERV check.
+* Stamped: pts_95 rotmand, /datatel/live/collive, user #14179, 23 Feb 07, 04:50PM.
+* Add DAY.OF.MONTH check
+* Stamped: pty/ttyp2 sjoquist, /disk1/coltest, user #628, 23 Jun 94, 02:55PM.
+* Updated for HP/UX
+*     Last updated by LIVE (ROTMAN) at 13:38:44 on 08/01/1992.
+* Use our standard PARSE.LINE logic.
+*     Last updated by LIVE (ROTMAN) at 12:43:53 on 12/18/1990.
+* Include 'USER.TYPE' logic.
+*     Last updated by LIVE (ROTMAN) at 12:43:44 on 12/13/1989.
+* Include 'WORK.DAY' logic.
+*     Last updated by LIVE (ROTMAN) at 16:43:16 on 11/22/1989.
+* Include 'DAY.OF.WEEK' logic.
+*
+*************************************************************************
+*
+
+
+      XL.COMPSERV = 'rotmand howders bowenr jdmack voumardb dmccarty'
+      CONVERT ' ' TO @VM IN XL.COMPSERV
+
+      TOTAL.COMMAND.LINE = @SENTENCE
+      GOSUB PARSE.TOTAL.COMMAND.LINE
+      BEGIN CASE
+         CASE CONDITION.TO.CHECK = 'DAY.OF.WEEK'
+            GOSUB CHECK.DAY.OF.WEEK
+         CASE CONDITION.TO.CHECK = 'DAY.OF.MONTH'
+            GOSUB CHECK.DAY.OF.MONTH
+         CASE CONDITION.TO.CHECK = 'USER.TYPE'
+            GOSUB CHECK.USER.TYPE
+         CASE CONDITION.TO.CHECK = 'WORK.DAY'
+            GOSUB CHECK.WORK.DAY
+         CASE CONDITION.TO.CHECK = 'REMOTE'
+            GOSUB CHECK.REMOTE
+         CASE CONDITION.TO.CHECK = 'COMPSERV'
+            GOSUB CHECK.COMPSERV
+         CASE CONDITION.TO.CHECK = 'ACCOUNT'
+            GOSUB CHECK.ACCOUNT
+         CASE 1
+            NEW.COMMAND.LINE = 'DISPLAY "':CONDITION.TO.CHECK:'" is not a recognized option for "PARA.IF."'
+            VALUE.TO.CHECK = 'BAD'
+            IF.VALUE = 'BAD'
+      END CASE
+      IF VALUE.TO.CHECK = IF.VALUE THEN
+         EXECUTE NEW.COMMAND.LINE
+      END
+      STOP
+
+*
+*
+* WE GO TO A LOT OF BOTHER TO ALLOW FOR MULTIPLE SPACES AND LOWER CASE LETTERS
+* ON THE COMMAND LINE
+*
+PARSE.TOTAL.COMMAND.LINE: 
+      TEMP.COMMAND.LINE = TRIM(TOTAL.COMMAND.LINE)
+
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(TEMP.COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+
+      CONDITION.TO.CHECK = OCONV(PARAM.STR<2>,'MCU')
+      VALUE.TO.CHECK     = OCONV(PARAM.STR<3>,'MCU')
+      NEW.COMMAND.LINE   = FIELD(PARAM.STR,@FM,4,9999)
+      CONVERT @FM TO ' ' IN NEW.COMMAND.LINE
+
+      IF NEW.COMMAND.LINE = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+      RETURN
+
+
+
+*
+*
+*
+CHECK.DAY.OF.WEEK: 
+      DAY.NUMBER = MOD(DATE(),7)
+      BEGIN CASE
+         CASE DAY.NUMBER = 0
+            IF.VALUE = 'SUNDAY'
+         CASE DAY.NUMBER = 1
+            IF.VALUE = 'MONDAY'
+         CASE DAY.NUMBER = 2
+            IF.VALUE = 'TUESDAY'
+         CASE DAY.NUMBER = 3
+            IF.VALUE = 'WEDNESDAY'
+         CASE DAY.NUMBER = 4
+            IF.VALUE = 'THURSDAY'
+         CASE DAY.NUMBER = 5
+            IF.VALUE = 'FRIDAY'
+         CASE DAY.NUMBER = 6
+            IF.VALUE = 'SATURDAY'
+         CASE 1
+            IF.VALUE = ''
+      END CASE
+      RETURN
+
+
+*
+*
+*
+CHECK.DAY.OF.MONTH: 
+      X.DATE = OCONV(DATE(),'D4/')
+      IF.VALUE = X.DATE[4,2]
+      RETURN
+
+
+CHECK.USER.TYPE: 
+      USER.TYPE.VALUE = ''
+      USERNAME = GETENV("USER") 
+      BEGIN CASE 
+         CASE GETENV("wint") = 1
+            IF.VALUE = "UI" 
+         CASE USERNAME = "apache"
+            IF.VALUE = "WEB" 
+         CASE USERNAME = "nobody"
+            IF.VALUE = "WEB" 
+         CASE USERNAME = "wwwrun"
+            IF.VALUE = "WEB" 
+         CASE USERNAME = "webrun"
+            IF.VALUE = "WEB" 
+         CASE @USER.TYPE = 0
+            IF.VALUE = "TERMINAL" 
+         CASE @USER.TYPE > 0
+            IF.VALUE = "PHANTOM" 
+      END CASE
+      RETURN
+
+
+
+CHECK.REMOTE: 
+      PCPERFORM 'pwd' CAPTURING PWD.OUTPUT
+      COUNT.SLASH = COUNT(PWD.OUTPUT,'/')
+      IF.VALUE = FIELD(PWD.OUTPUT<1>,'/',COUNT.SLASH+1,1)
+      IF.VALUE = OCONV(IF.VALUE,'MCU')
+      RETURN
+
+
+CHECK.ACCOUNT: 
+      ACCOUNT = @ACCOUNT
+      BEGIN CASE
+         CASE INDEX(ACCOUNT,'live',1) > 0
+            IF.VALUE = 'LIVE'
+         CASE INDEX(ACCOUNT,'test',1) > 0
+            IF.VALUE = 'TEST'
+         CASE 1
+            IF.VALUE = 'UNKNOWN'
+      END CASE
+      RETURN
+
+
+CHECK.COMPSERV: 
+      LOCATE @LOGNAME IN XL.COMPSERV<1,1> SETTING X.POS THEN
+         IF.VALUE = 'YES'
+      END ELSE
+         IF.VALUE = 'NO'
+      END
+      RETURN
+
+
+*
+*
+*
+CHECK.WORK.DAY: 
+      DATE.TO.CHECK = DATE()
+      RETURN.STRING = ''
+      CALL WORK.DAY(RETURN.STRING,DATE.TO.CHECK)
+      IF RETURN.STRING THEN
+         IF.VALUE = 'TRUE'
+      END ELSE
+         IF.VALUE = 'FALSE'
+      END
+      RETURN
+
+
+
+DISPLAY.HELP: 
+      CONVERT @VM TO ' ' IN XL.COMPSERV
+      CRT
+      CRT 'Syntax:'
+      CRT 'PARA.IF ConditionToCheck ValueToCheck CommandToExecute'
+      CRT
+      CRT 'ConditionToCheck and ValueToCheck must be one of:'
+      CRT '   DAY.OF.WEEK     SUNDAY, MONDAY, TUESDAY, ETC.'
+      CRT '   DAY.OF.MONTH    1, 2, 3, 4, ETC.'
+      CRT '   USER.TYPE       UI, WEB, TERMINAL, PHANTOM'
+      CRT '   WORK.DAY        TRUE, FALSE'
+      CRT '   REMOTE          REGOFF, REGSTU, ETC.      (OBSOLETE)'
+      CRT '   COMPSERV        ':XL.COMPSERV
+      CRT '   ACCOUNT         LIVE, TEST                (OBSOLETE)'
+      CRT
+      CRT
+      CRT 'Example:'
+      CRT 'PARA.IF DAY.OF.WEEK TUESDAY RUN.REPORT NET ROUTINE.INVENTORY.PROCESS'
+      RETURN
+   END

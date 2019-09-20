@@ -1,0 +1,680 @@
+$BASICTYPE "U"
+      SUBROUTINE DL.VIEW.SEQ.FILE(F.SEQ.FILE, HEADING.MSG)
+*
+* INFO/BASIC PROGRAM
+* 6/27/90
+* DWS
+* TITLE ----- DL.VIEW.SEQ.FILE
+*
+*
+* PURPOSE: VIEW A TEXT FILE ON THE SCREEN
+*
+* Stamped: p1 rotmand, /usr/local/download, user #1043, 17 Aug 04, 07:41AM.
+* Version 7.11
+*
+*
+*
+*
+*
+*
+*     Last updated by LIVE (SJOQUIST) at 14:49:25 on 06/27/1990.
+*
+*************************************************************************
+*
+
+      EQU IT$CS TO -1
+      EQU IT$CLEOS TO -3
+      EQU IT$CLEOL TO -4
+      EQU IT$SREV TO -13
+      EQU IT$EREV TO -14
+      EQU IT$IL TO -17
+      EQU IT$DL TO -18
+      EQU IT$E80 TO -29
+      EQU IT$E132 TO -30
+
+      GOSUB SET.UP
+      GOSUB DISPLAY.PAGE
+      GOSUB PROCESS.COMMANDS
+      RETURN
+
+
+*
+*
+* SET.UP
+*
+SET.UP: 
+      CRT @(IT$CS):
+      TEMP = @(0,0)
+      PROMPT ''
+      LINES = ''
+      PAGE.SIZE = 21
+      TOP.LINE.CTR = 0
+      PREV.TOP.LINE.CTR = 0
+      NUM.LINES = 0
+      LINE.CTR = 0
+      MAX.LEN = 0
+      END.OF.FILE = @FALSE
+      EOF.LINE = '*** END OF FILE ***'
+      LOCATE.DIRECTION = ''
+      LOCATE.TEXT = ''
+*
+      PROMPT.TEXT = ''
+*      PROMPT.TEXT<-1> = '(T)op, (B)ottom, (N)arrow, (W)ide, (Q)uit, (O)ther'
+      PROMPT.TEXT<-1> = '(T)op, (B)ottom, (S)ave, (Q)uit, (O)ther'
+      PROMPT.TEXT<-1> = '(U)p #, (D)own #, (L)eft #, (R)ight #, (RE)display, (O)ther'
+      PROMPT.TEXT<-1> = '(G)oto line# col#, (GC) Goto col#, (GL) Goto line#, (O)ther'
+      PROMPT.TEXT<-1> = '(FL) Forward locate, (BL) Backward locate, (LA) Locate again, (O)ther'
+      NUM.PROMPT.TEXTS = COUNT(PROMPT.TEXT,@FM) + 1
+      CUR.PROMPT.TEXT = 1
+      VALID.ANS.LIST = ''
+      DEFAULT.ANS = ''
+      END.PARAM = 2
+      DEFAULT.COMMAND = 'D'
+      DISPLAY.WIDTH = 79
+      BEG.COL = 1
+      PREV.BEG.COL = BEG.COL
+      COL.SHIFT = 20
+      PROMPT.COL = 0
+      PROMPT.LINE = 22
+      RETURN
+
+
+*
+*
+* PROCESS COMMANDS
+*
+PROCESS.COMMANDS: 
+      COMMAND = ''
+      LOOP
+         CALL DL.PROMPT.ANS(COMMAND,PROMPT.TEXT<CUR.PROMPT.TEXT>,PROMPT.COL,PROMPT.LINE,VALID.ANS.LIST,DEFAULT.COMMAND,END.PARAM)
+      UNTIL COMMAND = 'Q'
+         CMD1 = COMMAND[1,1]
+         CMD2 = COMMAND[1,2]
+         BEGIN CASE
+            CASE COMMAND = 'T'
+               GOSUB PROCESS.TOP
+            CASE COMMAND = 'S'
+               GOSUB PROCESS.SAVE
+            CASE COMMAND = 'RE'
+               GOSUB PROCESS.REDISPLAY
+            CASE COMMAND = 'B'
+               GOSUB PROCESS.BOTTOM
+            CASE CMD1 = 'U'
+               REST.OF.LINE = COMMAND[2,99]
+               GOSUB PROCESS.PAGE.UP
+               DEFAULT.COMMAND = COMMAND
+            CASE CMD1 = 'D'
+               REST.OF.LINE = COMMAND[2,99]
+               GOSUB PROCESS.PAGE.DOWN
+               DEFAULT.COMMAND = COMMAND
+            CASE CMD1 = 'L' AND CMD2 # 'LA'
+               REST.OF.LINE = COMMAND[2,99]
+               GOSUB PROCESS.LEFT
+               DEFAULT.COMMAND = COMMAND
+            CASE CMD1 = 'R' AND COMMAND # 'RE'
+               REST.OF.LINE = COMMAND[2,99]
+               GOSUB PROCESS.RIGHT
+               DEFAULT.COMMAND = COMMAND
+*            CASE COMMAND = 'N'
+*               GOSUB PROCESS.NARROW
+*            CASE COMMAND = 'W'
+*               GOSUB PROCESS.WIDE
+            CASE COMMAND = 'O'
+               CUR.PROMPT.TEXT += 1
+               IF CUR.PROMPT.TEXT > NUM.PROMPT.TEXTS THEN
+                  CUR.PROMPT.TEXT = 1
+               END
+               DEFAULT.COMMAND = COMMAND
+            CASE CMD1 = 'G' AND CMD2 # 'GC' AND CMD2 # 'GL'
+               REST.OF.LINE = COMMAND[2,99]
+               GOSUB PROCESS.GOTO
+            CASE CMD2 = 'GC'
+               REST.OF.LINE = COMMAND[3,99]
+               GOSUB PROCESS.GOTO.COL
+            CASE CMD2 = 'GL'
+               REST.OF.LINE = COMMAND[3,99]
+               GOSUB PROCESS.GOTO.LINE
+            CASE CMD2 = 'FL'
+               REST.OF.LINE = COMMAND[3,99]
+               GOSUB PROCESS.LOCATE.FORWARD
+               DEFAULT.COMMAND = 'LA'
+            CASE CMD2 = 'BL'
+               REST.OF.LINE = COMMAND[3,99]
+               GOSUB PROCESS.LOCATE.BACKWARD
+               DEFAULT.COMMAND = 'LA'
+            CASE COMMAND = 'LA'
+               GOSUB PROCESS.LOCATE.AGAIN
+               DEFAULT.COMMAND = 'LA'
+         END CASE
+      REPEAT
+      RETURN
+
+
+
+
+*
+*
+* DISPLAY.PAGE
+*
+DISPLAY.PAGE: 
+      IF LINE.CTR <= 0 THEN
+         LINE.CTR = 0
+         PREV.TOP.LINE.CTR = -PAGE.SIZE
+      END
+      IF BEG.COL # PREV.BEG.COL THEN
+         PREV.TOP.LINE.CTR = TOP.LINE.CTR - PAGE.SIZE
+      END
+      TOP.LINE.CTR = LINE.CTR + 1
+      PAGE.HEADING = HEADING.MSG
+      PAGE.HEADING := '  Line ':TOP.LINE.CTR
+      IF END.OF.FILE THEN
+         PAGE.HEADING := ' of ':NUM.LINES
+      END
+      IF BEG.COL > 1 THEN
+         PAGE.HEADING := '  Column ':BEG.COL
+      END
+      IF END.OF.FILE THEN
+         PAGE.HEADING := '  Max line length: ':MAX.LEN
+      END
+      CRT @(0,0):PAGE.HEADING:@(IT$CLEOL)
+      LINES.NEEDED = PAGE.SIZE
+      GOSUB READ.LINES.IF.NEEDED
+*
+      TOP.LINE.CTR.DIF = TOP.LINE.CTR - PREV.TOP.LINE.CTR
+      BEGIN CASE
+         CASE ABS(TOP.LINE.CTR.DIF) >= PAGE.SIZE
+            NUM.LINES.TO.DISPLAY = PAGE.SIZE
+            GOSUB DISPLAY.LINES
+         CASE TOP.LINE.CTR.DIF > 0
+            CRT @(0,PROMPT.LINE):@(IT$CLEOS):
+            CRT @(0,1):@(IT$DL,TOP.LINE.CTR.DIF):
+            LINES.KEPT = PAGE.SIZE - TOP.LINE.CTR.DIF
+            CRT @(0,LINES.KEPT+1):
+            LINE.CTR += LINES.KEPT
+            NUM.LINES.TO.DISPLAY = TOP.LINE.CTR.DIF
+            GOSUB DISPLAY.LINES
+         CASE TOP.LINE.CTR.DIF < 0
+            CRT @(0,PROMPT.LINE):@(IT$CLEOS):
+            CRT @(0,1):@(IT$IL,-TOP.LINE.CTR.DIF):
+            CRT @(0,PROMPT.LINE):@(IT$CLEOS):
+            NUM.LINES.TO.DISPLAY = ABS(TOP.LINE.CTR.DIF)
+            CRT @(0,1):
+            GOSUB DISPLAY.LINES
+            LINES.KEPT = PAGE.SIZE - ABS(TOP.LINE.CTR.DIF)
+            LINE.CTR += LINES.KEPT
+      END CASE
+      PREV.TOP.LINE.CTR = TOP.LINE.CTR
+      PREV.BEG.COL = BEG.COL
+      RETURN
+
+
+*
+*
+* DISPLAY LINES
+*  (ASSUMES CURSOR IS ALREADY POSITIONED)
+*
+DISPLAY.LINES: 
+      FOR DISPLAY.CTR=1 TO NUM.LINES.TO.DISPLAY
+         LINE.CTR += 1
+         DISPLAY.LINE = LINES<LINE.CTR>
+         IF LINE.CTR = (NUM.LINES+1) AND END.OF.FILE THEN
+            CRT EOF.LINE:@(IT$CLEOL)
+         END ELSE
+            CRT DISPLAY.LINE[BEG.COL,DISPLAY.WIDTH]:@(IT$CLEOL)
+         END
+      NEXT DISPLAY.CTR
+      RETURN
+
+
+*
+*
+* PAGE.UP
+*
+PROCESS.PAGE.UP: 
+      IF LINE.CTR = PAGE.SIZE THEN
+         RETURN
+      END
+      IF REST.OF.LINE > 0 AND NUM(REST.OF.LINE) THEN
+         NUM.TO.MOVE = REST.OF.LINE + PAGE.SIZE
+      END ELSE
+         NUM.TO.MOVE = PAGE.SIZE + PAGE.SIZE
+      END
+      LINE.CTR -= NUM.TO.MOVE
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* PAGE.DOWN
+*
+PROCESS.PAGE.DOWN: 
+      IF END.OF.FILE AND LINE.CTR >= NUM.LINES THEN
+         RETURN
+      END
+      IF REST.OF.LINE > 0 AND NUM(REST.OF.LINE) THEN
+         LINES.NEEDED = REST.OF.LINE
+         LINE.CTR += REST.OF.LINE - PAGE.SIZE
+      END ELSE
+         LINES.NEEDED = PAGE.SIZE
+      END
+      IF LINE.CTR > NUM.LINES THEN
+         LINE.CTR = NUM.LINES - PAGE.SIZE + 1
+      END
+      GOSUB READ.LINES.IF.NEEDED
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* REDISPLAY SCREEN
+*
+PROCESS.REDISPLAY: 
+      LINE.CTR -= PAGE.SIZE
+      PREV.TOP.LINE.CTR = LINE.CTR - PAGE.SIZE
+      CRT @(IT$CS):
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* TOP OF FILE
+*
+PROCESS.TOP: 
+      LINE.CTR = 0
+      BEG.COL = 1
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* BOTTOM OF FILE
+*
+PROCESS.BOTTOM: 
+      LINES.NEEDED = 'ALL'
+      GOSUB READ.LINES.IF.NEEDED
+      LINE.CTR = NUM.LINES - PAGE.SIZE + 1
+      PREV.LINE.CTR = LINE.CTR - PAGE.SIZE
+      BEG.COL = 1
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+PROCESS.SAVE: 
+      SAVE.FILE.NAME = ''
+      DEFAULT.ANS = 'SPOOL.DAT'
+      CALL DL.PROMPT.ANS(SAVE.FILE.NAME, 'Save file name', PROMPT.COL, PROMPT.LINE, VALID.ANS.LIST, DEFAULT.ANS, END.PARAM)
+      LINES.NEEDED = 'ALL'
+      GOSUB READ.LINES.IF.NEEDED
+      OPENSEQ '&DL&', SAVE.FILE.NAME READONLY TO F.SEQ.OUTPUT ELSE
+         MSG = 'CAN NOT OPEN "&DL&" "':SAVE.FILE.NAME:'"'
+         CRT MSG
+         RETURN
+      END
+      FOR LINE.CTR=1 TO NUM.LINES
+         WRITESEQ LINES<LINE.CTR> TO F.SEQ.OUTPUT ELSE 
+            MSG = 'CAN NOT WRITE TO "&DL&" "':SAVE.FILE.NAME:'"'
+            CRT MSG
+            RETURN
+         END
+      NEXT LINE.CTR
+      CLOSESEQ F.SEQ.OUTPUT
+      MSG = NUM.LINES:' WRITTEN TO "&DL&" "':SAVE.FILE.NAME:'" WRITTEN'
+      CRT MSG
+      RETURN
+
+
+*
+*
+* READ LINES IN IF IT IS NEEDED
+READ.LINES.IF.NEEDED: 
+      IF END.OF.FILE THEN
+         RETURN
+      END
+      IF LINES.NEEDED = 'ALL' THEN
+         NUM.TO.READ = 'ALL'
+         GOSUB READ.LINES
+      END ELSE
+         IF (LINE.CTR + LINES.NEEDED) > NUM.LINES THEN
+            NUM.TO.READ = (LINE.CTR + LINES.NEEDED) - NUM.LINES
+            GOSUB READ.LINES
+         END
+      END
+      RETURN
+
+
+*
+*
+* READ GROUP OF LINES
+*
+READ.LINES: 
+      IF END.OF.FILE THEN
+         RETURN
+      END
+      READ.CTR = 0
+      LOOP
+      UNTIL END.OF.FILE OR (NUM.TO.READ # 'ALL' AND READ.CTR >= NUM.TO.READ)
+         GOSUB READ.SEQ.LINE
+         IF NOT(END.OF.FILE) THEN
+            NUM.LINES += 1
+            READ.CTR += 1
+            LINES := SEQ.LINE:@FM
+         END
+      REPEAT
+      RETURN
+
+
+*
+*
+* READ SEQ LINE FROM FILE
+*
+READ.SEQ.LINE: 
+      READSEQ SEQ.LINE FROM F.SEQ.FILE THEN
+         LEN.LINE = LEN(SEQ.LINE)
+         IF LEN.LINE > MAX.LEN THEN
+            MAX.LEN = LEN.LINE
+         END
+         FOR CH.CTR=1 TO LEN.LINE
+            CH = SEQ(SEQ.LINE[CH.CTR])
+            IF CH < 32 OR CH > 126 THEN SEQ.LINE[CH.CTR,1] = '.'
+         NEXT CH.CTR
+      END ELSE
+         END.OF.FILE = @TRUE
+         SEQ.LINE = ''
+      END
+      RETURN
+
+
+*
+*
+* PROCESS RIGHT
+*
+PROCESS.RIGHT: 
+      IF REST.OF.LINE > 0 AND NUM(REST.OF.LINE) THEN
+         BEG.COL += REST.OF.LINE
+      END ELSE
+         BEG.COL += COL.SHIFT
+      END
+      LINE.CTR -= PAGE.SIZE
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* PROCESS LEFT
+*
+PROCESS.LEFT: 
+      IF REST.OF.LINE > 0 AND NUM(REST.OF.LINE) THEN
+         BEG.COL -= REST.OF.LINE
+      END ELSE
+         BEG.COL -= COL.SHIFT
+      END
+      IF BEG.COL < 1 THEN
+         BEG.COL = 1
+      END
+      LINE.CTR -= PAGE.SIZE
+      GOSUB DISPLAY.PAGE
+      RETURN
+
+
+*
+*
+* PROCESS NARROW
+*
+PROCESS.NARROW: 
+      CRT @(IT$E80):
+      DISPLAY.WIDTH = 79
+      RETURN
+
+
+*
+*
+* PROCESS WIDE
+*
+PROCESS.WIDE: 
+      CRT @(IT$E132):
+      DISPLAY.WIDTH = 131
+      BEG.LINE.CTR = LINE.CTR - PAGE.SIZE + 1
+      CRT @(0,79):@(IT$CLEOL):
+      CRT @(0,1):
+      FOR TEMP.CTR=BEG.LINE.CTR TO LINE.CTR
+         CRT @(79):LINES<TEMP.CTR>[79+BEG.COL,52]:@(IT$CLEOL)
+      NEXT TEMP.CTR
+      CRT @(79,PROMPT.LINE):@(IT$CLEOS):
+      RETURN
+
+
+
+*
+*
+* PROCESS GOTO
+*
+PROCESS.GOTO: 
+      LINE.COL = TRIM(REST.OF.LINE)
+      CONVERT ' ' TO ',' IN LINE.COL
+      G.LINE = FIELD(LINE.COL,',',1,1)
+      IF G.LINE # '' AND NOT(NUM(G.LINE)) THEN
+         RETURN
+      END
+      G.COL = FIELD(LINE.COL,',',2,1)
+      IF G.COL # '' AND NOT(NUM(G.COL)) THEN
+         RETURN
+      END
+      IF G.LINE = '' THEN
+         IF G.COL # BEG.COL AND G.COL > 0 THEN
+            BEG.COL = G.COL
+            LINE.CTR -= PAGE.SIZE
+            GOSUB DISPLAY.PAGE
+         END
+      END ELSE
+         IF G.LINE > 0 THEN
+            IF G.COL > 0 THEN
+               BEG.COL = G.COL
+            END
+            LINE.CTR = G.LINE - 1
+            GOSUB DISPLAY.PAGE
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* PROCESS GOTO COL
+*
+PROCESS.GOTO.COL: 
+      G.COL = TRIM(REST.OF.LINE)
+      IF G.COL # '' AND NOT(NUM(G.COL)) THEN
+         RETURN
+      END
+      IF G.COL # BEG.COL AND G.COL > 0 THEN
+         BEG.COL = G.COL
+         LINE.CTR -= PAGE.SIZE
+         GOSUB DISPLAY.PAGE
+      END
+      RETURN
+
+
+
+*
+*
+* PROCESS GOTO.LINE
+*
+PROCESS.GOTO.LINE: 
+      G.LINE = TRIM(REST.OF.LINE)
+      IF G.LINE # '' AND NOT(NUM(G.LINE)) THEN
+         RETURN
+      END
+      IF G.LINE > 0 THEN
+         LINE.CTR = G.LINE - 1
+         GOSUB DISPLAY.PAGE
+      END
+      RETURN
+
+
+*
+*
+* PROCESS LOCATE FORWARD
+*
+PROCESS.LOCATE.FORWARD: 
+      IF REST.OF.LINE = '' THEN
+         GOSUB GET.LOCATE.TEXT
+      END ELSE
+         LOCATE.TEXT = REST.OF.LINE
+      END
+      IF LOCATE.TEXT = '' THEN
+         RETURN
+      END
+*
+      LOCATE.OCCURENCE = 1
+      START.LOCATE.LINE.CTR = TOP.LINE.CTR
+      LOCATE.DIRECTION = 'FORWARD'
+      GOSUB SEARCH.FOR.LOCATE.TEXT
+      RETURN
+
+
+*
+*
+* GET LOCATE TEXT
+*
+GET.LOCATE.TEXT: 
+      DEFAULT.ANS = ''
+      LOCATE.PROMPT = 'Locate text'
+      CALL DL.PROMPT.ANS(LOCATE.TEXT,LOCATE.PROMPT,PROMPT.COL,PROMPT.LINE,VALID.ANS.LIST,DEFAULT.ANS,END.PARAM)
+      RETURN
+
+
+*
+*
+* LOCATE THE TEXT
+*
+SEARCH.FOR.LOCATE.TEXT: 
+      PRE.LOCATE.LINE.CTR = LINE.CTR
+      LINE.CTR = START.LOCATE.LINE.CTR
+      LOCATE.BEG.COL = 0
+      REACHED.END = @FALSE
+      LOOP
+         LOCATE.BEG.COL = INDEX(LINES<LINE.CTR>,LOCATE.TEXT,LOCATE.OCCURENCE)
+      UNTIL LOCATE.BEG.COL OR REACHED.END
+         IF LOCATE.DIRECTION = 'FORWARD' THEN
+            LINES.NEEDED = 1
+            GOSUB READ.LINES.IF.NEEDED
+            LINE.CTR += 1
+            IF END.OF.FILE AND LINE.CTR > NUM.LINES THEN
+               REACHED.END = @TRUE
+            END
+         END ELSE
+            LINE.CTR -= 1
+            IF LINE.CTR < 1 THEN
+               REACHED.END = @TRUE
+            END
+         END
+         LOCATE.OCCURENCE = 1
+      REPEAT
+      IF LOCATE.BEG.COL THEN
+         GOSUB DISPLAY.LOCATED.TEXT
+      END ELSE
+         MSG = 'Could not find "':LOCATE.TEXT:'" -- Press RETURN to continue'
+         ANS = ''
+         DEFAULT.ANS = ''
+         CALL DL.PROMPT.ANS(ANS,MSG,PROMPT.COL,PROMPT.LINE,VALID.ANS.LIST,DEFAULT.ANS,END.PARAM)
+         LINE.CTR = PRE.LOCATE.LINE.CTR
+      END
+      RETURN
+
+
+*
+*
+* DISPLAY LOCATED TEXT
+*
+DISPLAY.LOCATED.TEXT: 
+      LOCATE.LINE.CTR = LINE.CTR
+      REDISPLAY.NEEDED = @TRUE
+      IF LINE.CTR >= TOP.LINE.CTR AND LINE.CTR <= (TOP.LINE.CTR + PAGE.SIZE - 1) THEN
+         REDISPLAY.NEEDED = @FALSE
+      END
+      LEN.LOCATE.TEXT = LEN(LOCATE.TEXT)
+      LOCATE.END.COL = LOCATE.BEG.COL + LEN.LOCATE.TEXT - 1
+      END.COL = BEG.COL + DISPLAY.WIDTH - 1
+      IF LOCATE.BEG.COL < BEG.COL OR LOCATE.END.COL > END.COL THEN
+         BEG.COL = INT((LOCATE.BEG.COL-1)/10)*10 + 1
+         REDISPLAY.NEEDED = @TRUE
+      END
+      IF REDISPLAY.NEEDED THEN
+         LINE.CTR -= 2
+         GOSUB DISPLAY.PAGE
+      END
+      SCREEN.ROW = LOCATE.LINE.CTR - TOP.LINE.CTR + 1
+      SCREEN.COL = LOCATE.BEG.COL - BEG.COL
+      SCREEN.TEXT = LOCATE.TEXT[1,DISPLAY.WIDTH]
+      LEN.SCREEN.TEXT = LEN(SCREEN.TEXT)
+      CRT @(SCREEN.COL+LEN.SCREEN.TEXT,SCREEN.ROW):@(IT$EREV):
+      IF SCREEN.COL = 0 THEN
+         CRT @(SCREEN.COL,SCREEN.ROW):@(IT$SREV):
+         CRT @(SCREEN.COL,SCREEN.ROW):SCREEN.TEXT:
+      END ELSE
+         CRT @(SCREEN.COL-1,SCREEN.ROW):@(IT$SREV):
+         CRT @(SCREEN.COL,SCREEN.ROW):SCREEN.TEXT:
+      END
+      MSG = 'Found "':LOCATE.TEXT:'" at line ':LOCATE.LINE.CTR:' column ':LOCATE.BEG.COL
+      ANS = ''
+      DEFAULT.ANS = ''
+      CALL DL.PROMPT.ANS(ANS,MSG,PROMPT.COL,PROMPT.LINE,VALID.ANS.LIST,DEFAULT.ANS,END.PARAM)
+      IF SCREEN.COL = 0 THEN
+         ORIG.SCREEN.TEXT = LINES<LOCATE.LINE.CTR>[LOCATE.BEG.COL,LEN.SCREEN.TEXT+1]
+         CRT @(SCREEN.COL,SCREEN.ROW):@(IT$EREV):
+         CRT @(SCREEN.COL,SCREEN.ROW):ORIG.SCREEN.TEXT:
+      END ELSE
+         ORIG.SCREEN.TEXT = LINES<LOCATE.LINE.CTR>[LOCATE.BEG.COL-1,LEN.SCREEN.TEXT+2]
+         CRT @(SCREEN.COL-1,SCREEN.ROW):@(IT$EREV):
+         CRT @(SCREEN.COL-1,SCREEN.ROW):ORIG.SCREEN.TEXT:
+      END
+      RETURN
+
+
+*
+*
+* PROCESS LOCATE BACKWARD
+*
+PROCESS.LOCATE.BACKWARD: 
+      IF REST.OF.LINE = '' THEN
+         GOSUB GET.LOCATE.TEXT
+      END ELSE
+         LOCATE.TEXT = REST.OF.LINE
+      END
+      IF LOCATE.TEXT = '' THEN
+         RETURN
+      END
+*
+      LOCATE.OCCURENCE = 1
+      START.LOCATE.LINE.CTR = TOP.LINE.CTR + PAGE.SIZE - 1
+      IF START.LOCATE.LINE.CTR > NUM.LINES THEN
+         START.LOCATE.LINE.CTR = NUM.LINES
+      END
+      LOCATE.DIRECTION = 'BACKWARD'
+      GOSUB SEARCH.FOR.LOCATE.TEXT
+      RETURN
+
+
+*
+*
+* PROCESS LOCATE AGAIN
+*
+PROCESS.LOCATE.AGAIN: 
+      IF LOCATE.DIRECTION = '' THEN
+         RETURN
+      END
+      START.LOCATE.LINE.CTR = LOCATE.LINE.CTR
+      LOCATE.OCCURENCE += 1
+      GOSUB SEARCH.FOR.LOCATE.TEXT
+      RETURN
+
+
+
+
+   END

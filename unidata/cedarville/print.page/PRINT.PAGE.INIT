@@ -1,0 +1,224 @@
+      SUBROUTINE PRINT.PAGE.INIT
+*
+* INFO/BASIC SUBROUTINE
+* 2/11/88
+* DWS
+* TITLE ----- PRINT.PAGE.INIT
+*
+*
+*  MODULE:  PRINT.PAGE
+* PURPOSE: INITIALIZE COMMON AREA PRIOR TO LOAD ROUTINE
+*
+* Stamped: pts_4 rotmand, /datatel/coll18/live/apphome, user #27508, 08 Dec 14, 08:55AM.
+*  Version 5.2
+*  Allow field name for mail subject
+* Stamped: pts_3 rotmand, /datatel/coll18/live/apphome, user #21570, 31 Jan 12, 05:22PM.
+*  Version 5.1
+*  Allow numeric field numbers in addition to field names.
+* Stamped: pts_135 rotmand, /datatel/coll18/live/apphome, user #11874, 15 Mar 11, 04:45PM.
+* Move DELAY.INTERVAL and DELAY.TIME to main PRINT.PAGE process.
+* Stamped: pts_10 rotmand, /datatel/coll18/live/apphome, user #11980, 15 Jan 09, 09:03AM.
+*  Increase DELAY.TIME for large email batches to 90 seconds (was
+*  60 seconds) annd decrease batch size to 25 records (was 30 records)
+* Stamped: pts_82 rotmand, /datatel/live/collive, user #29971, 19 Mar 07, 04:42PM.
+*  Version 5.0
+*  Add ATTACH.FILE option.
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+* Stamped: p2 rotmand, /disk1/collive, user #14054, 05 Apr 00, 07:42AM.
+*  Implement sleep delay for sending email to large groups (pause
+*  after every PP.MAIL.DELAY.INTERVAL records)
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 15:56:18 on 12/14/1988.
+* Update to 3.0
+*     Last updated by LIVE (SJOQUIST) at 10:13:54 on 02/16/1988.
+*       REV 2.2
+*       Allow expandable lines (for multi-value lists)
+*       Allow options top.of.form
+*        Allow inserting fields (instead of overlaying, default = overlay)
+*     Last updated by LIVE (SJOQUIST) at 14:42:39 on 02/12/1988.
+*        Allow multiple pages per run
+*
+*
+*************************************************************************
+*
+*  COPYRIGHT (C) 1989, ROTMAN & SJOQUIST
+*
+*      The information contained in this file is proprietary to
+*      ROTMAN & SJOQUIST and shall not be reproduced in part or
+*      in whole without their prior written authorization.
+*      This file may be modified for the internal use of this
+*      institution, but no part of this file nor any program or
+*      file derived from it may be distributed to any other
+*      individual or institution.
+*
+*************************************************************************
+*
+
+      $INSERT I_PRINT.PAGE.COMMON
+
+*
+*
+* SET UP ARRAYS & DEFAULT VALUES
+*
+
+      MAT PP.FIELD = ''
+      MAT PP.FILE.NUM = 1
+      MAT DICT.NAME = ''
+      MAT DICT.REC = ''
+      MAT PP.SUBR.NAMES = ''
+      MAT FIELD.TYPE = ''
+      MAT MULTI.VALUE = FALSE
+      MAT NUM.VALUES = 0
+      MAT NUM.SUBVALUES = 0
+      MAT USE.LAST.VALUES = FALSE
+      MAT CONV.CODE = ''
+      MAT FIELD.ARGS = ''
+      MAT SPECIAL.CONV.CODE = ''
+      MAT FMT.CODE = ''
+      MAT IGNORE.ERROR = ''
+      MAT MAX.LENGTH = 0
+      MAT BY.EXP = ''
+      MAT DEFAULT.VALUE = ''
+      MAT POSTFIX.PHRASE = ''
+      MAT PROMPT.TEXT = ''
+      MAT INPUT.MASK = ''
+      MAT PROMPT.VALUE = ''
+      MAT ROW.NUM = ''
+      MAT COLUMN.NUM = ''
+      MAT RC.FIELD.NUM = ''
+      MAT MASK.LINES = ''
+      MAT DUMMY.LINES = ''
+      MAT PRINT.LINES = ''
+      MAT NUM.FIELDS = 0
+      MAT NUM.LINES = 0
+      MAT NUM.RECS = 0
+      MAT NUM.POSITIONS = 0
+      MAT NUM.LINE.UP = 0
+      MAT FORM.LENGTH = 66
+      MAT PRINT.LINES.ON.FORM = 0
+      MAT EXPAND.LINES = FALSE
+      MAT TOP.OF.FORM = ''
+      MAT INSERTING = FALSE
+      MAT SKIP.NULL.LINES = FALSE
+      MAT FILL.MARGINS = ''
+      FIELD.DELIMITER = '%'
+      MAT HEADING.BEGIN.LINE = 0
+      MAT HEADING.END.LINE = -1
+      MAT FOOTING.BEGIN.LINE = 0
+      MAT FOOTING.END.LINE = -1
+      MAT BODY.BEGIN.LINE = 0
+      MAT BODY.END.LINE = -1
+      MAT NUM.FILES = 1
+      MAT PP.FILE.NAME = ''
+      MAT PP.KEY.FIELD.NUM = 0
+      MAT F.PP.FILE = ''
+      MAT NEW.PAGE = FALSE
+      PP.INITIALIZATION = ''
+      PP.TERMINATION = ''
+      SECTION.DELIMITER = '&'
+      COMMENT.CHARACTER = '*'
+      SPECIAL.COMMAND.DELIMITER = '$'
+      FILE.FIELD.DELIMITER = '/'
+      PREDEFINED.FIELD.CHARACTER = '#'
+*
+      PREDEFINED.FIELD.LIST = '@DATE'
+      PREDEFINED.FIELD.CONV = 'D2/'
+      PREDEFINED.FIELD.FMT = '8R'
+      PREDEFINED.FIELD.ARGS = ''
+      PREDEFINED.FIELD.LIST := @VM:'@DAY'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'2R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@LOGNAME'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'15L'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@MONTH'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'2R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@PATH'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'25L'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@TIME'
+      PREDEFINED.FIELD.CONV := @VM:'MTH'
+      PREDEFINED.FIELD.FMT := @VM:'8R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@USERNO'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'3R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@WHO'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'15L'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'@YEAR'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'2R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'DATE()'
+      PREDEFINED.FIELD.CONV := @VM:'D2/'
+      PREDEFINED.FIELD.FMT := @VM:'8R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'PAGE.COUNT'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'5R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'RECORD.COUNT'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'5R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'TIME()'
+      PREDEFINED.FIELD.CONV := @VM:'MTH'
+      PREDEFINED.FIELD.FMT := @VM:'8R'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'TIMEDATE()'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:'20L'
+      PREDEFINED.FIELD.ARGS := @VM:''
+      PREDEFINED.FIELD.LIST := @VM:'FONT'
+      PREDEFINED.FIELD.CONV := @VM:''
+      PREDEFINED.FIELD.FMT := @VM:''
+      PREDEFINED.FIELD.ARGS := @VM:''
+*
+      SPECIAL.CONV.CODE.LIST = 'DAY.OF.WEEK'
+      SPECIAL.CONV.CODE.LIST := @VM:'DAY.OF.WEEK.TEXT'
+      SPECIAL.CONV.CODE.LIST := @VM:'MONTH.TEXT'
+      SPECIAL.CONV.CODE.LIST := @VM:'DATE.TEXT'
+*
+      DAY.OF.WEEK.TEXT(1) = 'Sunday'
+      DAY.OF.WEEK.TEXT(2) = 'Monday'
+      DAY.OF.WEEK.TEXT(3) = 'Tuesday'
+      DAY.OF.WEEK.TEXT(4) = 'Wednesday'
+      DAY.OF.WEEK.TEXT(5) = 'Thursday'
+      DAY.OF.WEEK.TEXT(6) = 'Friday'
+      DAY.OF.WEEK.TEXT(7) = 'Saturday'
+*
+      MONTH.TEXT(1) = 'January'
+      MONTH.TEXT(2) = 'February'
+      MONTH.TEXT(3) = 'March'
+      MONTH.TEXT(4) = 'April'
+      MONTH.TEXT(5) = 'May'
+      MONTH.TEXT(6) = 'June'
+      MONTH.TEXT(7) = 'July'
+      MONTH.TEXT(8) = 'August'
+      MONTH.TEXT(9) = 'September'
+      MONTH.TEXT(10) = 'October'
+      MONTH.TEXT(11) = 'November'
+      MONTH.TEXT(12) = 'December'
+*
+      PP.SPARE1 = ''
+      PP.SPARE2 = ''
+      PP.SPARE3 = ''
+*
+      MAT NUM.PAGES = 0
+*
+      RETURN
+      END
+*

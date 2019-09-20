@@ -1,0 +1,14 @@
+* I_DOWNLOAD.KEYS.INS
+*
+*
+* Stamped: p1 rotmand, /disk1/test, user #17092, 25 Feb 02, 02:16PM.
+*   Version 5.11
+*  contains the necessary constants for PRIMOS.OPEN.FILE,
+*  PRIMOS.WRITE.FILE, and PRIMOS.CLOSE.FILE to compile and run.
+*
+      EQUATE K$READ TO          1
+      EQUATE K$WRIT TO          2
+      EQUATE K$TRNC TO          4
+      EQUATE K$EXST TO          6
+      EQUATE K$CLOS TO          4
+      EQUATE K$GETU TO      16384

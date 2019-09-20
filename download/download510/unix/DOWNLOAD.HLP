@@ -1,0 +1,303 @@
+DOWNLOAD 5.10                                              February 2001
+
+
+This is a brief introduction, intended to help you get started with DOWNLOAD.
+For more extensive help, consult the documentation file DOWNLOAD.DOC which
+came with the DOWNLOAD software.
+
+
+Basic command line syntax
+
+   DOWNLOAD FileName field.names
+
+
+More complete syntax
+
+   DOWNLOAD [BEGIN] [DICT] FileName
+      [[field.prefix] field.names [field.qualifiers]]
+      [SUBR('sname'[,arg1,etc]) [field.qualifiers]]
+      [LITERAL 'value' [field.qualifiers]]
+      [@variables]
+      [Record.IDs]
+      [Phrase from Dict]
+      [Phrase from VOC]
+      [Options]
+
+
+Specifying data to include on the output
+
+   - Reference a data field or I-descriptor described in the current
+        dictionary.
+   - Reference a data field or I-descriptor described in the VOC file.
+   - Use the SECONDARY.FILE option to relate another file to this one.
+        This is like doing a TRANS (translate) to another file, but 
+        without creating an i-descriptor.
+   - Use a literal value specified with the "LITERAL 'value'" clause.
+   - Return a value from a subroutine specified with the 
+        "SUBR('sname')" clause.
+   - Use an "at" variable to return a system-defined value.
+
+   All of these items may also include qualifiers or prefixes which
+   further define how the value is to be downloaded.  There are also
+   command options that may be used to change the default behavior
+   of DOWNLOAD. 
+  
+
+
+Valid Field Clauses
+
+   DataFieldName [Field Qualifier(s)]
+      You may use any data field from the data file(s) specified
+      on your command line.
+
+   I-descriptorName [Field Qualifier(s)]
+      The dictionary item for a data field or an I-descriptor can come
+      from either the current dictionary (which can be changed with the
+      USING DICT option,) or the VOC file.
+
+   LITERAL 'constant value' [Field Qualifier(s)]
+      The default format and length for this type of value is the actual
+      length of the data, left-justified.
+
+   SUBR('subroutine.name' [, argument2]) [Field Qualifier(s)]
+      This clause can have from 1 to 10 arguments and functions similar
+      to the SUBR usage in I-descriptors.  The subroutine should return
+      the value to be downloaded in the first argument.  If the value
+      being returned is multi-valued, then the field qualifier
+      MULTI.VALUE should be added since the default is single-value.
+      The default format and length for this type of value is "30L".
+
+   @variable [Field Qualifier(s)]
+      You may select from any of the following variables:
+      @ACCOUNT              host operating system path
+      @DATE                 system date (internal format) that
+                               DOWNLOAD began running
+      @DAY                  day of the month that DOWNLOAD began running
+      @LOGNAME              user's login name
+      @MONTH                month of the year (numeric) that DOWNLOAD
+                               began running
+      @SYSTEM.RETURN.CODE   system return code at the start of execution
+                               (usually, the number of records in the
+                               active select list)
+      @TIME                 system time (internal format) that
+                               DOWNLOAD began running
+      @YEAR                 year (four digit) that DOWNLOAD began running
+
+
+ 
+Record Layout Command Options and Default Values
+   ***** Option *****************************   ***** Default Value *****
+   BY.EXP MVField1                              none
+   COMMA.CHAR comma.char                        ,
+   DEFAULT field.qualifier new.default.value    none
+   DETAIL ...detail layout options....          default is DETAIL
+   EOR.CHAR end.of.record.char                  (null)
+   FIELD.GAP #blanksbetweencolumns              none (only valid with FIXED)
+   FOOTING ...record layout options...          no report footing record
+   FORMAT
+      COMMA|DBF|DIF|FIXED|HTML|QUOTE|WP50|WP51  COMMA
+   HEADING ...record layout options...          no report heading record
+   NO.LINEFEED                                  Off (LF between records)
+   RECORD.LENGTH fixed.size                     none (only valid with FIXED)
+   RECORD.ORIENTATION HORIZONTAL | VERTICAL     HORIZONTAL
+   REMOVE.PUNCTUATION                           Off (leave punctuation)
+   QUOTE.CHAR quote.char                        "
+   UPCASE                                       Off (do not change case)
+   WHEN MVField2 oper Field | Value(s)          none
+
+
+Execution Environment Command Options and Default Values
+   ***** Option *****************************   ***** Default Value *****
+   [NO.]DISPLAY.COUNT                           DISPLAY.COUNT
+   [NO.]PRINT.ERRORS                            PRINT.ERRORS
+   LPTR                                         Off (errors/layout on screen)
+   NO.PAGE                                      Off (pause at end of screen)
+   PRINT.LAYOUT                                 Off (do not print layout)
+   PROGRESS.INTERVAL                            10
+   WRITE.INTERVAL                               10 0 (sleep 0 seconds)
+
+
+Records and Files to Process Command Options and Default Values
+   ***** Option *****************************   ***** Default Value *****
+   APPEND                                       Off (do not append)
+   FILE Type1File RecordName                    Off (display on screen)
+   FROM SelectList#                             0 (default select list)
+   OVERWRITING                                  Off (do not overwrite)
+   SAMPLE [SampleSize]                          Entire list or file
+   USING [DICT] AlternateInfoFile               DICT InfoFileName
+
+
+HTML Command Options and Default Values
+   ***** Option *****************************   ***** Default Value *****
+   HTML.TITLE HTMLTitleToUse                    none
+   HTML.BODY HTMLBodyToUse                      none
+   HTML.TOP HTMLTopToUse                        none
+   HTML.TABLE HTMLTableToUse                    BORDER="1" (small visible)
+   HTML.BOTTOM BottomHTMLTextToUse              none
+
+
+Valid operators for WHEN option:
+
+   EQ, NE, GE, GT, LE, LT, LIKE, UNLIKE
+
+  
+Valid Field Prefixes:
+
+  BREAK.ON field.name
+  TOTAL field.name
+  AVERAGE field.name
+  MIN field.name
+  MAX field.name
+
+
+ValidField Qualifiers:          ---- Valid for these formats ----   Default
+                                FIXED COMMA HTML  WP50  DIF   DBF   Value
+                                      QUOTE       WP51
+ 
+   LINE LogicalLine#            Yes   Yes                           1
+   [LENGTH] MaximumLength       Yes   Yes         Yes   Yes   Yes   none
+   BEG.COL BegColumn#           Yes                                 1
+   END.COL EndColumn#           Yes                                 n/a
+   COLUMNS BegColumn# EndColumn#Yes                                 n/a
+   FMT FmtCode                  Yes   Yes   Yes   Yes   Yes   Yes   dict
+   CONV ConvCode                Yes   Yes   Yes   Yes   Yes   Yes   dict
+   HTML.CELL                                Yes                     none
+   HTML.START                               Yes                     none
+   HTML.END                                 Yes                     none
+   HTML.ROW                                 Yes                     none
+   SINGLE.VALUE | MULTI.VALUE   Yes   Yes   Yes   Yes   Yes   Yes   single
+   NUM.VALUES #Values           Yes   Yes   Yes   Yes   Yes   Yes   1
+   NUM.VALUES ALL               Y/N   Yes   Yes   Yes
+      (valid with FORMAT FIXED & vertical orientation)
+      (default = ALL for FORMAT WP50 or WP51)
+   MV.ORIENTATION VERTICAL | HORIZONTAL
+                                Yes   Yes   Yes                     horizontal
+   DEFAULT.VALUE value          Yes   Yes   Yes   Yes   Yes   Yes   null
+   NO.NULLS                     Yes   Yes   Yes   Yes   Yes   Yes   false
+
+
+
+Valid control heading and footing record layouts:
+
+   HEADING.ON break.field [...record layout...]
+   HEADING.ON break.field NONE
+   FOOTING.ON FINAL [...record layout...]
+   FOOTING.ON FINAL NONE
+   FOOTING.ON break.field [...record layout...]
+   FOOTING.ON break.field NONE
+   DET.SUP     (show only heading/footing lines)
+
+   For each break field (each use of BREAK.ON), a default footing record
+   with the same layout as the detail record will be setup, as well as a
+   final control footing record (different from the report footing record).
+   This default may be disabled with the optional keyword NONE following
+   the FOOTING.ON phrase.
+  
+
+ 
+SECONDARY.FILE option 
+  ***** Option **********************  ***** Default Value *****
+  SECONDARY.FILE filename
+    [KEY primaryFileFieldName]         @ID
+    [ALIAS text]                       filename
+
+
+
+  
+Examples
+
+
+1.  To create a "comma-quote" file of id numbers and names, try
+    statements like the following:
+       GET.LIST MAJOR.DONORS
+       DOWNLOAD PEOPLE ID.NO NAME FILE _HOLD_ DONOR.DAT
+
+    Sample output for a single record from above statement:
+          "1031567","Carnegie, Andrew"
+
+
+
+2.  To change the above to a WordPerfect merge file:
+       GET.LIST MAJOR.DONORS
+       DOWNLOAD PEOPLE ID.NO NAME FILE _HOLD_ DONOR.DAT FORMAT WP51
+
+
+
+3.  To change the above to a Web page (HTML):
+       GET.LIST MAJOR.DONORS
+       DOWNLOAD PEOPLE ID.NO NAME FILE _HOLD_ DONOR.HTM FORMAT HTML
+
+
+
+4.  The following example creates a data file named GRAD1998.DAT in
+    the directory named &HOLD&.  The file is in comma format with the
+    student's name, 2 lines (always) of address, city, state, zip, first and
+    second major, and all terms that have been transcripted or registered.
+
+       GET.LIST GRADS
+       DOWNLOAD STUDENTS \
+          NAME ADDRESS NUM.VALUES 2 CITY ST ZIP \
+          MAJOR NUM.VALUES 2 \
+          REG.TERMS WHEN REG.STATUS = 'T''''R' NUM.VALUES ALL \
+          FORMAT COMMA FILE &HOLD& GRAD1998.DAT
+
+    Sample output for a single record from above statement:
+          "Smith, John Q","250 North Main","","Columbus","OH","44444","ENG",
+             "BUS","96/FA","97/WI","97/SP","97/FA","98/WI","98/SP"
+
+  
+5.  The following example uses a subroutine to call a local subroutine
+    with the default key of "AR" to determine the mailing name & address.
+    The rest of the example is the same as above.
+
+       GET.LIST GRADS.1998
+       DOWNLOAD STUDENTS \
+          SUBR('S.GET.ADDRESS','AR',5) MULTI.VALUE NUM.VALUES 5 \
+          MAJOR NUM.VALUES 2 \
+          REG.TERMS WHEN REG.STATUS = 'T''''R' NUM.VALUES ALL \
+          FORMAT COMMA FILE &HOLD& GRADUATES.1998.DATA
+
+    Sample output for a single record from above statement:
+          "Mr. John Smith","250 North Main","Columbus, OH 44444","","","ENG",
+             "BUS","96/FA","97/WI","97/SP","97/FA","98/WI","98/SP"
+
+
+
+6.  Examples using the SECONDARY.FILE option
+
+    The SECONDARY.FILE option lets you reference fields from other
+    files without creating a lot of i-descriptors.
+ 
+      DOWNLOAD PEOPLE SECONDARY.FILE STUDENTS KEY @ID
+           LAST FIRST STUDENTS->CLASS
+      references fields LAST and FIRST from the PEOPLE file and the field
+      CLASS from the students file (the same record key is used for both
+      files).
+
+      DOWNLOAD STUDENTS SECONDARY.FILE STUD.SCHEDS KEY LAST.SS.KEY \
+         NAME STUD.SCHEDS->COURSE NUM.VALUES ALL
+      references field NAME from the STUDENTS file and field COURSE
+      from the STUD.SCHEDS file.  The record key for STUD.SCHEDS is
+      computed in field LAST.SS.KEY of the STUDENTS file.
+
+      DOWNLOAD STUDENTS \
+         SECONDARY.FILE PEOPLE KEY PARENT.ID ALIAS PGS \
+         SECONDARY.FILE PEOPLE KEY SPOUSE ALIAS SP \
+         NAME PARENT.ID PGS->NAME SPOUSE SP->NAME \
+         FORMAT FIXED FIELD.GAP 2
+      retrieves data from the PEOPLE file:
+         NAME is the person's name
+         PARENT.ID is the id number of the person's parent
+         PGS->NAME is the name of the parent (accessed via PARENT.ID)
+         SPOUSE is the id number of the person's spouse
+         SP->NAME is the name of the spouse (accessed via SPOUSE)
+
+
+* This software was written at Cedarville University by Doug Sjoquist
+* and modified by Dave Rotman.  You may freely distribute this
+* software, but this software is not to be sold by itself nor as
+* part of any other software package.  A current version of the
+* software may be obtained via anonymous ftp from:
+*                     ftp.cedarville.edu
+* This software is made available on an "as-is" basis, with no
+* warranty of any kind.

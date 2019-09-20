@@ -1,0 +1,354 @@
+*
+* INFO/BASIC PROGRAM
+* 6/28/89
+* DLR
+* TITLE ----- SET.BANNER
+*
+*
+* MODULE :
+* PURPOSE: PROVIDE EASY MECHANISM FOR SAVE.REPORT/RUN.REPORT TO
+*          SET PRINTER CHARACTERISTICS
+*
+* Stamped: pts_8 rotmand, /datatel/live/collive, user #3420, 02 Aug 05, 10:08AM.
+*  For LASERAN, LASERAW, etc.  look for 'LASER' and then examine
+*  last character (A, N, W, or C).
+* Stamped: pts_2 howders, /datatel/live/collive, user #18682, 13 Jun 05, 05:03PM.
+*   Linux - all instances of token FORM should be changed to DEST
+* Stamped: pts_4 rotmand, /datatel/live/collive, user #951, 11 Apr 05, 04:03PM.
+*  Modified for Linux (basically changing FORM to DEST)
+* Stamped: p3 rotmand, /datatel/test/coltest, user #27484, 02 Nov 01, 05:18PM.
+*  Adjust LASERN length to 55 instead of leaving it unmodified.
+*     Last updated by LIVE (ROTMAN) at 11:29:08 on 06/28/1989.
+*
+*************************************************************************
+*
+* UPWARD-COMPATIBLE FOR THE FOLLOWING VOC ITEMS:
+*
+* SET.FORM
+* PA
+* * <<I2,Form Name>>
+* SETPTR ,,,,,,FORM <<I2,Form Name>>,BRIEF
+* IF <<I2,Form Name>> MATCHES BLANK... THEN GO NARROW
+* TERM ,,,,,,132
+* GO EXIT
+* NARROW: *
+* TERM ,,,,,,82
+* EXIT: *
+*
+* SET.BANNER
+* PA
+* SETPTR ,,,,,,FORM <<I2,Form Name>>,BRIEF,AS <<I3,Banner>>
+* IF <<I2,Form Name>> MATCHES BLANK... THEN GO NARROW
+* TERM ,,,,,,132
+* GO EXIT
+* NARROW: *
+* TERM ,,,,,,82
+* EXIT: *
+*
+***************************************************************************
+*
+
+      GOSUB SET.UP
+      GOSUB GET.COMMAND.LINE
+      GOSUB SET.DEFAULTS
+      BEGIN CASE
+         CASE NUM.PARAMS < 1
+            GOSUB DISPLAY.HELP
+            STOP
+         CASE NUM.PARAMS = 1
+            SETPTR.OPTIONS := ',DEST ':PARAM.STR<1>
+            CHECK.FORM = PARAM.STR<1>
+            GOSUB SET.FORM.DEFAULTS
+         CASE NUM.PARAMS = 2
+            KEYWORD.TOKEN = PARAM.STR<1>
+            LOCATE KEYWORD.TOKEN IN KEYWORD.LIST<1,1> SETTING POS THEN
+               GOSUB PROCESS.KEYWORDS
+            END ELSE
+               SETPTR.OPTIONS := ',DEST ':KEYWORD.TOKEN
+               SETPTR.OPTIONS := ',BANNER ':PARAM.STR<2>
+               CHECK.FORM = KEYWORD.TOKEN
+               GOSUB SET.FORM.DEFAULTS
+            END
+         CASE 1
+            GOSUB PROCESS.KEYWORDS
+      END CASE
+      GOSUB FINAL.BUILD
+      IF @LOGNAME = '*rotmand' THEN
+         CRT 'SETPTR.COMMAND ':SETPTR.COMMAND
+         INPUT JUNK.VARIABLE
+      END
+      EXECUTE SETPTR.COMMAND
+      STOP
+
+
+
+***************************************************************************
+*
+* TOKEN TYPES:
+* 11  SINGLET (TOKEN IS A MEANINGFUL KEYWORD ALL BY ITSELF)
+* 22  COUPLET (TOKEN REQUIRES AN 'ARGUMENT')
+* <7  POSITIONAL (KEYWORD WHICH IS MEANINGFUL TO SET.BANNER, BUT NOT SETPTR)
+*
+***************************************************************************
+SET.UP: 
+      KEYWORD.LIST = ''
+      KEYWORD.TYPE = ''
+      KEYWORD.LIST<1,-1> = 'AS'               ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'AT'               ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'BANNER'           ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'BOTTOM'           ; KEYWORD.TYPE<1,-1> = '5'
+      KEYWORD.LIST<1,-1> = 'BOTTOM.MARGIN'    ; KEYWORD.TYPE<1,-1> = '5'
+      KEYWORD.LIST<1,-1> = 'BRIEF'            ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'COPIES'           ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'DEFER'            ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'DISK'             ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'EJECT'            ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'FORM'             ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'DEST'             ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'FTN'              ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'LENGTH'           ; KEYWORD.TYPE<1,-1> = '3'
+      KEYWORD.LIST<1,-1> = 'LNUM'             ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'MODE'             ; KEYWORD.TYPE<1,-1> = '6'
+      KEYWORD.LIST<1,-1> = 'NFMT'             ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NFY'              ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NHEAD'            ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NODEFAULT'        ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NOEJECT'          ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NOFMT'            ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NOHEAD'           ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'NOTIFY'           ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'PLOT'             ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'TOP'              ; KEYWORD.TYPE<1,-1> = '4'
+      KEYWORD.LIST<1,-1> = 'TOP.MARGIN'       ; KEYWORD.TYPE<1,-1> = '4'
+      KEYWORD.LIST<1,-1> = 'TRUNCATE'         ; KEYWORD.TYPE<1,-1> = '11'
+      KEYWORD.LIST<1,-1> = 'TYPE'             ; KEYWORD.TYPE<1,-1> = '22'
+      KEYWORD.LIST<1,-1> = 'UNIT'             ; KEYWORD.TYPE<1,-1> = '1'
+      KEYWORD.LIST<1,-1> = 'WIDTH'            ; KEYWORD.TYPE<1,-1> = '2'
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+GET.COMMAND.LINE: 
+      COMMAND.LINE = @SENTENCE
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      PARAM.STR = FIELD(PARAM.STR,@FM,2,999)
+      NUM.PARAMS -= 1
+      RETURN
+
+
+***************************************************************************
+*
+***************************************************************************
+SET.DEFAULTS: 
+      DEFAULT.POSITIONAL.PARAMETERS = ''
+      DEFAULT.POSITIONAL.PARAMETERS<1> = 0      ;* PRINT UNIT
+      DEFAULT.POSITIONAL.PARAMETERS<2> = 132    ;* PAGE WIDTH
+      DEFAULT.POSITIONAL.PARAMETERS<3> = 57     ;* PAGE LENGTH
+      DEFAULT.POSITIONAL.PARAMETERS<4> = 0      ;* TOP MARGIN
+      DEFAULT.POSITIONAL.PARAMETERS<5> = 0      ;* BOTTOM MARGIN
+      DEFAULT.POSITIONAL.PARAMETERS<6> = 1      ;* MODE (1==PRINTER)
+      POSITIONAL.PARAMETERS = ''
+      SETPTR.OPTIONS = 'BRIEF'
+      RETURN
+
+
+***************************************************************************
+*
+***************************************************************************
+PROCESS.KEYWORDS: 
+      IF PARAM.STR # '' THEN
+         PARAM.STR = PARAM.STR
+         LOOP
+            REMOVE KEYWORD.TOKEN FROM PARAM.STR SETTING DELIM
+            GOSUB CHECK.KEYWORD.TOKEN
+         UNTIL DELIM = 0
+         REPEAT
+      END
+      RETURN
+
+
+CHECK.KEYWORD.TOKEN: 
+      LOCATE KEYWORD.TOKEN IN KEYWORD.LIST<1,1> SETTING TOKEN.POS ELSE
+         CRT 'SET.BANNER is ignoring unknown command ':KEYWORD.TOKEN:'.'
+         RETURN
+      END
+      TOKEN.TYPE = KEYWORD.TYPE<1,TOKEN.POS>
+      BEGIN CASE
+         CASE TOKEN.TYPE = 11
+            SETPTR.OPTIONS := ',':KEYWORD.TOKEN
+         CASE TOKEN.TYPE = 22
+            REMOVE KEYWORD.ARGUMENT FROM PARAM.STR SETTING DELIM
+            IF KEYWORD.ARGUMENT = '' THEN
+               CRT 'Keyword ':KEYWORD.TOKEN:' must be followed by an argument.  Keyword ignored.'
+            END ELSE
+               IF KEYWORD.TOKEN = 'FORM' THEN
+                  KEYWORD.TOKEN = 'DEST'
+               END
+               SETPTR.OPTIONS := ',':KEYWORD.TOKEN:' ':KEYWORD.ARGUMENT
+            END
+         CASE TOKEN.TYPE > 0 AND TOKEN.TYPE < 7
+            REMOVE KEYWORD.ARGUMENT FROM PARAM.STR SETTING DELIM
+            IF KEYWORD.ARGUMENT = '' THEN
+               CRT 'Keyword ':KEYWORD.TOKEN:' must be followed by an argument.  Keyword ignored.'
+            END ELSE
+               IF NUM(KEYWORD.ARGUMENT) THEN
+                  POSITIONAL.PARAMETERS<TOKEN.TYPE> = KEYWORD.ARGUMENT
+               END ELSE
+                  CRT 'Keyword ':KEYWORD.TOKEN:' requires a numeric argument.  Keyword ignored.'
+               END
+            END
+         CASE 1
+            CRT 'Internal error in SET.BANNER:  token ':KEYWORD.TOKEN:' has type ':TOKEN.TYPE:'.'
+      END CASE
+      IF KEYWORD.TOKEN = 'FORM' OR KEYWORD.TOKEN = 'DEST' THEN
+         CHECK.FORM = KEYWORD.ARGUMENT
+         GOSUB SET.FORM.DEFAULTS
+      END
+      RETURN
+
+
+SET.FORM.DEFAULTS: 
+      BEGIN CASE
+         CASE CHECK.FORM = 'ADMBW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'ADMCW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM<1>[1,5] = 'BLANK'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 82
+         CASE CHECK.FORM = 'HOLDN'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 82
+         CASE CHECK.FORM = 'HOLDW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+*DLR*         CASE CHECK.FORM = 'LASERN'
+         CASE CHECK.FORM[1,5] = 'LASER' AND CHECK.FORM[1] = 'N'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 80
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 56
+*DLR*         CASE CHECK.FORM = 'LASERW'
+         CASE CHECK.FORM[1,5] = 'LASER' AND CHECK.FORM[1] = 'W'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+*DLR*         CASE CHECK.FORM = 'LASER8'
+         CASE CHECK.FORM[1,5] = 'LASER' AND CHECK.FORM[1] = '8'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 97
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 75
+*DLR*         CASE CHECK.FORM = 'LASERC'
+         CASE CHECK.FORM[1,5] = 'LASER' AND CHECK.FORM[1] = 'C'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 82
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'PAYW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'PAY'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 80
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 58
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'PER'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 80
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 58
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'PERB'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 80
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 58
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'PERBW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'BUSBW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'BUSBC'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 82
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'BUSCW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'BUSCC'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 82
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'MNTBC'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 82
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 1
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 1
+         CASE CHECK.FORM = 'CASHAW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 132
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 57
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE CHECK.FORM = 'CSW'
+            DEFAULT.POSITIONAL.PARAMETERS<2> = 145
+            DEFAULT.POSITIONAL.PARAMETERS<3> = 65
+            DEFAULT.POSITIONAL.PARAMETERS<4> = 0
+            DEFAULT.POSITIONAL.PARAMETERS<5> = 0
+         CASE 1
+            NULL
+      END CASE
+      RETURN
+
+
+***************************************************************************
+*
+***************************************************************************
+FINAL.BUILD: 
+      FOR WHICH.POSITION=1 TO 7
+         IF POSITIONAL.PARAMETERS<WHICH.POSITION> = '' THEN
+            POSITIONAL.PARAMETERS<WHICH.POSITION> = DEFAULT.POSITIONAL.PARAMETERS<WHICH.POSITION>
+         END
+      NEXT WHICH.POSITION
+      SETPTR.COMMAND = 'SETPTR ':POSITIONAL.PARAMETERS<1>
+      FOR WHICH.POSITION = 2 TO 6
+         SETPTR.COMMAND := ',':POSITIONAL.PARAMETERS<WHICH.POSITION>
+      NEXT WHICH.POSITION
+      SETPTR.COMMAND := ',':SETPTR.OPTIONS
+      RETURN
+
+
+DISPLAY.HELP: 
+      NUM.KEYWORD.LIST = COUNT(KEYWORD.LIST,@VM) + (KEYWORD.LIST#'')
+      CRT 'SET.BANNER supports the following keywords:'
+      FOR WHICH.KEYWORD = 1 TO NUM.KEYWORD.LIST
+         CRT FMT(KEYWORD.LIST<1,WHICH.KEYWORD>,'15L'):
+         IF MOD(WHICH.KEYWORD,5) = 0 THEN
+            CRT
+         END
+      NEXT WHICH.KEYWORD
+      CRT
+      CRT 'Current SETPTR settings for print unit 0 are:'
+      EXECUTE 'SETPTR'
+      RETURN
+
+   END

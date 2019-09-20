@@ -1,0 +1,21 @@
+*
+* Set which operating system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_OP_SYS_VMS
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p1 rotmand, /usr/local/download, user #184, 28 Oct 02, 06:56AM.
+*   Version 6.00
+*
+*
+*
+
+*
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIX LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.PRIMOS LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.WINDOWS LIT '*'
+      OP.SYS.NAME = 'VMS'

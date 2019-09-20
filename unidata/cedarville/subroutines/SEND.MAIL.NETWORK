@@ -1,0 +1,125 @@
+      SUBROUTINE SEND.MAIL.NETWORK(RETURN.MESSAGE, PASSED.ADDRESSEE, PASSED.SENDER, SUBJECT, MAIL.MESSAGE)
+*
+* INFO/BASIC PROGRAM
+* 4/27/93
+* DWS
+* TITLE ----- SEND.MAIL.NETWORK
+*
+* MODULE : I-MAIL
+* PURPOSE: SEND MAIL TO A NETWORK ADDRESS
+*
+* Stamped: p8 rotmand, /datatel/live/collive, user #458, 28 Aug 02, 03:16PM.
+* Use sendmail directly rather than writing to an intermediate machine
+* Stamped: p2 rotmand, /disk1/collive, user #3456, 11 Feb 00, 06:35AM.
+*   Rename PALM.DATASRVR.EMAIL to NETWORK.DATASRVR.EMAIL
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #2123, 23 Jul 94, 09:57AM.
+* HP-UX conversion
+*     Last updated by LIVE (SJOQUISTD) at 10:14:02 on 04/29/1993.
+*
+*************************************************************************
+*
+
+      $INSERT I_I.MAIL
+
+      X.USE.SENDMAIL.DIRECT = @TRUE
+
+
+      GOSUB SET.UP
+      USE.MESSAGE = MAIL.MESSAGE
+      CONVERT @VM TO @FM IN USE.MESSAGE
+      RETURN.MESSAGE = ''
+      NUM.ADDRESSEES = COUNT(PASSED.ADDRESSEE,@VM) + (PASSED.ADDRESSEE # '')
+      FOR ADDRESSEE.CTR=1 TO NUM.ADDRESSEES
+         ADDRESSEE = PASSED.ADDRESSEE<1,ADDRESSEE.CTR>
+         IF COUNT(ADDRESSEE,'@') = 0 THEN
+            ADDRESSEE := '@':IMAILCM.TCP.ROUTER
+         END
+         ADDRESSEE = OCONV(ADDRESSEE,'MCL')
+         GOSUB GENERATE.KEY
+         SMTP.MAIL.REC = ''
+         GOSUB BUILD.HEADER
+         GOSUB SEND.MESSAGE
+      NEXT ADDRESSEE.CTR
+      RETURN
+
+
+
+SET.UP: 
+      ACTUAL.SENDER = OCONV(PASSED.SENDER<1,1>,'MCL')
+      FULL.NAME = PASSED.SENDER<1,2>
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      IF X.USE.SENDMAIL.DIRECT THEN
+         F.HOLD = ''
+         CALL OPEN.FILE(F.HOLD,'_HOLD_',ERROR.RET,ERROR.MSG)
+      END ELSE
+         F.NETWORK.DATASRVR.EMAIL = ''
+         CALL OPEN.FILE(F.NETWORK.DATASRVR.EMAIL,'NETWORK.DATASRVR.EMAIL',ERROR.RET,ERROR.MSG)
+      END
+      RETURN
+
+
+BUILD.HEADER: 
+      SMTP.MAIL.REC<-1> = 'To: ':ADDRESSEE
+      IF ACTUAL.SENDER THEN
+         USE.SENDER = ACTUAL.SENDER
+      END ELSE
+         USE.SENDER = 'S':OCONV(@LOGNAME,'MCU'):'@':IMAILCM.TCP.ROUTER
+      END
+      SMTP.MAIL.REC<-1> = 'From: ':USE.SENDER
+      IF SUBJECT THEN
+         SMTP.MAIL.REC<-1> = 'Subject: ':SUBJECT
+      END ELSE
+         SMTP.MAIL.REC<-1> = 'Subject: E-mail from ':USE.SENDER
+      END
+      SMTP.MAIL.REC<-1> = 'Organization: Administrative Message'
+      SMTP.MAIL.REC<-1> = ' '
+      RETURN
+
+
+
+*
+GENERATE.KEY: 
+      FOUND.SMTP.KEY = FALSE
+      LOOP.COUNT = 0
+      LOOP
+         SMTP.KEY = 'M':FMT(RND(99999),'5"0"R'):'.MAI'
+         IF X.USE.SENDMAIL.DIRECT THEN
+            READV TEST FROM F.HOLD, SMTP.KEY, 0 ELSE
+               FOUND.SMTP.KEY = TRUE
+            END
+         END ELSE
+            READV TEST FROM F.NETWORK.DATASRVR.EMAIL, SMTP.KEY, 0 ELSE
+               FOUND.SMTP.KEY = TRUE
+            END
+         END
+      UNTIL FOUND.SMTP.KEY OR LOOP.COUNT > 20
+         SLEEP(1)
+         LOOP.COUNT += 1
+      REPEAT
+      IF NOT(FOUND.SMTP.KEY) THEN
+         STOP 'UNABLE TO GENERATE NETWORK MAIL MESSAGE ':SMTP.KEY
+      END
+      RETURN
+
+
+SEND.MESSAGE: 
+      SMTP.MAIL.REC<-1> = USE.MESSAGE
+      IF X.USE.SENDMAIL.DIRECT THEN
+         X.PATH = './_HOLD_/'
+         KEY.BASE = @LOGNAME
+         SMTP.KEY = KEY.BASE:'.smtp'
+         SH.KEY = KEY.BASE:'.sh'
+         SH.REC = ''
+         SH.REC<-1> = 'cat ':X.PATH:SMTP.KEY
+         WRITE SMTP.MAIL.REC ON F.HOLD, SMTP.KEY
+         WRITE SH.REC ON F.HOLD, SH.KEY
+         X.COMMAND = 'sh ':X.PATH:SH.KEY:'|/usr/sbin/sendmail -t -F"':USE.SENDER:'"'
+         PCPERFORM X.COMMAND
+      END ELSE
+         WRITE SMTP.MAIL.REC ON F.NETWORK.DATASRVR.EMAIL, SMTP.KEY
+      END
+      RETURN.MESSAGE<-1> = 'NET':@SM:'via gateway ':IMAILCM.TCP.ROUTER:' key ':SMTP.KEY
+      RETURN
+
+   END

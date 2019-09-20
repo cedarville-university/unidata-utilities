@@ -1,0 +1,79 @@
+VIEW.SPOOL 000readme
+
+The VIEW.SPOOL program lets users view their own spool files
+and make alterations (eg, change destination) without requiring
+use of cryptic Unix commands.
+
+VIEW.SPOOL reads the spool queue file directly (location like
+/usr/spool/lp/outputq or /var/spool/cups) to find out the attributes, etc.
+VIEW.SPOOL issues lpalt commands to change jobs, so whatever lpalt will let
+you do, this program would be able to do.  (This version changes destination
+and the number of copies.  It also lets users view their spool files
+without being able to edit them.)
+
+All of the files you need are in this directory.
+
+Note that you should have some "C" experience
+before attempting to install VIEW.SPOOL.
+
+
+Here is the "help" screen from VIEW.SPOOL:
+--------------------------------------------------------------------
+:VIEW.SPOOL -HELP
+ 
+VIEW.SPOOL provides an alternative method to control spool queue entries.
+ 
+The command may be entered without any options, or the following
+options could be used:
+  -USER user [user]       (restricts viewing to those users only)
+  -FORM form# [form#]     (restricts viewing to those forms only)
+  -MENU
+  -OPTIONS FORM form# newFormName
+  -OPTIONS COPIES form# #copies
+  -OPTIONS CANCEL form# [form#]
+  -OPTIONS VIEW form# [form#]
+  -OPTIONS LIST
+  -OPTIONS EDIT form# [form#]
+--------------------------------------------------------------------
+
+
+Our users use it in the menu mode, which looks like:
+
+--------------------------------------------------------------------
+:VIEW.SPOOL -MENU -USER
+Display spool queue entries                                         VIEW.SPOOL
+ 
+Request Time   User        File                 No Size    Queue
+------- ----- ------------ -------------------- -- ------- ---------
+01 Aug 1994
+   3583 09:01 sjoquist     sjoquist-LABELS       1   23401 LABEL3
+   3584 09:01 sjoquist     sjoquist-LABELS       1   23401 LABEL3
+. . .
+Page 1 of 2
+(P)age, (R)edisplay, (V)iew, (CA)ncel, (F)orm, (CO)pies, (ED)it: #
+--------------------------------------------------------------------
+
+The (ED)it option only display & works for "authorized" users.
+
+Since it also takes command line options, I use it to edit spool
+files directly from the colon prompt.  The following command would
+edit (using vi) job #3584 listed above (actually spool entry
+LABEL3-3584).
+
+   :VS -OPTION EDIT 3584
+
+
+
+
+Originally written by:
+   Douglas W Sjoquist
+   Cedarville University
+   sjoquist@cedarville.edu
+
+Maintained by:
+   Dave Rotman
+   Cedarville University
+   rotmand@cedarville.edu
+
+
+

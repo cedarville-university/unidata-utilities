@@ -1,0 +1,94 @@
+      SUBROUTINE DOWNLOAD.SECURITY.SUBR(A.RETURN.MSG,A.DOWNLOAD.COMMAND,AL.FILE.LIST,AL.ITEM.LIST,A.OUTPUT.FILE.NAME,A.OUTPUT.RECORD.NAME)
+*
+* UNIBASIC SUBROUTINE
+* 05/05/2010
+* DLR
+* TITLE ----- DOWNLOAD.SECURITY.SUBR
+*
+*
+* PURPOSE: SAMPLE ROUTINE FOR SECURITY CHECKS WHEN USING CEDARVILLE DOWNLOAD
+*
+* Input:
+*    A.DOWNLOAD.COMMAND       actual command that was entered
+*    AL.FILE.LIST             list of files being accessed
+*    AL.ITEM.LIST             list of dictionary items being accessed
+*    A.OUTPUT.FILE.NAME       name of output directory (if output is
+*                                 being sent to a file)
+*    A.OUTPUT.RECORD.NAME     name of record being written (if output
+*                                 is being sent to a file)
+* Output:
+*    A.RETURN.MSG             null indicates security is okay
+*                             any other value will halt execution
+*
+*
+*************************************************************************
+* Stamped: p17 rotmand, /usr/local/download, user #1026, 09 Mar 12, 06:48AM.
+* Version 7.41
+*
+*
+*
+
+      $INCLUDE I_DOWNLOAD_MAX_COMMON
+      $INSERT I_DOWNLOAD_MAIN_COMMON
+
+* For debugging, uncomment these CRT statements
+*       CRT 'A.DOWNLOAD.COMMAND ':A.DOWNLOAD.COMMAND
+*       CRT 'AL.FILE.LIST ':AL.FILE.LIST
+*       CRT 'AL.ITEM.LIST ':AL.ITEM.LIST
+*       CRT 'A.OUTPUT.FILE.NAME ':A.OUTPUT.FILE.NAME
+*       CRT 'A.OUTPUT.RECORD.NAME ':A.OUTPUT.RECORD.NAME
+
+      A.RETURN.MSG = ''
+      X.USER.NAME = @LOGNAME
+
+
+      GOSUB CHECK.COMMAND
+      IF A.RETURN.MSG THEN
+         RETURN
+      END
+
+      IF A.OUTPUT.FILE.NAME THEN
+         GOSUB CHECK.OUTPUT.FILE
+         IF A.RETURN.MSG THEN
+            RETURN
+         END
+      END
+
+      GOSUB CHECK.ITEMS
+      IF A.RETURN.MSG THEN
+         RETURN
+      END
+
+* Additional security checking can be done here
+
+      RETURN
+
+
+* Do any custom security checking based on the entire command
+* If the user does not have sufficient security clearance, set
+*    A.RETURN.MSG to some non-null value.
+CHECK.COMMAND: 
+      RETURN
+
+
+* Check security based on output file name and record name
+* If the user does not have sufficient security clearance, set
+*    A.RETURN.MSG to some non-null value.
+CHECK.OUTPUT.FILE: 
+      RETURN
+
+
+* Check security based on file name and dictionary item
+CHECK.ITEMS: 
+      NUM.AL.FILE.LIST = DCOUNT(AL.FILE.LIST,@VM)
+      FOR WHICH.AL.FILE.LIST = 1 TO NUM.AL.FILE.LIST
+         A.FILE.NAME = AL.FILE.LIST<1,WHICH.AL.FILE.LIST>
+         A.ITEM.NAME = AL.ITEM.LIST<1,WHICH.AL.FILE.LIST>
+* Validate that the user has permission to access
+* item A.ITEM.NAME in file A.FILE.NAME
+* If not, set A.RETURN.MSG to some non-null value.
+      NEXT WHICH.AL.FILE.LIST
+      RETURN
+
+
+   END

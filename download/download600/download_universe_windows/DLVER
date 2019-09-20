@@ -1,0 +1,112 @@
+* Stamped: p1 rotmand, /usr/local/download, user #18427, 04 Nov 02, 06:56AM.
+* Version 6.00
+*    Added FORMAT XML
+*    Added FORMAT TAB (equivalent to FORMAT COMMA COMMAR.CHAR ^9)
+*    Added VALUE.SEPARATOR and SUBVALUE.SEPARATOR
+*    Increased DLMAX.LITERAL.VALUES from 150 to 200 (literal values)
+*    Increased DLMAX.SUBR.NAMES from 100 to 150 (subroutine names)
+*    Increased DLMAX.DICT.RECS from 250 to 300 (fields to DOWNLOAD)
+*    Added FIELD.LABELS clause to HEADING option
+*    Added LIT as a synonym for LITERAL
+*    Added CNV as a synonym for CONV
+*    Allowed use of environment variables in VOC entry for output file
+*    Allowed use of NUM.SUBVALUES with exploded select lists
+*    Updated Unidata installation (force $BASICTYPE "U")
+*    Created Universe-specific installation (Unix)
+*    Created Windows-specific installation (Universe and Unidata)
+*    Created test routines to verify a successful installation
+*    Bug fix (specifying HEADING twice caused infinite loop)
+*    Bug fix (exploded list was not being honored by secondary files)
+*    Bug fix (MIN minimum value on footing line was always null)
+*
+*
+*
+* Stamped: p3 rotmand, /usr/local/download, user #1542, 01 Feb 01, 08:04AM.
+* Version 5.10
+*    Enable "@" variables in file names
+*    Add WRITE.INTERVAL option to pause between writing groups of
+*       records (necessary on some systems communicating via NFS
+*       or Samba)
+*    Fix bug in WP51 format where null fields were suppressed if they
+*       were at the end of the output record.
+*    Fix bug in field qualifier MAX (used in break lines).
+*
+*
+*
+* Stamped: pe rotmand, /usr/local/download, user #12980, 06 Jul 00, 08:04AM.
+* Version 5.00
+*    Added support for HTML files
+*    Added APPEND option
+*    Added REMOVE.PUNCTUATION option
+*    Corrected typographical errors in the documentation
+*    Produce PDF version of the documentation
+*
+*
+*
+* Stamped: pt rotmand, /usr/local/download, user #16160, 14 Feb 97, 03:35PM.
+* Version 4.0
+*    Added support for DBF files
+*    Changed headings used in FIXED and DBF formats to follow same
+*       lengths as detail records unless over-ridden on the command line
+*    Added FIELD.NAMES clause to HEADING option
+*    Added support for "@" variables such as @DATE, @SYSTEM.RETURN.CODE
+*    Added NO.PAGE option to turn off screen pauses on progress meter
+*       and screen-based output
+*    Added ability to write to a subdirectory without creating a VOC
+*       pointer (see documentation for FILE option).
+*    Various bug fixes, including:
+*       Default @ID when using secondary file
+*       More-complete DIF output (required by Excel)
+*    Moved version history to separate file
+*    Modified on-line help
+*    Created WordPerfect documentation
+*
+*
+*
+* Version 3.1
+* Stamped: pt rotmand, /usr/local/download, user #2968, 05 Jul 95, 01:16PM.
+*    Added BREAK.SUP option.
+*
+*
+*
+* Version 3.0
+* Stamped: pt sjoquist, /usr/local/download, user #3835, 01 Nov 94, 01:38PM.
+*    Added file relations (avoid building multiple, complicated i-descriptors)
+*
+*
+*
+* Version 2.2
+* Last updated by TEST (SJOQUISTD) at 16:41:41 on 02/11/1994.
+*    Modified COMMA format (numeric values do not have quotes)
+*    Added QUOTE format (functions like COMMA used to)
+*    Created DIF format
+*
+*
+*
+* Version 2.1, miscellaneous changes
+* Last updated by LIVE (SJOQUISTD) at 13:42:17 on 10/27/1993.
+*    Set up new distributable copy (version 2.1)
+* Last updated by LIVE (ROTMAND) at 12:26:26 on 09/01/1993.
+*    Add 'T' and 'D' option to LITERAL fields.
+* Last updated by LIVE (SJOQUIST) at 09:19:31 on 09/09/1992.
+*    Add COMMA.CHAR option.
+* Last updated by LIVE (ROTMAN) at 17:19:31 on 08/12/1992.
+*    Add QUOTE.CHAR option.
+* Last updated by LIVE (SJOQUIST) at 08:18:42 on 08/06/1991.
+*    Rename DOWNLOAD.LOAD to DOWNLOAD.PARSE
+*    Split DOWNLOAD.PROCESS into DOWNLOAD.LOAD & DOWNLOAD.PROCESS
+*
+*
+*
+* Version 2.0, HEADING/FOOTING/BREAK.ON
+* Last updated by LIVE (SJOQUIST) at 09:34:44 on 07/26/1991.
+*    Split into INIT/LOAD/PROCESS subroutines
+*
+*
+*
+* Version 1.1, BEGIN ... END keywords with prompting using PROMPT.STACK
+* Last updated by LIVE (SJOQUIST) at 08:28:29 on 07/26/1991.
+* Last updated by LIVE (SJOQUIST) at 16:20:31 on 04/10/1991.
+*
+*
+

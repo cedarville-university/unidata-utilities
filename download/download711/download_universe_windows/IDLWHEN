@@ -1,0 +1,48 @@
+*
+* Common for DOWNLOAD programs
+* 20/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD.WHEN.COMMON
+*
+*
+* PURPOSE: VARIABLES PERTAINING TO USE OF "WHEN" PHRASES
+*
+*
+*************************************************************************
+* Stamped: p1 rotmand, /usr/local/download, user #1043, 17 Aug 04, 07:41AM.
+* Version 7.11
+*
+*
+*
+*
+*
+*
+*
+
+      COMMON /DL.WHEN/ WHEN.ASSOC.NAME,
+         WHEN.ASSOC.NAME.IS.FIELD.NAME,
+         WHEN.ASSOC.CONTROL.DICT.CTR,
+         NUM.WHEN.FIELDS,
+         WHEN.FIELD.LIST,
+         WHEN.OPERATOR.LIST,
+         WHEN.CHECK.VALUE.IS.FIELD.LIST,
+         WHEN.CHECK.VALUE.LIST,
+         WHEN.DICT.CTR.LIST,
+         WHEN.RESULT.LIST,
+         NUM.ASSOC.CONTROL.VALUES,
+         SELECT.LIST.IS.BY.EXP,
+         BY.EXP.FIELD,
+         BY.EXP.DICT.CTR,
+         DL.WHEN.ASSOC.NAME.LIST,
+         ASSOC.NUM.VALUES.LIST,
+         ASSOC.NUM.SUBVALUES.LIST,
+         DL.WHEN.SPARE10,
+         DL.WHEN.SPARE9,
+         DL.WHEN.SPARE8,
+         DL.WHEN.SPARE7,
+         DL.WHEN.SPARE6,
+         DL.WHEN.SPARE5,
+         DL.WHEN.SPARE4,
+         DL.WHEN.SPARE3,
+         DL.WHEN.SPARE2,
+         DL.WHEN.SPARE1

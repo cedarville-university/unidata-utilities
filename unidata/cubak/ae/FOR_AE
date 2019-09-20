@@ -1,0 +1,37 @@
+      SUBROUTINE FOR_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 06/26/2002
+* DLR
+* TITLE ----- FOR_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING FOR-NEXT STATEMENTS INTO SOURCE
+*
+* Stamped: p2 rotmand, /datatel/live/collive, user #21428, 26 Jun 02, 07:17AM.
+*
+*************************************************************************
+*
+
+*
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      X.OBJECT = FIELD(X$C,' ',2,1)
+      X.VALUE.TYPE = FIELD(X$C,' ',3,1)
+      IF X.VALUE.TYPE = '' THEN
+         X.VALUE.TYPE = '@VM'
+      END
+
+      COMMAND.TO.STORE = "I NUM.":X.OBJECT:" = DCOUNT(":X.OBJECT:",":X.VALUE.TYPE:")"
+      X$CC<-1> = COMMAND.TO.STORE
+      COMMAND.TO.STORE = "I FOR WHICH.":X.OBJECT:" = 1 TO NUM.":X.OBJECT
+      X$CC<-1> = COMMAND.TO.STORE
+      COMMAND.TO.STORE = "I ":X.OBJECT[1,1]:X.OBJECT[3,LEN(X.OBJECT)]:" = ":X.OBJECT:"<1,WHICH.":X.OBJECT:">"
+      X$CC<-1> = COMMAND.TO.STORE
+      COMMAND.TO.STORE = "I NEXT WHICH.":X.OBJECT
+      X$CC<-1> = COMMAND.TO.STORE
+
+      RETURN
+
+   END

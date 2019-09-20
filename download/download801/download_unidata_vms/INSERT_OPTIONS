@@ -1,0 +1,55 @@
+*
+* UNIBASIC PROGRAM
+* 07/24/2015
+* DLR
+* TITLE ----- INSERT.OPTIONS
+*
+* PURPOSE:  INSERT '$OPTIONS' STATEMENT INTO DOWNLOAD SOURCE FILES
+*
+* Stamped: pts_3 rotmand, /datatel/coll18/test6/apphome, user #59375, 24 Jul 15, 03:02PM.
+*
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      X.DIR.NAME = PARAM.STR<STARTING.PARAM>
+      X.FILE.NAME = PARAM.STR<STARTING.PARAM+1>
+      IF X.FILE.NAME = '' THEN
+         CRT 'Directory and file must be specified.'
+         STOP
+      END
+
+      OPEN '',X.DIR.NAME TO F.DIR.NAME ELSE
+         CRT 'UNABLE TO OPEN ':X.DIR.NAME
+         STOP
+      END
+
+      READ R.SOURCE FROM F.DIR.NAME, X.FILE.NAME ELSE
+         CRT 'UNABLE TO READ ':X.FILE.NAME:' FROM ':X.DIR.NAME
+         STOP
+      END
+
+      X.TEST = R.SOURCE<1>
+      X.TEST = TRIM(X.TEST)
+      IF X.TEST[1,8] # '$OPTIONS' THEN
+         X.TEST = '$OPTIONS INFORMATION'
+         R.SOURCE = X.TEST:@FM:R.SOURCE
+         WRITE R.SOURCE ON F.DIR.NAME, X.FILE.NAME
+         CRT X.DIR.NAME:' ':X.FILE.NAME:' modified'
+      END ELSE
+         CRT X.DIR.NAME:' ':X.FILE.NAME:' unchanged'
+      END
+      STOP
+
+
+   END

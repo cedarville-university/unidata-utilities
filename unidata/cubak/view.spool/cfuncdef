@@ -1,0 +1,27 @@
+/* this is a test for adding C function to the RUN Machine */
+/* comment lines come here.				   */
+/* C function declaration format:
+function-name:return-type:number-of-argument:arg1,arg2,...,argn
+*/
+$$FUN	/* begining of C function */
+XOSDIO_COUNT_ARGS:int:1:string
+XOSDIO_NEXT_ARG:int:1:string
+XOSDIO_STATUS_RECORD:int:1:int
+XOSDIO_ERROR_RECORD:int:1:string
+XOSDIO_SUB_PARM_RECORD:int:17:int,string,string,string,string,string,string,string,string,string,string,string,string,string,string,string,string
+XOSDIO_NULL_RECORD:int:0:
+XOSDIO_WRITE:int:1:string
+uni_get_userid:int:2:string,string
+c_qopen:long:1:string
+c_qclose:int:1:long
+c_qnext:int:7:int,int,string,string,string,string,string
+c_finfo:int:2:string,string
+$$OBJ	/* *.o come here */
+xbasic.o
+uni_get_userid.o
+dummy.o
+/disk1/locsrc/cprogs/c_qopen.o
+/disk1/locsrc/cprogs/c_qclose.o
+/disk1/locsrc/cprogs/c_qnext.o
+/disk1/locsrc/cprogs/c_finfo.o
+$$LIB	/* library comes here */

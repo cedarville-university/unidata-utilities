@@ -1,0 +1,39 @@
+      SUBROUTINE UNIQUE.VALUES(RETURN.LIST,ORIG.LIST)
+*
+* PURPOSE     : REMOVE DUPLICATE VALUES FROM A STRING
+*
+* PROGRAMMER  : SCOTT HOWDER/DAVE ROTMAN
+*
+* DATE WRITTEN: 02-04-88
+*
+*
+* Stamped: pty/ttyq0 sjoquist, /disk1/collive, user #7050, 27 Jan 95, 11:29AM.
+* HANDLE MULTIPLE ASSOCIATED LISTS AS SEPARATE FIELDS
+*     Last updated by LIVE (ROTMAN) at 16:06:49 on 02/04/1988.
+************************************************************************
+*
+*
+
+
+      RETURN.LIST = ''
+      IF ORIG.LIST  =  '' THEN
+         RETURN
+      END
+
+      NUM.FIELDS  =  COUNT(ORIG.LIST,@FM) + 1
+      NUM.VALUES = COUNT(ORIG.LIST<1>,@VM)+1
+      NUM.NEW = 1
+      FOR FIELD.CTR=1 TO NUM.FIELDS
+         RETURN.LIST<FIELD.CTR,NUM.NEW> = ORIG.LIST<FIELD.CTR,1>
+      NEXT FIELD.CTR
+      FOR VALUE.CTR = 2 TO NUM.VALUES
+         TEST.VALUE = ORIG.LIST<1,VALUE.CTR>
+         LOCATE TEST.VALUE IN RETURN.LIST<1,1> SETTING POS ELSE
+            NUM.NEW += 1
+            FOR FIELD.CTR=1 TO NUM.FIELDS
+               RETURN.LIST<FIELD.CTR,NUM.NEW> = ORIG.LIST<FIELD.CTR,VALUE.CTR>
+            NEXT FIELD.CTR
+         END
+      NEXT VALUE.CTR
+      RETURN
+   END

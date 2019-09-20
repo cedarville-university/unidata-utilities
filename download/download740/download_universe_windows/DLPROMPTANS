@@ -1,0 +1,115 @@
+      SUBROUTINE DLPROMPTANS(RETURN.ANSWER,PROMPT.STRINGS,COL.NO,LINE.NO,ANSWER.LIST,DEFAULT.ANSWER,END.PARAM)
+*
+* INFO/BASIC SUBROUTINE
+* 4/13/88
+* DWS
+* TITLE ----- DLPROMPTANS
+*
+*
+* PURPOSE: ASK A QUESTION
+*
+*
+* Stamped: p17 rotmand, /usr/local/download, user #1026, 15 Jul 10, 06:55AM.
+* Version 7.40
+*
+*************************************************************************
+*
+*
+
+      IF COL.NO = '' OR LINE.NO = '' THEN
+         SCREEN.POS = @FALSE
+         CLEAR.EOL = ''
+      END ELSE
+         SCREEN.POS = @TRUE
+         CLEAR.EOL = @(-4)
+      END
+
+
+
+*
+* SET UP
+*
+      MV.ANSWER.LIST = ANSWER.LIST
+      CONVERT '}' TO @VM IN MV.ANSWER.LIST
+      CONVERT '~' TO @VM IN MV.ANSWER.LIST
+      CONVERT @FM TO @VM IN MV.ANSWER.LIST
+      CONVERT ',' TO @VM IN MV.ANSWER.LIST
+
+      COUNT.STRINGS = COUNT(PROMPT.STRINGS,@VM) + (PROMPT.STRINGS#'')
+      MENU.STRINGS = FIELD(PROMPT.STRINGS,@VM,1,COUNT.STRINGS-1)
+
+      DISPLAY.PROMPT = PROMPT.STRINGS<1,COUNT.STRINGS>
+      DISPLAY.PROMPT := ': '
+      LEN.PROMPT = LEN(DISPLAY.PROMPT)
+
+
+*
+* DISPLAY MENU (PROMPT STRINGS 1 THROUGH N-1)
+*
+      FOR WHICH.MENU = 1 TO COUNT.STRINGS - 1
+         CRT @(COL.NO,LINE.NO+WHICH.MENU-1):CLEAR.EOL:MENU.STRINGS<1,WHICH.MENU>:
+      NEXT WHICH.MENU
+
+
+*
+* GET ANSWER
+*
+      IF SCREEN.POS THEN
+         CRT @(COL.NO,LINE.NO+COUNT.STRINGS-1):CLEAR.EOL:
+      END
+      CRT DISPLAY.PROMPT:
+      IF DEFAULT.ANSWER # '' THEN
+         MASK = DEFAULT.ANSWER
+      END ELSE
+         MASK = "#"
+      END
+      LOOP
+         IF SCREEN.POS THEN
+            CRT @(COL.NO+LEN.PROMPT,LINE.NO+COUNT.STRINGS-1):MASK:CLEAR.EOL:@(COL.NO+LEN.PROMPT):
+         END
+         INPUT ANS
+         IF DEFAULT.ANSWER # '' AND ANS = '' THEN
+            ANS = DEFAULT.ANSWER
+         END
+         GOSUB VALIDATE.ANS
+      UNTIL VALID.ANSWER
+      REPEAT
+      RETURN.ANSWER = ANS
+      IF SCREEN.POS THEN
+         CRT @(COL.NO+LEN.PROMPT,LINE.NO+COUNT.STRINGS-1):CLEAR.EOL:
+      END
+      CRT RETURN.ANSWER
+      RETURN
+
+
+
+*
+* VALIDATION ROUTINE
+*
+VALIDATE.ANS: 
+      VALID.ANSWER = 1
+      IF MV.ANSWER.LIST THEN
+         LOCATE ANS IN MV.ANSWER.LIST<1,1> SETTING VALID.ANSWER ELSE
+            VALID.ANSWER = 0
+         END
+      END
+      IF OCONV(ANS,'MCU') = 'END' THEN
+         BEGIN CASE
+            CASE END.PARAM = 0 OR END.PARAM = ''
+               NULL
+            CASE END.PARAM = 1
+               VALID.ANSWER = 1
+            CASE END.PARAM = 2
+               STOP
+            CASE 1
+               NULL
+         END CASE
+      END
+
+
+* Stamped: p1 rotmand, /usr/local/download, user #184, 28 Oct 02, 06:56AM.
+*   Version 6.00
+*
+      RETURN
+
+   END

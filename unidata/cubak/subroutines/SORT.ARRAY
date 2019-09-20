@@ -1,0 +1,127 @@
+      SUBROUTINE SORT.ARRAY(MAT DATA.ARRAY, NUM.SORT, ORDER)
+*
+* INFO/BASIC SUBROUTINE
+* 7/22/87
+* DWS
+* TITLE ----- SORT.ARRAY
+*
+*
+* PURPOSE:
+*    Sort an array using Shell sort algorithm
+*      eg.
+*         FOR I=1 TO NUM
+*           INPUT NAME(I)
+*         NEXT I
+*         CALL SORT.ARRAY(MAT NAME,NUM,'A')
+*         FOR I=1 TO NUM
+*          PRINT I,NAME(I)
+*         NEXT I
+*
+* Stamped: pty/ttyp4 sjoquist, /disk1/collive, user #24827, 25 Jun 94, 04:22PM.
+* Updated for HP-UX
+*     Last updated by LIVE (SJOQUIST) at 11:21:32 on 04/14/1988.
+* MAKE 2 SEPARATE SUBROUTINES FOR ASCENDING & DESCENDING FOR PERFORMANCE
+*     Last updated by LIVE (SJOQUIST) at 13:32:59 on 07/23/1987.
+*
+********************************************************************
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+      DIM DATA.ARRAY(NUM.SORT)
+
+*
+* 2 SEPARATE SUBROUTINES FOR ASCENDING & DESCENDING
+*   (SPEED UP PERFORMANCE)
+*
+      IF ORDER[1,1]='D' THEN
+         GOSUB SORT.DESCENDING
+      END ELSE
+         GOSUB SORT.ASCENDING
+      END
+      RETURN
+
+
+
+*
+*
+* ASCENDING
+*
+SORT.ASCENDING:
+      H = 1
+      LOOP
+         H = H*3 + 1
+      UNTIL H > NUM.SORT
+      REPEAT
+
+      LOOP
+         H = INT(H/3)
+         FOR I=H+1 TO NUM.SORT
+            V = DATA.ARRAY(I)
+            J = I
+            LOOP
+               ITEM.A = DATA.ARRAY(J-H)
+               ITEM.B = V
+            UNTIL ITEM.A < ITEM.B
+               DATA.ARRAY(J) = DATA.ARRAY(J-H)
+               J = J - H
+               IF J <= H THEN GOTO DONE.ASC
+            REPEAT
+DONE.ASC:
+            DATA.ARRAY(J) = V
+         NEXT I
+      UNTIL H = 1
+      REPEAT
+
+      RETURN
+
+*
+*
+* DESCENDING
+*
+SORT.DESCENDING:
+      H = 1
+      LOOP
+         H = H*3 + 1
+      UNTIL H > NUM.SORT
+      REPEAT
+
+      LOOP
+         H = INT(H/3)
+         FOR I=H+1 TO NUM.SORT
+            V = DATA.ARRAY(I)
+            J = I
+            LOOP
+               ITEM.A = V
+               ITEM.B = DATA.ARRAY(J-H)
+            UNTIL ITEM.A < ITEM.B
+               DATA.ARRAY(J) = DATA.ARRAY(J-H)
+               J = J - H
+               IF J <= H THEN GOTO DONE.DES
+            REPEAT
+DONE.DES:
+            DATA.ARRAY(J) = V
+         NEXT I
+      UNTIL H = 1
+      REPEAT
+
+      RETURN
+   END

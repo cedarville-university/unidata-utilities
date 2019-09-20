@@ -1,0 +1,34 @@
+*
+*
+*
+*
+* ADDSVP.COLUMNS
+* DW SJOQUIST
+*
+* 4-2-1987
+* SET TERMINAL TO 80 COLUMNS
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+S80 = CHAR(27):'`':':'
+PRINT S80:
+
+END

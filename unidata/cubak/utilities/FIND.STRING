@@ -1,0 +1,390 @@
+* FIND.STRING
+*
+* DLR 10/29/87
+*
+* PROCESS A SELECT LIST OF SOURCE FILES...HUNTING FOR A PARTICULAR
+* STRING
+*
+*
+*
+*
+* Stamped: r4 rotmand, /disk1/collive, user #7246, 09 Feb 98, 01:58PM.
+*  Add -INTERVAL option for displaying progress meter
+* Stamped: r4 rotmand, /disk1/collive, user #29220, 09 Feb 98, 12:55PM.
+*   We used to handle directories differently than files, but we
+*   ran into too many locked records by OPENSEQ.  So, we now use
+*   the same logic for searching directories and files.
+*  Work on record-locking problem
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #6096, 24 Jun 94, 04:42PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAN) at 12:32:19 on 11/09/1988.
+* REVISE CHECK FOR ACTIVE SELECT LIST
+* PRINT RECORD COUNT WHEN CREATING SELECT LIST
+*     Last updated by LIVE (ROTMAN) at 08:53:24 on 07/12/1988.
+* ALLOW CREATION OF SELECT LIST
+*     Last updated by LIVE (ROTMAN) at 10:42:18 on 07/05/1988.
+* ALLOW SEARCHING INFORMATION FILES IN ADDITION TO TYPE-1 FILES (DIRECTORIES)
+*     Last updated by LIVE (ROTMAN) at 13:28:12 on 06/15/1988.
+* ALLOW COMMAND-LINE OPTION TO OMIT DISPLAY OF FILE NAME WHEN STRING IS
+* NOT FOUND
+*     Last updated by LIVE (ROTMAN) at 17:02:58 on 10/29/1987.
+
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+
+
+      DIM PARAM(20)
+      DIM SEARCH.STRING(17)
+
+
+
+      PROMPT ''
+      COMMAND.LINE = @SENTENCE
+
+      GOSUB LOAD.PARAMETERS
+
+      IF DO.SELECT THEN
+         SELECT F.FILE.NAME
+      END
+
+      READNEXT KEY ELSE
+         GOSUB PRINT.HELP
+         STOP
+      END
+
+      NO.PAUSE = @(0,0)                     ;* TURN OFF SCREEN PAUSE
+      DONE = @FALSE
+      RECORDS.SEARCHED = 0
+      IF HAVE.DIRECTORY THEN
+*DLR*         GOSUB PROCESS.DIRECTORY
+         GOSUB PROCESS.FILE
+      END ELSE
+         GOSUB PROCESS.FILE
+      END
+      CRT
+      CRT RECORDS.SEARCHED:' records searched.'
+      IF MAKE.LIST OR LIST.NUMBER # '' THEN
+         LIST.COUNT = COUNT(ID.LIST,@FM) + (ID.LIST#'')
+         IF LIST.COUNT > 0 THEN
+            IF LIST.COUNT > 1 THEN
+               CRT LIST.COUNT:' records selected.'
+            END ELSE
+               CRT 'One record selected.'
+            END
+            IF MAKE.LIST THEN
+               FORMLIST ID.LIST
+               EXECUTE 'SAVE.LIST ':LIST.NAME
+            END
+            IF LIST.NUMBER # '' THEN
+               FORMLIST ID.LIST TO LIST.NUMBER
+            END
+         END ELSE
+            IF MAKE.LIST THEN
+               CRT 'No records selected...save list ':LIST.NAME:' not created.'
+            END ELSE
+               CRT 'No records selected.'
+            END
+         END
+      END
+      STOP
+
+
+
+***************************************************************************
+* LOAD PARAMETERS
+***************************************************************************
+LOAD.PARAMETERS: 
+      DEFAULT.INTERVAL.SIZE = 1
+      INTERVAL.SIZE = DEFAULT.INTERVAL.SIZE
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      MATPARSE PARAM FROM PARAM.STR,@FM
+      IF NUM.PARAMS < 3 THEN
+         GOSUB PRINT.HELP
+         STOP
+      END
+
+      FILE.NAME=PARAM(2)
+      NO.NULL = @FALSE
+      MAKE.LIST = @FALSE
+      ID.LIST = ''
+      USE.MATCHES = @FALSE
+      DO.SELECT = @FALSE
+      LIST.NUMBER = ''
+      NUM.STRINGS = 0
+      WHICH.PARAM = 2
+      LOOP
+      UNTIL WHICH.PARAM >= NUM.PARAMS
+         WHICH.PARAM += 1
+         TEMP = PARAM(WHICH.PARAM)
+         IF TEMP[1,1] = '-' THEN
+            TEMP2 = TEMP[2,30]
+            KEYWORD.VALUE = ''
+            CALL GET.KEYWORD.VALUE(KEYWORD.VALUE,TEMP2)
+            BEGIN CASE
+               CASE TEMP2 = 'NO.NULL' OR KEYWORD.VALUE = 111
+                  NO.NULL=1
+               CASE TEMP2 = 'MAKE.LIST'
+                  WHICH.PARAM += 1
+                  LIST.NAME = PARAM(WHICH.PARAM)
+                  IF LIST.NAME = '' OR NUM(LIST.NAME[1,1]) THEN
+                     PRINT 'LIST NAME ':LIST.NAME:' IS INVALID'
+                     STOP
+                  END ELSE
+                     MAKE.LIST = 1
+                  END
+               CASE TEMP2 = 'TO'
+                  WHICH.PARAM += 1
+                  LIST.NUMBER = PARAM(WHICH.PARAM)
+                  IF NOT(NUM(LIST.NUMBER)) OR LIST.NUMBER = '' THEN
+                     PRINT 'LIST NUMBER "':LIST.NUMBER:'" IS INVALID'
+                     STOP
+                  END
+               CASE TEMP2 = 'MATCHES'
+                  USE.MATCHES = @TRUE
+               CASE TEMP2='SELECT'
+                  DO.SELECT = @TRUE
+               CASE TEMP2 = 'INTERVAL'
+                  WHICH.PARAM += 1
+                  INTERVAL.SIZE = PARAM(WHICH.PARAM)
+               CASE 1
+                  PRINT 'SKIPPING UNRECOGNIZED PARAMETER ':TEMP
+                  PRINT 'ONLY ACCEPTABLE PARAMETERS ARE:  -NO.NULL'
+                  PRINT '                                 -MAKE.LIST'
+                  PRINT '                                 -MATCHES'
+                  PRINT '                                 -SELECT'
+                  PRINT '                                 -TO #'
+                  PRINT '                                 -INTERVAL'
+                  PRINT '                                 -HELP'
+            END CASE
+         END ELSE
+            NUM.STRINGS+=1
+            SEARCH.STRING(NUM.STRINGS)=PARAM(WHICH.PARAM)
+         END
+      REPEAT
+
+
+      OPEN '',FILE.NAME TO F.FILE.NAME ELSE
+         PRINT 'UNABLE TO OPEN FILE ':FILE.NAME
+         STOP
+      END
+
+      FILE.TYPE = FILEINFO(F.FILE.NAME,3)
+      BEGIN CASE
+         CASE FILE.TYPE = 1 OR FILE.TYPE = 2 OR FILE.TYPE = 3
+            HAVE.DIRECTORY = @FALSE
+         CASE FILE.TYPE = 4
+            HAVE.DIRECTORY = 1
+         CASE 1
+            PRINT FILE.NAME:' IS A TYPE ':FILE.TYPE:' FILE...UNABLE TO PROCESS.'
+            STOP
+      END CASE
+
+      PRINT
+      IF HAVE.DIRECTORY THEN
+         PRINT 'SEARCHING DIRECTORY ':FILE.NAME
+      END ELSE
+         PRINT 'SEARCHING FILE ':FILE.NAME
+      END
+      FOR I=1 TO NUM.STRINGS
+         PRINT I:'  ':SEARCH.STRING(I)
+      NEXT I
+      PRINT
+
+      INTERVAL.LINE.SIZE = 50*INTERVAL.SIZE
+      RETURN
+
+
+
+***************************************************************************
+* HANDLE AN INFORMATION FILE
+***************************************************************************
+PROCESS.FILE: 
+      LOOP
+         RECORDS.SEARCHED += 1
+         IF MAKE.LIST OR LIST.NUMBER # '' THEN
+            IF MOD(RECORDS.SEARCHED,INTERVAL.SIZE) = 0 THEN
+               CRT '*':
+               IF MOD(RECORDS.SEARCHED,INTERVAL.LINE.SIZE) = 0 THEN
+                  CRT ' ':RECORDS.SEARCHED
+               END
+            END
+         END
+         HAVE.RECORD = @TRUE
+         READ REC FROM F.FILE.NAME,KEY ELSE
+            GOSUB PRINT.HEAD
+            PRINT 'UNABLE TO READ ':KEY
+            HAVE.RECORD = @FALSE
+         END
+         IF HAVE.RECORD THEN
+            GOSUB SEARCH.RECORD
+         END
+         READNEXT KEY ELSE DONE = 1
+      UNTIL DONE
+      REPEAT
+      RETURN
+
+
+
+***************************************************************************
+* SEARCH A RECORD FROM AN INFORMATION FILE
+***************************************************************************
+SEARCH.RECORD: 
+      FIELD.COUNT = COUNT(REC,@FM) + 1
+      FOUND.AT.LEAST.ONE=0
+      SEARCH.DONE = @FALSE
+      FOR WHICH.FIELD = 1 TO FIELD.COUNT UNTIL SEARCH.DONE
+         FIELD.VALUE = REC<WHICH.FIELD>
+         FOUND.THIS.STRING=0
+         FOR I=1 TO NUM.STRINGS UNTIL FOUND.THIS.STRING=1
+            POS=INDEX(FIELD.VALUE,SEARCH.STRING(I),1)
+            IF POS THEN
+               IF MAKE.LIST OR LIST.NUMBER # '' THEN
+                  ID.LIST<-1> = KEY
+                  SEARCH.DONE = 1
+                  FOUND.THIS.STRING = 1
+                  FOUND.AT.LEAST.ONE = 1
+               END ELSE
+                  IF NOT(FOUND.AT.LEAST.ONE) THEN
+                     GOSUB PRINT.HEAD
+                     FOUND.AT.LEAST.ONE=1
+                  END
+                  FOUND.THIS.STRING=1
+                  PRINT FMT(WHICH.FIELD,"5R"):': ':FIELD.VALUE
+               END
+            END
+         NEXT I
+      NEXT WHICH.FIELD
+      IF NOT(FOUND.AT.LEAST.ONE) AND NOT(NO.NULL) AND NOT(MAKE.LIST) AND LIST.NUMBER = '' AND NOT(USE.MATCHES) THEN
+         GOSUB PRINT.HEAD
+      END
+      RETURN
+
+
+
+***************************************************************************
+* HANDLE A PRIMOS DIRECTORY (TYPE 1 FILE)
+***************************************************************************
+PROCESS.DIRECTORY: 
+      LOOP
+         RECORDS.SEARCHED += 1
+         IF MAKE.LIST OR LIST.NUMBER # '' THEN
+            IF MOD(RECORDS.SEARCHED,INTERVAL.SIZE) = 0 THEN
+               CRT '*':
+               IF MOD(RECORDS.SEARCHED,INTERVAL.LINE.SIZE) = 0 THEN
+                  CRT ' ':RECORDS.SEARCHED
+               END
+            END
+         END
+         OPENSEQ FILE.NAME,KEY TO F.SOURCE THEN
+            GOSUB READ.FILE
+            CLOSESEQ F.SOURCE
+         END ELSE
+            GOSUB PRINT.HEAD
+            PRINT 'UNABLE TO OPEN ':KEY
+         END
+         READNEXT KEY ELSE DONE = 1
+      UNTIL DONE
+      REPEAT
+      RETURN
+
+
+***************************************************************************
+* HANDLE A FILE WITHIN A PRIMOS DIRECTORY
+***************************************************************************
+READ.FILE: 
+      REC.COUNT=0
+      FOUND.AT.LEAST.ONE=0
+      SEARCH.DONE = @FALSE
+      EOF=''
+      LOOP
+         READSEQ SOURCE.REC FROM F.SOURCE ELSE EOF='Y'
+      UNTIL EOF OR SEARCH.DONE
+         REC.COUNT+=1
+         FOUND.THIS.STRING=0
+         FOR I=1 TO NUM.STRINGS UNTIL FOUND.THIS.STRING=1
+            POS=INDEX(SOURCE.REC,SEARCH.STRING(I),1)
+            IF POS THEN
+               IF MAKE.LIST OR LIST.NUMBER # '' THEN
+                  ID.LIST<-1> = KEY
+                  SEARCH.DONE = 1
+                  FOUND.THIS.STRING = 1
+                  FOUND.AT.LEAST.ONE = 1
+               END ELSE
+                  IF NOT(FOUND.AT.LEAST.ONE) THEN
+                     GOSUB PRINT.HEAD
+                     FOUND.AT.LEAST.ONE=1
+                  END
+                  FOUND.THIS.STRING=1
+                  PRINT FMT(REC.COUNT,"5R"):': ':SOURCE.REC
+               END
+            END
+         NEXT I
+      REPEAT
+      IF NOT(FOUND.AT.LEAST.ONE) AND NOT(NO.NULL) AND NOT(MAKE.LIST) AND LIST.NUMBER = '' AND NOT(USE.MATCHES) THEN
+         GOSUB PRINT.HEAD
+      END
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PRINT.HEAD: 
+      PRINT
+      PRINT STR('=',60)
+      PRINT KEY
+      PRINT
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PRINT.HELP: 
+      PRINT 'A select list must be active when using FIND.STRING.'
+      PRINT 'You must supply a FILE and at least one search string.'
+      PRINT 'You may also use parameters -NO.NULL and -MAKE.LIST as'
+      PRINT 'illustrated below:'
+      PRINT
+      PRINT 'To search files in directory BP for "WORKING" or "TALKING":'
+      PRINT '  FIND.STRING BP WORKING TALKING'
+      PRINT
+      PRINT 'To do the same search, but report only successful locates:'
+      PRINT '  FIND.STRING BP WORKING TALKING -NO.NULL'
+      PRINT
+      PRINT 'To search files in directory BP for "WORKING COPY" and create a save list'
+      PRINT 'from the successful locates:'
+      PRINT '  FIND.STRING BP "WORKING COPY" -MAKE.LIST XYZ'
+      PRINT '(When creating a list, the usual printed output is suppressed.)'
+      PRINT
+      PRINT 'To search the VOC file for "DELETE" and "WRITE":'
+      PRINT '  FIND.STRING VOC DELETE WRITE'
+      PRINT
+      PRINT 'To get this help text:'
+      PRINT '  FIND.STRING'
+      RETURN
+
+
+   END

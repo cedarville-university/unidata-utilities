@@ -1,0 +1,10 @@
+* Stamped: pe rotmand, /disk1/coltest, user #12980, 01 Feb 01, 08:04AM.
+* Version 5.10
+*
+*
+* HEADER INFO FOR dBASE IV 'DBF' FILE
+*
+
+      DBF.BUF.SIZE = 512
+      DBF.WORDS.TO.WRITE = DBF.BUF.SIZE / 2
+      DBF.DEFAULT.LENGTH.VALUE = 8

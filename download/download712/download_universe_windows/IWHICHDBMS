@@ -1,0 +1,24 @@
+*
+* Set which database system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_DBMS_UNIVERSE
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p1 rotmand, /usr/local/download, user #2041, 31 Mar 05, 08:13AM.
+* Version 7.12
+*
+*
+*
+*
+*
+*
+*
+
+      EQU COMMENT.OUT.EXCEPT.FOR.INFORMATION LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIDATA LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIVERSE LIT ''
+      DBMS.NAME = 'UNIVERSE'

@@ -1,0 +1,63 @@
+*
+* INFO/BASIC PROGRAM
+* 3/14/89
+* DWS
+* TITLE ----- VIEWFILE
+*
+*
+* PURPOSE: VIEW A TEXT FILE ON THE SCREEN
+*
+* Stamped: p7 rotmand, /user/local/collive, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+
+      GOSUB SET.UP
+      CALL VIEWSEQFILE(F.SEQ.FILE,PAGE.HEADING)
+      CLOSESEQ F.SEQ.FILE
+      STOP
+
+
+*
+*
+* SET.UP
+*
+SET.UP: 
+      TEMP = @(0,0)
+      PROMPT ''
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      COMMAND.LINE = @SENTENCE
+      CALL PARSECL(COMMAND.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+      STARTING.PARAM = 2
+      FILE.NAME = PARAM.STR<STARTING.PARAM>
+      IF NOT(FILE.NAME) THEN
+         LOOP
+            CRT 'File name: ':
+            INPUT FILE.NAME
+         UNTIL FILE.NAME
+         REPEAT
+      END
+      RECORD.NAME = PARAM.STR<STARTING.PARAM+1>
+      IF NOT(RECORD.NAME) THEN
+         LOOP
+            CRT 'Record...: ':
+            INPUT RECORD.NAME
+         UNTIL RECORD.NAME
+         REPEAT
+      END
+      OPENSEQ FILE.NAME, RECORD.NAME TO F.SEQ.FILE ELSE
+         STOP 'Can not open "':FILE.NAME:'" "':RECORD.NAME:'" as a sequential file'
+      END
+      PAGE.HEADING = 'File: "':FILE.NAME:'" "':RECORD.NAME:'"'
+      RETURN
+
+
+   END

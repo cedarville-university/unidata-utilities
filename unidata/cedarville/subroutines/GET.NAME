@@ -1,0 +1,147 @@
+      SUBROUTINE GET.NAME(ANSWER.LIST,LAST.LIST,FIRST.LIST,MIDDLE.LIST,SUFFIX.LIST,MAX.LENGTH)
+* INFO/BASIC PROGRAM
+* DATE CREATED - JUNE 2, 1986
+* PROGRAMMER - SRM
+* TITLE------- GET.NAME (MODIFIED FROM GET.MAIL.NAME)
+* 8.1
+*
+* I-DESCRIPTOR SUBROUTINE TO RETURN NAME "LAST SUFFIX, FIRST MIDDLE"
+*
+* P
+* Stamped: p5 rotmand, /disk5/coltest.r14, user #6449, 23 Apr 97, 07:33AM.
+*   Don't append a comma if the entire name is in the LAST.LIST field.
+*     Last updated by LIVE (SJOQUIST) at 16:52:32 on 05/31/1990.
+* ALLOW USE OF MULTI-VALUE LISTS OF LAST,FIRST,ETC.
+*     Last updated by LIVE (ROTMAN) at 08:27:13 on 02/22/1988.
+*     Last updated by LIVE (ROTMAN) at 07:51:54 on 10/22/1987.
+* MAKE SURE MIDDLE INITIAL GETS USED ON NON-VENDORS
+* USE FULL MIDDLE NAME WHEN FIRST NAME CONSISTS OF JUST A MIDDLE INITIAL
+*
+* Last updated by COLLEAGUE (PBW).
+* Last updated at 17:37:40 on 01/05/1987 for Task Request ALL*670.
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+*
+* THE INFORMATION CONTAINED HEREIN IS PROPRIETARY TO AND CONSIDERED
+* A TRADE SECRET OF DATATEL MINICOMPUTER COMPANY AND SHALL NOT BE
+* REPRODUCED IN WHOLE OR IN PART WITHOUT THE WRITTEN AUTHORIZATION
+* OF DATATEL MINICOMPUTER COMPANY.
+*
+**********************************************************************
+*
+* --- PROGRAMMERS, PLEASE NOTE
+* A COPY OF THIS SUBROUTINE MUST BE MAINTAINED IN STANDARD.FORMS
+* SO THAT ALL CUSTOMERS MAY HAVE ACCESS TO THE SOURCE CODE.
+* AFTER MODIFICATIONS, AND TESTING, PLEASE COPY TO STANDARD.FORMS
+* AND BE SURE TO INCLUDE IT WHEN MOVING THE TR TO THE QC ACCOUNT.
+*
+
+
+      ANSWER.LIST = ""
+      IF LAST.LIST = '' AND FIRST.LIST = '' AND MIDDLE.LIST = '' THEN
+         RETURN
+      END
+
+      MAX.FMT = MAX.LENGTH:"T"
+
+      NUM.NAMES = COUNT(LAST.LIST,@VM) + 1
+      FOR NAME.CTR=1 TO NUM.NAMES
+         LAST = LAST.LIST<1,NAME.CTR>
+         FIRST = FIRST.LIST<1,NAME.CTR>
+         MIDDLE = MIDDLE.LIST<1,NAME.CTR>
+         SUFFIX = SUFFIX.LIST<1,NAME.CTR>
+         ANSWER = ''
+         LAST.SUFFIX = TRIM(LAST:" ":SUFFIX)
+         BEGIN CASE
+            CASE FIRST = '' AND MIDDLE = ''
+               GOSUB USE.LAST
+            CASE LEN(FIRST) < 2
+               GOSUB USE.MIDDLE
+            CASE 1
+               GOSUB USE.FIRST
+         END CASE
+         ANSWER = TRIM(ANSWER)
+         ANSWER.LIST<1,NAME.CTR> = ANSWER
+      NEXT NAME.CTR
+      RETURN
+
+
+
+USE.LAST: 
+      ANSWER = TRIM(LAST)
+      ANSWER = FMT(ANSWER,MAX.FMT)[1,MAX.LENGTH]
+      RETURN
+
+
+
+
+USE.FIRST: 
+      ANSWER = TRIM(LAST.SUFFIX:", ":FIRST:" ":MIDDLE)
+      ANSWER = FMT(ANSWER,MAX.FMT)
+      CONVERT @TM TO @VM IN ANSWER
+      IF COUNT(ANSWER,@VM) > 0 THEN
+         ANSWER = TRIM(LAST.SUFFIX:", ":FIRST:" ":MIDDLE[1,1])
+         ANSWER = FMT(ANSWER,MAX.FMT)
+         CONVERT @TM TO @VM IN ANSWER
+         IF COUNT(ANSWER,@VM) > 0 THEN
+            ANSWER = TRIM(LAST.SUFFIX:", ":FIRST)
+            ANSWER = FMT(ANSWER,MAX.FMT)
+            CONVERT @TM TO @VM IN ANSWER
+            IF COUNT(ANSWER,@VM) > 0 THEN
+               ANSWER = TRIM(LAST.SUFFIX:", ":FIRST)[1,MAX.LENGTH]
+               ANSWER = FMT(ANSWER,MAX.FMT)
+               CONVERT @TM TO @VM IN ANSWER
+               IF COUNT(ANSWER,@VM) > 0 THEN
+                  ANSWER = LAST.SUFFIX
+               END
+            END
+         END
+      END
+      RETURN
+
+
+
+USE.MIDDLE: 
+      ANSWER = TRIM(LAST.SUFFIX:", ":FIRST:" ":MIDDLE)
+      ANSWER = FMT(ANSWER,MAX.FMT)
+      CONVERT @TM TO @VM IN ANSWER
+      IF COUNT(ANSWER,@VM) > 0 THEN
+         ANSWER = TRIM(LAST.SUFFIX:", ":FIRST:" ":MIDDLE[1,1])
+         ANSWER = FMT(ANSWER,MAX.FMT)
+         CONVERT @TM TO @VM IN ANSWER
+         IF COUNT(ANSWER,@VM) > 0 THEN
+            ANSWER = TRIM(LAST.SUFFIX)
+            ANSWER = FMT(ANSWER,MAX.FMT)
+            CONVERT @TM TO @VM IN ANSWER
+            IF COUNT(ANSWER,@VM) > 0 THEN
+               ANSWER = LAST
+            END
+         END
+      END
+      RETURN
+
+
+
+
+
+
+   END

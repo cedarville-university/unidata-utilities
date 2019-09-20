@@ -1,0 +1,112 @@
+From:      Leif Smith <leif@pattern.com>
+To:        CEDARNET.GATE("ud-list@courtfld.demon.co.uk","leif...
+Date:      Monday, March 24, 1997 2:42 pm
+Subject:   [ud-list] AE Tech Tip: UniBasic Extension to AE 
+           - input without prompts
+
+AE can be extended with user-written UniBasic commands.
+
+This is a simple example that allows input without line number prompts.
+
+Copy the following program into any UniBasic program directory:
+
+
+SUBROUTINE INPUT_NP_AE(MAT X$COMS)
+*
+* INPUT_No_Prompts (input without the line number prompt)
+* User-written extension to the AE editor.
+* Compiled and tested with BASICTYPE "P".
+* Leif Smith, 12 March 97 (freeware)
+
+$INCLUDE AE_XCOMS I_AE_XCOMS
+* If AE has been properly installed the above include file
+* will be available. If not, comment out the $INCLUDE and
+* use the following 4 lines (after uncommenting them):
+!DIM X$COMS(100)
+!EQU X$REC TO X$COMS(1)     ;* current record or scratchpad being edited
+!EQU X$PO TO X$COMS(3)      ;* current line pointer
+!EQU X$CC TO X$COMS(11)     ;* command(s) remaining to be executed
+
+PRINT "Enter lines - a line containing only '.' means 'stop'."
+
+NEWLINES=""
+LOOP
+  INPUT LINE
+UNTIL LINE="." DO
+  NEWLINES:=@FM:LINE
+REPEAT
+DEL NEWLINES<1> ;* remove prefixed @FM
+
+IF NEWLINES#"" THEN
+  IF X$REC="" THEN
+    X$REC=NEWLINES
+  END ELSE
+    INS NEWLINES BEFORE X$REC<X$PO+1>
+  END
+END
+
+* "say" is an AE command.
+* X$CC is the stack of AE commands that will be executed on return
+* to the main program from this extension.
+*
+CT=DCOUNT(NEWLINES,@FM)
+IF CT THEN
+  IF CT=1 THEN PHRASE="line follows." ELSE PHRASE="lines follow."
+  INS "say At line ":X$PO:" - ":CT:" added ":PHRASE BEFORE X$CC<-1>
+END ELSE
+  INS "say Nothing entered." BEFORE X$CC<-1>
+END
+
+RETURN
+END
+
+
+Compile and catalog (global, local, or direct).
+
+Put the following 2 line record in the AE_XCOMS file:
+
+ID=$xxx
+001: * Enter lines without line number prompts.
+002: cataloged-program-name
+
+The "$" prefix to the ID is required so AE will recognize it is being asked  
+to run an extension command.
+
+"xxx" should be something short and easy for the user to remember and enter  
+as a command, for example $IN
+
+Line 001 is a comment.
+Line 002 is the name of the cataloged program.
+
+Example:
+
+ID=$IN
+001: * Enter lines without line number prompts.
+002: INPUT_NP_AE
+
+THE PROGRAM NAME MUST END IN "_AE"
+
+In AE, the command "$xxx" will cause AE to check the AE_XCOMS file
+for a record with id $xxx. If the program name in line 2 ends
+with "_AE" then AE will run the program as an AE command. If the program  
+does not exist AE will crash - so be sure the AE_XCOMS file you rely on is  
+up to date.
+
+For more on user-written extensions to AE go into AE and use the commands:
+"HELP $" and "HELP $XCOMS".
+
+Examples of UniBasic extensions to AE: 
+
+
+1) Make a list of 20 or so numbers, one per line. Then try the $COL command.  
+
+2) In an empty record, try "$cap !ls -l", or "$CAP DATE"
+
+The code for all extensions shipped with AE will be found in the AE_XCOMS  
+file. Feel free to experiment and improve.
+
+Leif Smith
+leif@pattern.com
+Denver, Colorado
+303-778-0880
+

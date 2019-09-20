@@ -1,0 +1,113 @@
+      SUBROUTINE DOWNLOAD.XMLELEM(A.NAME.OUT,A.NAME.IN,A.DO.LOWER.CASE,A.ALLOW.PERIODS)
+*
+* UNIBASIC SUBROUTINE
+* 05/01/02
+* DLR
+* TITLE ----- DOWNLOAD.XMLELEM
+*
+*
+* PURPOSE: EDIT PROPOSED XML ELEMENT NAME TO CONFORM TO XML STANDARDS
+*
+*
+*************************************************************************
+* Stamped: p41 rotmand, /usr/local/download, user #1784, 21 Jun 07, 11:04AM.
+* Version 7.21
+*
+*
+*
+*
+*
+*
+*
+
+      $INCLUDE IDLMAX
+      $INCLUDE IDLMAIN
+
+      DEBUG4
+      CRT 'INSIDE DOWNLOAD.XMLELEM'
+      END
+
+      X.LOWER.CASE.ALPHA = 'abcdefghijklmnopqrstuvwxyz'
+      X.UPPER.CASE.ALPHA = OCONV(X.LOWER.CASE.ALPHA,'MCU')
+      X.ALL.ALPHA = X.LOWER.CASE.ALPHA:X.UPPER.CASE.ALPHA
+      X.NUMBERS = '0123456789'
+      X.UNDERSCORE = '_'
+      X.PERIOD = '.'
+      X.ALL.CHARS = X.ALL.ALPHA:X.NUMBERS:X.UNDERSCORE:X.PERIOD
+
+
+
+      A.NAME.OUT = ''
+      IF A.NAME.IN = '' THEN
+         RETURN
+      END
+
+      X.NAME = A.NAME.IN
+      IF (A.ALLOW.PERIODS) AND (A.ALLOW.PERIODS # 'N') THEN
+         NULL
+      END ELSE
+         CONVERT '.' TO '' IN X.NAME
+      END
+      GOSUB REMOVE.BAD.CHARS
+      GOSUB REMOVE.XML
+      GOSUB FIX.FIRST.CHAR
+      IF (A.DO.LOWER.CASE) AND (A.DO.LOWER.CASE # 'N') THEN
+         X.NAME = OCONV(X.NAME,'MCL')
+      END
+      A.NAME.OUT = X.NAME
+      RETURN
+
+
+FIX.FIRST.CHAR: 
+      X.DONE = @FALSE
+      LOOP
+         X.FIRST.CHAR = X.NAME[1,1]
+         IF INDEX(X.ALL.ALPHA,X.FIRST.CHAR,1) GT 0 THEN
+            X.DONE = @TRUE
+         END ELSE
+            IF X.FIRST.CHAR = X.UNDERSCORE THEN
+               X.DONE = @TRUE
+            END ELSE
+               LEN.X.NAME = LEN(X.NAME)
+               IF LEN.X.NAME GT 1 THEN
+                  X.NAME = X.NAME[2,LEN.X.NAME-1]
+               END ELSE
+                  X.NAME = ''
+                  X.DONE = @TRUE
+               END
+            END
+         END
+      UNTIL X.DONE
+      REPEAT
+      RETURN
+
+
+REMOVE.BAD.CHARS: 
+      X.TEMP = ''
+      LEN.X.NAME = LEN(X.NAME)
+      FOR WHICH.CHAR = 1 TO LEN.X.NAME
+         X.CHAR = X.NAME[WHICH.CHAR,1]
+         IF INDEX(X.ALL.CHARS,X.CHAR,1) GT 0 THEN
+            X.TEMP := X.CHAR
+         END
+      NEXT WHICH.CHAR
+      X.NAME = X.TEMP
+      RETURN
+
+
+REMOVE.XML: 
+      X.TEMP = OCONV(X.NAME[1,3],'MCU')
+      IF X.TEMP = 'XML' THEN
+         LEN.X.NAME = LEN(X.NAME)
+         IF LEN.X.NAME GT 3 THEN
+            X.NAME = X.NAME[4,LEN.X.NAME-3]
+         END ELSE
+            X.NAME = ''
+         END
+      END
+      RETURN
+
+
+
+
+   END

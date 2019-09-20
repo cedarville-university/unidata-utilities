@@ -1,0 +1,235 @@
+From:      Bill Edgette <edgee@ollac.ollusa.edu>
+
+
+I use the native Unix batch queues, via the unix 'at' command.
+I've set up two queues. A day queue that has a max concurrent number of 
+job of 5 and a 'night' queue which runs at 1:00pm and a max jobs of 30.
+
+The advantages is that I do not have to monitor it.
+The disadvantage is that these processes take up a unidata 'seat' so,
+I limit the number during the day to 5.
+
+In most unix boxes, your queue capabilities are very limited.
+You can generally do 4 things.
+1. name a queue
+2. set the max concurrent jobs
+3. alter the priority (slightly) with the nice command
+4. decide how often it checks for jobs.
+
+These  things are controlled with the 'queuedefs' 
+Here's mine:
+
+/usr/lib/cron> more queuedefs
+a.4j1n
+b.2j2n90w
+d.4j7n40w
+f.2j-10n20w
+s.2j20n20w
+
+Queue 'd' or 'day' queue
+
+4j = 4 concurrent jobs
+7n = 7 nice value
+40w = means check the queue every 40 seconds/intervals
+
+
+Next, I modified a program that is used with the "Envision Phantom/Batch"
+screen.  I wanted the ability to add queues during the day without a major
+programming change. So, I altered the program S_UNIX_BATCH_PROC
+This program or a similiar program is on your system - source or no 
+source. I had a problem compiling it because on insert was missing - be 
+forwarned.
+
+The changes to the code are at the bottom of my email message.
+Then, I changed the UT.VALCODE PHANTOM.QUEUES record via UT>VAL
+
+1  Code       Description               Min Entry   Special Processing
+ 1: DAY        Queue - runs now          DAY         B        2 minutes 
+ 2: NIGHT      Queue runs at 11pm        NIGHT       B        e 11:00pm
+ 3: PHANTOM    PHANTOM                   P           P
+
+I had to use the editor because the entire command would not fix.
+
+AE UT.VALCODES PHANTOM.QUEUES
+Top of "PHANTOM.QUEUES" in "UT.VALCODES", 15 lines, 144 characters.
+*--: P
+001: DAY}NIGHT}P
+002: Queue - runs now}Queue runs at 11pm}PHANTOM
+003: B}B}P
+004: DAY}NIGHT}P
+005: at -qd now + 2 minutes}at -qe 11:00pm}
+
+Basically, on the "Envision Phantom" screen, if a user picks the 'DAY' 
+queue the command 'at -qd now + 2 minutes' gets executed.
+The job will execute on the 'd' - or 'Day' queue 2 minutes from now. I 
+picked 2 minutes so the end user would have the opportunity to delete the 
+job when, not if they 'suddenly remembered they did something wrong'.
+The 'd' queue is set up for a max of 4 jobs.
+
+The 'NIGHT' or 'e' queue has a command of 'at -de 11:00pm' so, it will
+'sleep' in 'Unix world' until 11:00pm. This queue has a much bigger max 
+capacity.
+
+The following program was changed so, that it would read the special 
+process for the queue the user selected. This way, I could add new queues 
+without changing a program.
+
+
+The changed coding to the S_UNIX_BATCH_PROC.
+051: *  Note:  This is the simplest interface to the Unix batch processor
+052: *  possible, and does not take advantage of any queue or priority
+053: *  capabilities of the Unix implementation.  For purposes of
+054: *  demonstration, code has been included to validate the job queue
+055: *  against the PHANTOM.QUEUES valcode table.
+056: *
+057: V.BATCH.QUEUE = A.JOB.QUEUE
+058: BATCH.QUEUE.ACTION1 = ""; BATCH.QUEUE.ACTION2 = ""
+059: IF V.BATCH.QUEUE NE "" THEN
+060:   LOCATE V.BATCH.QUEUE IN R.PHANTOM.QUEUES<4,1> SETTING 
+CODE.VALIDATED ELSE CODE.
+VALIDATED = ""
+061:   IF CODE.VALIDATED THEN
+062:     BATCH.QUEUE.ACTION1 = R.PHANTOM.QUEUES<3,CODE.VALIDATED>
+063:     BATCH.QUEUE.ACTION2 = R.PHANTOM.QUEUES<5,CODE.VALIDATED>
+064:   END ELSE
+065:     ERROR.OCCURRED += 1
+066:     MSG = INSERT(MSG,ERROR.OCCURRED,0,0, V.BATCH.QUEUE:" is not in 
+the ":"PHANTOM
+.QUEUES":" table.")
+067:   END
+068: END
+069: X.BATCH.ACTION = BATCH.QUEUE.ACTION1
+070: X.BATCH.OS.QUEUE = BATCH.QUEUE.ACTION2
+071: * CRT 'JOB.QUEUE ':V.BATCH.QUEUE
+072: * CRT 'BATCH.ACTION ':X.BATCH.ACTION
+073: * CRT 'BATCH.OS.QUEUE ':X.BATCH.OS.QUEUE
+074: * INPUT BCE
+075: *
+076: * BEGIN CASE
+077: *   CASE A.JOB.QUEUE = "B"   ;* Use default queue
+078: *     X.JOB.QUEUE = ""
+079: *   CASE X.BATCH.OS.QUEUE NE ""  ;* Use O/S queue name instead
+080: *     X.JOB.QUEUE = X.BATCH.OS.QUEUE
+081: *   CASE 1
+082: *     X.JOB.QUEUE = A.JOB.QUEUE
+083: * END CASE
+084: *
+085: JOB.START = OCONV(A.START.TIME,"MT")
+086: * IF LEN(JOB.START) THEN
+087: *   JOB.SCRIPT = "at ":JOB.START:" <<eob"
+088: * END ELSE
+089: *   JOB.SCRIPT = "batch <<eob"
+090: * END
+091: JOB.SCRIPT = X.BATCH.OS.QUEUE:" <<eob"
+092: *
+093: *  The preceding lines were strictly setup for submitting the batch.
+094: *  These lines are what will actually be run when the batch starts.
+095: *  The references to TERM are for eliminating screen paging, and are
+096: *  dependent upon the version of Unidata that is running.  Prior to
+097: *  Unidata 2.3, "TERM ,0" doesn't work, so the next best solution is
+098: *  to set the page size as high as possible.
+099: *
+100: XUDTPATH = GETENV("UDTBIN")
+101: JOB.SCRIPT<-1> = XUDTPATH:"/udt > /dev/null 2>&1 <<eoi"
+102: IF SN.RELLEVEL LT "2.3" THEN
+103:   JOB.SCRIPT<-1> = "TERM ,32767"
+104: END ELSE
+105:   JOB.SCRIPT<-1> = "TERM ,0"
+106: END
+107: JOB.SCRIPT<-1> = "COMO ON ":A.JOB.NAME
+108: JOB.SCRIPT<-1> = A.JOB.NAME
+109: JOB.SCRIPT<-1> = "COMO OFF"
+110: JOB.SCRIPT<-1> = "QUIT"
+111: JOB.SCRIPT<-1> = "eoi"
+112: *
+113: *  Now finish the batch submission process.
+114: *
+115: JOB.SCRIPT<-1> = "eob"
+116: *
+117: *  Submit the job
+118: *
+119: WRITE JOB.SCRIPT ON F.UFD,A.JOB.NAME
+120: WRITE JOB.SCRIPT ON F.UFD,"JOB.SCRIPT"
+121: PCPERFORM "ksh ":A.JOB.NAME CAPTURING X.RESULTS
+122: CRT " "
+123: CRT "Job submitted to ":A.JOB.QUEUE:" queue"
+124: CRT @(0,22):"[NL] - RETURN TO CONTINUE."
+125: INPUT XDUMMY.VAR
+126: *
+127: *  Clean up
+128: *
+129: IF LOCAL.DEBUG THEN
+130:   CRT "Submitted ":A.JOB.NAME:
+131:   IF LEN(A.START.TIME) THEN CRT " starting at ":JOB.START:
+132:   CRT ""
+133:   CRT X.RESULTS
+134: END ELSE
+135:   DELETE F.UFD,A.JOB.NAME
+136: END
+137: *
+138: RETURN
+139: * END OF BATCH PROGRAM
+
+
+I was missing one insert for this program and it took weeks to get from 
+Datatel. If you need it, holler.
+
+I hope this is understandable and it helps.
+
+Bill Edgette
+
+
+
+
+
+
+On Fri, 18 Jul 1997, Zane Howe wrote:
+
+> CLIENT ID.............: A06
+> SENDER LAST NAME......: Howe
+> SUBJECT...............: Phantom/Batch Queue not working
+> INTERNET REPLY ADDRESS: zhowe@stimpy.acofi.edu
+> CROSS-REFERENCE ID....: 
+> ATTENTION GROUP.......: Colleague
+>       
+> We want to use the batch queue, but it does not work in Release 14.0v5. We
+need to run a lot of updates to finanical Aid during off hours,  PGLT and a
+ton of other things.  The way Release 14 is designed you can not do a lot of
+updates during normal business hours, the system is way to slowwwww!  Does
+anybody know of any work arounds?, or Ideas?
+> 
+> Here is Datatel's answernet document: 135.211
+> Date:   Jun 04 1997 14:54 EDT
+> 
+> Colleague 
+> Found on 14v5 
+> Application CORE   
+> Module PHANT 
+> Mnemonic ALL 
+> 
+> We are trying to run PGLT in phantom mode and have used ETK to make the
+phantom option available.  However, when we indicate the Phantom/Batch Queue
+as Colleague and set a future time for the poster to start, nothing happens. 
+Why?
+> The PHANT module is not yet available on Release 14.0v5.  It is still in
+development and will be available on a future release.
+> View @ Comments
+>
+________________________________________________________________________________
+> Original problem reported by Domenic Sacchetti@L08
+> as Problem Report ID 35.4105
+> 
+> 
+> 
+
+*******************************************************************************
+Bill Edgette (Systems Administrator)    INTNET: edgee@ollac.ollusa.edu
+Our Lady of the Lake University         VOICE : (210) 431-3942             
+Colleague & Benefactor   (13.2)         Sequent Dynix/Ptx
+"Work hard, play hard, have fun, laugh, eat chocolate, thank God, 
+ and you'll be ok.  B.E. - 1994
+******************************************************************************
+
+
+
+CC:        "'info-datatel@calvin.edu'" <info-datatel@calvin.e...

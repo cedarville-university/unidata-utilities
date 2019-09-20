@@ -1,0 +1,20 @@
+*
+* UNIBASIC PROGRAM
+* 06/01/95?
+* DWS
+* TITLE ----- RESET.FIRST.RECORD
+*
+* PURPOSE:  RESET COMMON VARIABLES USED BY FIRST.RECORD (TYPICALLY
+*   AFFECTS CALLS TO 'SELINP')
+*
+* Stamped: p4 rotmand, /datatel/live/collive, user #4495, 13 Jul 01, 01:45PM.
+*
+*************************************************************************
+*
+
+      COMMON/FIRSTRC/ CURRENT.DATE, CURRENT.TIME, PROGRAM.NAMES
+      CURRENT.DATE = 0
+      CURRENT.TIME = 0
+      PROGRAM.NAMES = 0
+      CRT 'Common for FIRST.RECORD reset'
+   END

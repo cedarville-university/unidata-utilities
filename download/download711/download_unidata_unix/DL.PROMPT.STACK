@@ -1,0 +1,755 @@
+$BASICTYPE "U"
+      SUBROUTINE DL.PROMPT.STACK(PROMPT.TEXT, PROG.NAME, COMMAND.LINE)
+*
+* INFO/BASIC SUBROUTINE
+* 3/12/90
+* DWS
+* TITLE ----- DL.PROMPT.STACK
+*
+*
+* PURPOSE: PROMPT FOR COMMANDS AND ALLOW "DOT" COMMANDS TO MANIPULATE
+*           THE COMMAND STACK
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #1043, 17 Aug 04, 07:41AM.
+* Version 7.11
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+$INCLUDE I_PROMPT_STACK_COMMON
+
+
+*
+*
+* MAIN CONTROL
+*
+
+      IF PROG.NAME # CURRENT.PROG.NAME THEN
+         GOSUB SWITCH.STACKS
+      END
+      GOSUB SET.UP
+      GOSUB GET.COMMAND.LINE
+      RETURN
+
+
+
+*
+*
+* SWITCH TO A NEW STACK (NEW PROGRAM)
+*   SAVE STACK OF PREVIOUS PROGRAM (IF ANY)
+*
+SWITCH.STACKS:
+      IF PRSTACK.PROG.NAMES = '0' THEN
+         PRSTACK.PROG.NAMES = ''
+      END
+      LOCATE CURRENT.PROG.NAME IN PRSTACK.PROG.NAMES<1> SETTING OLD.POS THEN
+         CONVERT @FM TO @VM IN PROG.STACK
+         PRSTACK.PROG.STACK<OLD.POS> = PROG.STACK
+         PRSTACK.NUM.PROG.STACK<OLD.POS> = NUM.PROG.STACK
+      END
+      LOCATE PROG.NAME IN PRSTACK.PROG.NAMES<1> SETTING CURRENT.PROG.POS THEN
+         PROG.STACK = PRSTACK.PROG.STACK<CURRENT.PROG.POS>
+         CONVERT @VM TO @FM IN PROG.STACK
+         NUM.PROG.STACK = PRSTACK.NUM.PROG.STACK<CURRENT.PROG.POS>
+      END ELSE
+         PROG.STACK = ''
+         NUM.PROG.STACK = 0
+         PRSTACK.PROG.NAMES<CURRENT.PROG.POS> = PROG.NAME
+      END
+      CURRENT.PROG.NAME = PROG.NAME
+      RETURN
+
+
+
+*
+*
+* SET UP
+*
+SET.UP:
+      PROG.VOC.ITEM.TYPE = 'X ':PROG.NAME
+      PROMPT ''
+      LINES.PER.PAGE = 22
+      ESC.CHAR = CHAR(27)
+      DIM PLURAL(2)
+      PLURAL(1) = ''
+      PLURAL(2) = 's'
+      F.SAVEDLISTS = ''
+      CALL DL.OPEN.FILE(F.SAVEDLISTS,'&SAVEDLISTS&','','')
+      F.VOC = ''
+      CALL DL.OPEN.FILE(F.VOC,'VOC','','')
+      READV TEST FROM F.VOC, 'CLEAR.STACK', 0 THEN
+         CLEAR.STACK.OKAY = @TRUE
+      END ELSE
+         CLEAR.STACK.OKAY = @FALSE
+      END
+      READV TEST FROM F.VOC, 'GET.STACK', 0 THEN
+         GET.STACK.OKAY = @TRUE
+      END ELSE
+         GET.STACK.OKAY = @FALSE
+      END
+      READV TEST FROM F.VOC, 'SAVE.STACK', 0 THEN
+         SAVE.STACK.OKAY = @TRUE
+      END ELSE
+         SAVE.STACK.OKAY = @FALSE
+      END
+      MAX.STACK.SIZE = 99
+      STACK.CTR.FMT = LEN(MAX.STACK.SIZE):'"0"R'
+      DEFAULT.LIST.SIZE = 20
+      RETURN
+
+
+*
+*
+* PROMPT FOR COMMAND AND MANIPULATE STACK
+*
+GET.COMMAND.LINE:
+      LOOP
+         EXECUTABLE.COMMAND = @FALSE
+         GOSUB GET.LINE
+         BEGIN CASE
+            CASE COMMAND.LINE[1,1] = '.'
+               GOSUB PROCESS.DOT.COMMAND
+            CASE KEYWORD = 'CLEAR.STACK' AND CLEAR.STACK.OKAY
+               GOSUB PROCESS.CLEAR.STACK
+            CASE KEYWORD = 'GET.STACK' AND GET.STACK.OKAY
+               GOSUB PROCESS.GET.STACK
+            CASE KEYWORD = 'SAVE.STACK' AND SAVE.STACK.OKAY
+               GOSUB PROCESS.SAVE.STACK
+            CASE COMMAND.LINE # ''
+               GOSUB PROCESS.NORMAL.COMMAND
+            CASE COMMAND.LINE = ''
+               EXECUTABLE.COMMAND = @TRUE
+         END CASE
+      UNTIL EXECUTABLE.COMMAND
+      REPEAT
+      RETURN
+
+*
+*
+* GET A SINGLE COMMAND LINE (ALLOW USE OF _ FOR CONTINUATION)
+*
+GET.LINE:
+      COMMAND.LINE = ''
+      TEMP.PROMPT = PROMPT.TEXT
+      LOOP
+         CRT TEMP.PROMPT:
+         INPUT TEMP.ANS
+      UNTIL TEMP.ANS[1] # '_'
+         LEN.ANS = LEN(TEMP.ANS)
+         COMMAND.LINE := TEMP.ANS[1,LEN.ANS-1]:' '
+         TEMP.PROMPT = '>'
+      REPEAT
+      COMMAND.LINE := TEMP.ANS
+      COMMAND.LINE = TRIMF(COMMAND.LINE)
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(COMMAND.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+      KEYWORD = OCONV(PARAM.STR<1>,'MCU')
+      RETURN
+
+
+
+*
+*
+* PROCESS "CLEAR.STACK" COMMAND
+*
+PROCESS.CLEAR.STACK:
+      PROG.STACK = ''
+      NUM.PROG.STACK = 0
+      RETURN
+
+
+*
+*
+* PROCESS "SAVE.STACK" COMMAND
+*
+PROCESS.SAVE.STACK:
+      IF NUM.PARAMS < 2 THEN
+         CRT 'Stack name = ':
+         INPUT STACK.NAME
+      END ELSE
+         STACK.NAME = OCONV(PARAM.STR<2>,'MCU')
+      END
+      IF STACK.NAME # '' THEN
+         SL.KEY = '&&':PROG.NAME:'.':STACK.NAME
+         WRITE PROG.STACK TO F.SAVEDLISTS, SL.KEY
+         CRT 'Command stack "':STACK.NAME:'" for "':PROG.NAME:'" saved in file "&SAVEDLISTS&"'
+      END
+      RETURN
+
+
+*
+*
+* PROCESS "GET.STACK" COMMAND
+*
+PROCESS.GET.STACK:
+      IF NUM.PARAMS < 2 THEN
+         CRT 'Stack name = ':
+         INPUT STACK.NAME
+      END ELSE
+         STACK.NAME = OCONV(PARAM.STR<2>,'MCU')
+      END
+      IF STACK.NAME # '' THEN
+         SL.KEY = '&&':PROG.NAME:'.':STACK.NAME
+         READ TEMP.STACK FROM F.SAVEDLISTS, SL.KEY THEN
+            PROG.STACK = TEMP.STACK
+            NUM.PROG.STACK = COUNT(PROG.STACK,@FM) + (PROG.STACK # '')
+            CRT 'Command stack "':STACK.NAME:'" for "':PROG.NAME:'" loaded.'
+         END ELSE
+            CRT 'Cannot read command stack "':STACK.NAME:'" for "':PROG.NAME:'"'
+         END
+      END
+      RETURN
+
+
+*
+*
+* PROCESS NORMAL COMMAND
+*
+PROCESS.NORMAL.COMMAND:
+      IF COMMAND.LINE[1] = '?' THEN
+         COMMAND.LINE = COMMAND.LINE[1,LEN(COMMAND.LINE)-1]
+         EXECUTABLE.COMMAND = @FALSE
+      END ELSE
+         EXECUTABLE.COMMAND = @TRUE
+      END
+      LINE.TO.INSERT = COMMAND.LINE
+      POS.TO.INSERT = 1
+      GOSUB INSERT.LINE.IN.STACK
+      RETURN
+
+
+*
+*
+* PROCESS THE "DOT" COMMANDS
+*
+PROCESS.DOT.COMMAND:
+      DOT.COMMAND = OCONV(COMMAND.LINE[2,1],'MCU')
+      DOT.LINE = COMMAND.LINE[3,32000]
+      BEGIN CASE
+         CASE DOT.COMMAND = ''
+            GOSUB PROCESS.SINGLE.DOT
+         CASE DOT.COMMAND = '?'
+            GOSUB PROCESS.HELP
+         CASE DOT.COMMAND = 'A'
+            GOSUB PROCESS.APPEND
+         CASE DOT.COMMAND = 'C'
+            GOSUB PROCESS.CHANGE
+         CASE DOT.COMMAND = 'D'
+            GOSUB PROCESS.DELETE
+         CASE DOT.COMMAND = 'I'
+            GOSUB PROCESS.INSERT
+         CASE DOT.COMMAND = 'L'
+            GOSUB PROCESS.LIST
+         CASE DOT.COMMAND = 'R'
+            GOSUB PROCESS.RECALL
+         CASE DOT.COMMAND = 'S'
+            GOSUB PROCESS.SAVE
+         CASE DOT.COMMAND = 'U'
+            GOSUB PROCESS.UPPERCASE
+         CASE DOT.COMMAND = 'X'
+            GOSUB PROCESS.EXECUTE
+         CASE 1
+            CRT '"':COMMAND.LINE:'" is not a valid sentence editor command.'
+      END CASE
+      RETURN
+
+
+*
+*
+** PROCESS THE "." WITH NO SUFFIX
+*
+PROCESS.SINGLE.DOT:
+      CRT PROG.STACK<1>
+      RETURN
+
+
+*
+*
+* LIST HELP FOR DOT COMMANDS
+*
+PROCESS.HELP:
+      CRT
+      CRT '.A# any       Append "any" to end of sentence "#"'
+      CRT '.C#/s1/s2/    Change "s1" to "s2" in sentence "#"'
+      CRT '.D#           Delete sentence number "#" from stack'
+      CRT '.D name       Delete sentence or paragraph "name" for "':PROG.NAME:'" from VOC'
+      CRT '.I# any       Insert "any" in stack before sentence "#"'
+      CRT '.L#           List "#" lines of stack (default is 20)'
+      CRT '.L name       List paragraph or sentence "name" for "':PROG.NAME:'" from VOC'
+      CRT '.R#           Recall sentence number "#" to number 1'
+      CRT '.R name       Load "name" for "':PROG.NAME:'" from VOC into stack'
+      CRT '.S name s# e# Save lines s# thru e# in VOC as "name" for "':PROG.NAME:'"'
+      CRT '.U#           Convert sentence number "#" to upper case'
+      CRT '.X#           Execute sentence number "#"'
+      CRT
+      RETURN
+
+
+
+*
+*
+* GET NUMBER FROM DOT COMMAND LINE
+*
+GET.NUMBER:
+      STACK.NUM = ''
+      CHAR.CTR = 0
+      TEMP.LEN = LEN(DOT.LINE)
+      LOOP
+         CHAR.CTR += 1
+         DOT.CHAR = DOT.LINE[CHAR.CTR,1]
+      UNTIL NOT(NUM(DOT.CHAR)) OR CHAR.CTR > TEMP.LEN
+         STACK.NUM := DOT.CHAR
+      REPEAT
+      IF STACK.NUM = '' THEN
+         STACK.NUM = 1
+      END ELSE
+         DOT.LINE = DOT.LINE[CHAR.CTR,32000]
+         IF STACK.NUM > MAX.STACK.SIZE OR STACK.NUM < 1 THEN
+            CRT 'Illegal sentence number (':STACK.NUM:')'
+            STACK.NUM = -1
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* APPEND COMMAND FUNCTIONS DIFFERENTLY  FROM THE OTHERS
+*   THE NUMBER (IF PRESENT) MUST FOLLOW IMMEDIATELY, AND THEN THE
+*   NEXT CHARACTER IS IGNORED, AND THE REST OF THE LINE IS THE
+*   APPEND TEXT
+*
+PROCESS.APPEND:
+      GOSUB GET.NUMBER
+      IF STACK.NUM = -1 THEN
+         RETURN
+      END
+      DOT.LINE = DOT.LINE[2,32000]
+      PROG.STACK<STACK.NUM> = PROG.STACK<STACK.NUM>:DOT.LINE
+      CRT PROG.STACK<STACK.NUM>
+      RETURN
+
+
+*
+* CHANGE COMMAND
+*    USE ANY PAIR OF NON-SPACE CHARS AS DELIMITERS
+*
+PROCESS.CHANGE:
+      DOT.LINE = TRIMF(DOT.LINE)
+      GOSUB GET.NUMBER
+      IF STACK.NUM = -1 THEN
+         RETURN
+      END
+*
+      DELIM.CHAR = DOT.LINE[1,1]
+      OLD.STRING = FIELD(DOT.LINE,DELIM.CHAR,2,1)
+      LEN.OLD = LEN(OLD.STRING)
+      NEW.STRING = FIELD(DOT.LINE,DELIM.CHAR,3,1)
+      CHANGE.FLAG = TRIMF(FIELD(DOT.LINE,DELIM.CHAR,4,1))
+      IF OCONV(CHANGE.FLAG[1,1],'MCU') = 'G' THEN
+         CHANGE.GLOBAL = @TRUE
+      END ELSE
+         CHANGE.GLOBAL = @FALSE
+      END
+*
+      CHG.CMD = PROG.STACK<STACK.NUM>
+      LEN.CMD = LEN(CHG.CMD)
+      IF OLD.STRING = '' THEN
+         NEW.CMD = NEW.STRING:CHG.CMD
+      END ELSE
+         NUM.CHANGES = 0
+         NEW.CMD = ''
+         LOOP
+            POS = INDEX(CHG.CMD, OLD.STRING, 1)
+         UNTIL POS = 0 OR (NOT(CHANGE.GLOBAL) AND NUM.CHANGES = 1)
+            NEW.CMD := CHG.CMD[1,POS-1]:NEW.STRING
+            CHG.CMD = CHG.CMD[POS+LEN.OLD,LEN.CMD]
+            NUM.CHANGES += 1
+         REPEAT
+         NEW.CMD := CHG.CMD
+      END
+      PROG.STACK<STACK.NUM> = NEW.CMD
+      CRT PROG.STACK<STACK.NUM>
+      RETURN
+
+
+PROCESS.DELETE:
+      IF DOT.LINE = '' THEN
+         DOT.LINE = 1
+      END
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(DOT.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+*
+      NUM.TO.DELETE = PARAM.STR<1>
+      IF NUM(NUM.TO.DELETE) AND NUM.TO.DELETE > 0 AND NOT(PARAM.QU<1>) THEN
+         GOSUB PROCESS.DELETE.STACK
+      END ELSE
+         GOSUB PROCESS.DELETE.VOC.ITEM
+      END
+      RETURN
+
+
+*
+*
+* PROCESS DELETE STACK
+*
+PROCESS.DELETE.STACK:
+      NUM.TO.DELETE = PARAM.STR<1>
+      IF NUM.TO.DELETE > MAX.STACK.SIZE THEN
+         CRT 'Illegal sentence number (':NUM.TO.DELETE:')'
+      END ELSE
+         DEL PROG.STACK<NUM.TO.DELETE>
+         NUM.PROG.STACK -= 1
+         CRT 'Line ':NUM.TO.DELETE:' deleted from stack.'
+         CRT
+      END
+      RETURN
+
+
+*
+*
+* PROCESS DELETE VOC ITEM
+*
+PROCESS.DELETE.VOC.ITEM:
+      VOC.ITEM = PARAM.STR<1>
+      GOSUB READ.VOC.ITEM
+      IF VOC.ITEM.OKAY THEN
+         CRT
+         CRT 'You are about to delete the record from your vocabulary file!  OK? (Y/N) :':@SYS.BELL:
+         INPUT ANS
+         IF OCONV(ANS[1,1],'MCU') = 'Y' THEN
+            DELETE F.VOC, VOC.ITEM
+            CRT 'Item "':VOC.ITEM:'" deleted from your vocabulary file.'
+            CRT
+         END ELSE
+            CRT 'Record was not deleted.'
+         END
+      END
+      RETURN
+
+
+
+
+*
+*
+* INSERT A LINE INTO STACK
+*
+PROCESS.INSERT:
+      DOT.LINE = TRIMF(DOT.LINE)
+      GOSUB GET.NUMBER
+      IF STACK.NUM = -1 THEN
+         RETURN
+      END
+      POS.TO.INSERT = STACK.NUM
+      LINE.TO.INSERT = TRIMF(DOT.LINE)
+      GOSUB INSERT.LINE.IN.STACK
+      RETURN
+
+
+*
+* LIST COMMAND STACK (OR VOC ITEM) COMMADN
+*
+PROCESS.LIST:
+      IF DOT.LINE = '' THEN
+         DOT.LINE = DEFAULT.LIST.SIZE
+      END
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(DOT.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+*
+      NUM.TO.LIST = PARAM.STR<1>
+      IF NUM(NUM.TO.LIST) AND NUM.TO.LIST > 0 AND NOT(PARAM.QU<1>) THEN
+         GOSUB PROCESS.LIST.STACK
+      END ELSE
+         GOSUB PROCESS.LIST.VOC.ITEM
+      END
+      RETURN
+
+
+*
+*
+* PROCESS LIST STACK
+*
+PROCESS.LIST.STACK:
+      LINE.CTR = 999
+      FIRST.PAGE = @TRUE
+      DONE.LIST = @FALSE
+      NUM.TO.LIST = PARAM.STR<1>
+      IF NUM.TO.LIST > MAX.STACK.SIZE THEN
+         CRT 'Illegal sentence number (':NUM.TO.LIST:')'
+      END ELSE
+         IF NUM.TO.LIST > NUM.PROG.STACK THEN
+            NUM.TO.LIST = NUM.PROG.STACK
+         END
+         PR.LINE = ''
+         GOSUB PRINT.LINE
+         FOR STACK.CTR=NUM.TO.LIST TO 1 STEP -1
+            PR.LINE = FMT(STACK.CTR,STACK.CTR.FMT):' ':PROG.STACK<STACK.CTR>
+            GOSUB PRINT.LINE
+         PR.LINE = ''
+         NEXT STACK.CTR
+         GOSUB PRINT.LINE
+      END
+      RETURN
+
+
+*
+*
+* PROCESS LIST VOC ITEM
+*
+PROCESS.LIST.VOC.ITEM:
+      LINE.CTR = 999
+      FIRST.PAGE = @TRUE
+      DONE.LIST = @FALSE
+      VOC.ITEM = PARAM.STR<1>
+      GOSUB READ.VOC.ITEM
+      IF VOC.ITEM.OKAY THEN
+         NUM.LINES = COUNT(VOC.REC,@FM) + 1
+         PR.LINE = ''
+         GOSUB PRINT.LINE
+         FOR FIELD.CTR=1 TO NUM.LINES
+            PR.LINE = VOC.REC<FIELD.CTR>
+            GOSUB PRINT.LINE
+         NEXT FIELD.CTR
+         PR.LINE = ''
+         GOSUB PRINT.LINE
+         PR.LINE = NUM.LINES:' line':PLURAL((NUM.LINES>1)+1):' listed from VOC file record "':VOC.ITEM:'".'
+         GOSUB PRINT.LINE
+         PR.LINE = ''
+         GOSUB PRINT.LINE
+      END
+      RETURN
+
+
+*
+*
+* PRINT.LINE
+*
+PRINT.LINE:
+      IF LINE.CTR >= LINES.PER.PAGE THEN
+         IF FIRST.PAGE THEN
+            PAUSE.ANS = ''
+            FIRST.PAGE = @FALSE
+         END ELSE
+            PRINT 'Press <RETURN> to continue...':
+            INPUT PAUSE.ANS,1
+            PAUSE.ANS = OCONV(PAUSE.ANS,'MCU')
+         END
+         IF PAUSE.ANS = 'Q' OR INDEX(PAUSE.ANS,ESC.CHAR,1) > 0 THEN
+            DONE.LIST = @TRUE
+         END
+         LINE.CTR = 0
+      END
+      IF NOT(DONE.LIST) THEN
+         LINE.CTR += 1
+         PRINT PR.LINE
+      END
+      RETURN
+
+
+*
+*
+* CHECK VOC.ITEM
+*
+READ.VOC.ITEM:
+      READ VOC.REC FROM F.VOC, VOC.ITEM THEN
+         VOC.ITEM.OKAY = @TRUE
+         VOC.ITEM.TYPE = FIELD(TRIM(VOC.REC<1>),' ',1,2)
+      END ELSE
+         VOC.ITEM.OKAY = @FALSE
+      END
+*
+      IF VOC.ITEM.OKAY THEN
+         IF VOC.ITEM.TYPE # PROG.VOC.ITEM.TYPE THEN
+            CRT 'Sentence editor error.'
+            CRT 'This operation is valid only for a Sentence or Paragraph for "':PROG.NAME:'".'
+            CRT '"':VOC.ITEM:'" in your vocabulary file is neither of these.'
+            CRT @SYS.BELL
+            CRT 'Its record in your vocabulary file is type:'
+            CRT '"':VOC.REC<1>:'"'
+            VOC.ITEM.OKAY = @FALSE
+         END
+      END ELSE
+         CRT 'Sentence editor error.'
+         CRT '"':VOC.ITEM:'" is not in your VOC file.'
+      END
+      RETURN
+
+
+PROCESS.RECALL:
+      IF DOT.LINE = '' THEN
+         DOT.LINE = 1
+      END
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(DOT.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+*
+      NUM.TO.RECALL = PARAM.STR<1>
+      IF NUM(NUM.TO.RECALL) AND NUM.TO.RECALL > 0 AND NOT(PARAM.QU<1>) THEN
+         GOSUB PROCESS.RECALL.STACK
+      END ELSE
+         GOSUB PROCESS.RECALL.VOC.ITEM
+      END
+      RETURN
+
+
+*
+*
+* PROCESS RECALL STACK
+*
+PROCESS.RECALL.STACK:
+      NUM.TO.RECALL = PARAM.STR<1>
+      IF NUM.TO.RECALL > MAX.STACK.SIZE THEN
+         CRT 'Illegal sentence number (':NUM.TO.RECALL:')'
+      END ELSE
+         IF NUM.PROG.STACK = MAX.STACK.SIZE THEN
+            DEL PROG.STACK<MAX.STACK.SIZE>
+            NUM.PROG.STACK -= 1
+         END
+         INS PROG.STACK<NUM.TO.RECALL> BEFORE PROG.STACK<1>
+         NUM.PROG.STACK += 1
+         CRT PROG.STACK<1>
+      END
+      RETURN
+
+
+*
+*
+* PROCESS RECALL VOC ITEM
+*
+PROCESS.RECALL.VOC.ITEM:
+      VOC.ITEM = PARAM.STR<1>
+      GOSUB READ.VOC.ITEM
+      IF VOC.ITEM.OKAY THEN
+         NUM.LINES = COUNT(VOC.REC,@FM)
+         POS.TO.INSERT = 1
+         FOR FIELD.CTR=1 TO NUM.LINES
+            LINE.TO.INSERT = VOC.REC<FIELD.CTR+1>
+            GOSUB INSERT.LINE.IN.STACK
+         NEXT FIELD.CTR
+         CRT NUM.LINES:' line':PLURAL((NUM.LINES>1)+1):' loaded from VOC file record "':VOC.ITEM:'" for "':PROG.NAME:'".'
+      END
+      RETURN
+
+
+PROCESS.SAVE:
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL DL.PARSE.COMMAND.LINE(DOT.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS,'')
+      IF NUM.PARAMS < 1 THEN
+         CRT 'VOC name expected.'
+         RETURN
+      END
+      VOC.ITEM = PARAM.STR<1>
+      BEGIN CASE
+         CASE NUM.PARAMS = 1
+            BEG.ITEM = 1
+            END.ITEM = 1
+         CASE NUM.PARAMS = 2
+            BEG.ITEM = PARAM.STR<2>
+            END.ITEM = 1
+         CASE 1
+            BEG.ITEM = PARAM.STR<2>
+            END.ITEM = PARAM.STR<3>
+      END CASE
+      IF NOT(NUM(BEG.ITEM)) OR NOT(NUM(END.ITEM)) THEN
+         CRT 'Sentence editor error.'
+         CRT 'Invalid starting or ending numbers.':@SYS.BELL
+         RETURN
+      END
+      IF BEG.ITEM < END.ITEM THEN
+         TEMP.ITEM = END.ITEM
+         END.ITEM = BEG.ITEM
+         BEG.ITEM = TEMP.ITEM
+      END
+      READ VOC.REC FROM F.VOC, VOC.ITEM THEN
+         VOC.ITEM.TYPE = FIELD(TRIM(VOC.REC<1>),' ',1,2)
+         CRT '"':VOC.ITEM:'" is already in your vocbulary file as type:':@SYS.BELL
+         CRT '"':VOC.REC<1>:'"'
+         IF VOC.ITEM.TYPE = PROG.VOC.ITEM.TYPE THEN
+            CRT 'Okay to overwrite "':VOC.ITEM:'" for "':PROG.NAME:'"? (Y,[NL]) ':
+            INPUT ANS
+            IF OCONV(ANS[1,1],'MCU') # 'Y' THEN
+               RETURN
+            END
+         END ELSE
+            CRT 'Record not overwritten'
+            RETURN
+         END
+      END
+      VOC.REC = PROG.VOC.ITEM.TYPE:' Saved on ':OCONV(TIME(),'MTS'):' ':OCONV(DATE(),'D4'):' by ':@WHO
+      FOR ITEM.CTR=BEG.ITEM TO END.ITEM STEP -1
+         VOC.REC := @FM:PROG.STACK<ITEM.CTR>
+      NEXT ITEM.CTR
+      WRITE VOC.REC TO F.VOC, VOC.ITEM
+      RETURN
+
+
+*
+*
+* CHANGE A LINE TO ALL UPPERCASE
+*
+PROCESS.UPPERCASE:
+      DOT.LINE = TRIMF(DOT.LINE)
+      GOSUB GET.NUMBER
+      IF STACK.NUM = -1 THEN
+         RETURN
+      END
+      PROG.STACK<STACK.NUM> = OCONV(PROG.STACK<STACK.NUM>,'MCU')
+      CRT PROG.STACK<STACK.NUM>
+      RETURN
+
+
+*
+*
+* "EXECUTE" A COMMAND (PASS IT BACK TO CALLING PROGRAM)
+*
+PROCESS.EXECUTE:
+      DOT.LINE = TRIMF(DOT.LINE)
+      GOSUB GET.NUMBER
+      IF STACK.NUM = -1 THEN
+         RETURN
+      END
+      COMMAND.LINE = PROG.STACK<STACK.NUM>
+      IF STACK.NUM > 1 THEN
+         LINE.TO.INSERT = COMMAND.LINE
+         POS.TO.INSERT = 1
+         GOSUB INSERT.LINE.IN.STACK
+      END
+      CRT COMMAND.LINE
+      EXECUTABLE.COMMAND = @TRUE
+      RETURN
+
+
+
+
+
+*
+*
+* ADD COMMAND TO STACK
+*
+INSERT.LINE.IN.STACK:
+      IF NUM.PROG.STACK = MAX.STACK.SIZE THEN
+         DEL PROG.STACK<MAX.STACK.SIZE>
+         NUM.PROG.STACK -= 1
+      END
+      INS LINE.TO.INSERT BEFORE PROG.STACK<POS.TO.INSERT>
+      NUM.PROG.STACK += 1
+      RETURN
+
+   END

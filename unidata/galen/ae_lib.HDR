@@ -1,0 +1,16 @@
+351 LINES
+*-------------------------- FTP SUBMISSION FORM --------------------------
+*--- PROGRAM NAME...: LIBRARY_AE
+*--- 40-CHAR DESC...: Code library manager for AE editor
+*--- KEYWORDS.......: AE LIBRARY
+*--- SUBMISSION DATE: 10/08/95
+*--- COMPANY NAME...: Galen Group
+*--- CONTACT NAME...: Les Ferguson
+*--- CONTACT PHONE#.: 0064 9 8360514
+*--- CONTACT EMAIL..: lhf@nzxray.galen.co.nz
+*--- LONG DESC......: AE add-on subroutine for managing personal and
+*---                : company-wide libraries of code segments, with a
+*---                : cut-and-paste functionality incorporating the AE
+*---                : block commands.  Also provides a good demo on how
+*---                : to add subrtns to AE.
+*-------------------------------------------------------------------------

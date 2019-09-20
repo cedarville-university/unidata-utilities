@@ -1,0 +1,28 @@
+      SUBROUTINE PARSE.LINE.WITH.DICT(COMMAND.LINE, ITEM.LIST, ITEM.QUOTED.LIST, NUM.ITEMS, DICT.FILE.NAME, OTHER.SEPARATORS)
+*
+* INFO/BASIC SUBROUTINE
+* 4/16/91
+* DWS
+* TITLE ----- PARSE.LINE.WITH.DICT
+*
+*
+* PURPOSE: PARSE A STRING INTO SEPARATE ITEMS
+*              (OFTEN USED FOR COMMAND LINES)
+*
+*     Last updated by LIVE (SJOQUIST) at 10:56:12 on 04/16/1991.
+* Split into 2 subroutines PARSE.COMMAND.LINE & EXPAND.ITEMS, so have
+* this shell simply call those two routines.  It was split so that
+* the calling program could have more control over expanding VOC
+* phrases, marking items as used, expanding dictionary phrases, etc.,
+* to mimic INFORM's style
+*
+*************************************************************************
+*
+
+      CALL PARSE.COMMAND.LINE(COMMAND.LINE, ITEM.LIST, ITEM.QUOTED.LIST, NUM.ITEMS, OTHER.SEPARATORS)
+      ITEM.USED.LIST = ''
+      EXPAND.VOC.PHRASES = 1
+      CALL EXPAND.ITEMS(ITEM.LIST, ITEM.QUOTED.LIST, ITEM.USED.LIST, NUM.ITEMS, DICT.FILE.NAME, EXPAND.VOC.PHRASES, OTHER.SEPARATORS)
+      RETURN
+
+   END

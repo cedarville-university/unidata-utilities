@@ -1,0 +1,140 @@
+*
+* INFO/BASIC PROGRAM
+* 3/1/88
+* DWS (CEDARVILLE COLLEGE)
+* TITLE ----- CREATE.RECORDS
+* REL 1.0
+*
+*
+* PURPOSE: CREATE EMPTY RECORDS ON A FILE (USING AN ACTIVE SELECT LIST)
+*
+*
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #8712, 14 Apr 95, 03:50PM.
+* Add KEY.START and KEY.LENGTH options.
+* Add HELP option.
+*     Last updated by LIVE (ROTMAN) at 13:09:07 on 03/09/1988.
+*
+*************************************************************************
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+
+      GOSUB SET.UP
+      TEMP = @(0,0)
+
+      DONE = 0
+      CTR = 0
+      LOOP
+         READNEXT KEY.FROM.LIST ELSE DONE = 1
+      UNTIL DONE
+         CTR += 1
+         BEGIN CASE
+            CASE KEY.START > 0 AND KEY.LENGTH > 0
+               KEY = KEY.FROM.LIST[KEY.START,KEY.LENGTH]
+            CASE KEY.START > 0
+               KEY = KEY.FROM.LIST[KEY.START,9999]
+            CASE KEY.LENGTH > 0
+               KEY = KEY.FROM.LIST[1,KEY.LENGTH]
+            CASE 1
+               KEY = KEY.FROM.LIST
+         END CASE
+         READ REC FROM F.FILE,KEY ELSE
+            WRITE '' TO F.FILE,KEY
+            IF DISPLAY.KEYS THEN CRT KEY
+         END
+         IF MOD.DISPLAY THEN
+            IF MOD(CTR,MOD.SIZE) = 0 THEN
+               CRT '*':
+               IF MOD(CTR,MOD.SIZE*50) = 0 THEN
+                  CRT ' ':CTR
+               END
+            END
+         END
+      REPEAT
+      IF MOD.DISPLAY THEN
+         CRT
+         CRT CTR:' PROCESSED'
+      END
+      STOP
+
+
+
+SET.UP: 
+      PARAM = OCONV(TRIM(@SENTENCE),'MCU')
+      CONVERT ' ' TO @FM IN PARAM
+      IF PARAM<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      FILE.NAME = PARAM<STARTING.PARAM>
+      IF FILE.NAME = '' OR FILE.NAME = '-HELP' OR FILE.NAME = 'HELP' THEN
+         GOSUB PRINT.HELP
+         STOP
+      END
+
+      OPEN '',FILE.NAME TO F.FILE ELSE
+         CRT 'CAN NOT OPEN "':FILE.NAME:'"'
+         STOP
+      END
+
+      LOCATE 'QUIET' IN PARAM<1> SETTING POS THEN
+         DISPLAY.KEYS = 0
+         DEL PARAM<POS>
+      END ELSE
+         DISPLAY.KEYS = 1
+      END
+      LOCATE 'MOD' IN PARAM<1> SETTING POS THEN
+         DISPLAY.KEYS = 0
+         MOD.DISPLAY = 1
+         DEL PARAM<POS>
+         TEST.VALUE = PARAM<POS>
+         IF TEST.VALUE # '' AND NUM(TEST.VALUE) THEN
+            DEL PARAM<POS>
+            MOD.SIZE = TEST.VALUE
+         END ELSE
+            MOD.SIZE = 10
+         END
+      END ELSE
+         MOD.DISPLAY = 0
+      END
+
+      LOCATE 'KEY.START' IN PARAM<1> SETTING POS THEN
+         KEY.START = PARAM<POS+1>
+      END ELSE
+         KEY.START = ''
+      END
+      LOCATE 'KEY.LENGTH' IN PARAM<1> SETTING POS THEN
+         KEY.LENGTH = PARAM<POS+1>
+      END ELSE
+         KEY.LENGTH = ''
+      END
+      RETURN
+
+
+PRINT.HELP: 
+      CRT
+      CRT 'Syntax:'
+      CRT 'CREATE.RECORDS file.name [QUIET] [MOD nnn] [KEY.START sss] [KEY.LENGTH lll]'
+      RETURN
+
+   END

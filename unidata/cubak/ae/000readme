@@ -1,0 +1,58 @@
+
+The files in this directory let you add the following commands to the
+AE editor:
+
+$BL xxxx              Locate the previous occurrence of 'xxxx'
+$CONV                 Apply dictionary conversion to the current field
+$CRT TTT ... ZZZ      Insert CRT statements for 'TTT', ..., 'ZZZ'
+                      For example, issuing "$CRT K.FILE X.SAM" will insert
+                           CRT 'K.FILE: ':K.FILE
+                           CRT 'X.SAM: ':X.SAM
+$CRTI TTT ... ZZZ     Same as $CRT, but also insert an INPUT statement
+$DEBUG TTT ... ZZZ    Insert an IF statement which checks @LOGNAME
+                      before displaying the variables.
+                      For example, if programmer 'jones' issues the command
+                      "$DEBUG X.RATE", these lines will be inserted:
+                           IF @LOGNAME = 'jones' THEN
+                              CRT 'X.RATE: ':X.RATE
+                           END
+$DEBUGI TTT ... ZZZ   Same as $DEBUG, but also insert an INPUT statement
+$DICT                 Display the dictionary name for the current field
+$E mmm nnn            Execute paragraph lines (current line or the lines
+                           specified by mmm-nnn)
+$FOR ZZZ              Insert standard FOR loop using the value-list ZZZ
+                           for the controlling list
+$L n xxxx             Locate the next 'n' occurrences of 'xxxx'
+$OCONV n xxxx         Apply OCONV function 'xxxx' to next 'n' lines
+$P n                  Display 'n' lines, showing dictionary names and
+                          field values
+$P n CONV             As above, but apply dictionary conversions
+$READ xxxx            Insert standard READ and PARSE paragraphs for
+                          file 'xxxx'
+$READU xxxx           Insert standard READU and PARSE paragraphs for
+                          file 'xxxx'
+
+
+
+
+
+To install these commands:
+
+1.  Copy all items starting with '$' into the file AE_XCOMS.
+
+2.  Copy all items ending with 'AE' into a source directory.  Compile and
+    catalog these items.
+
+3.  If you do not already have it, obtain 'GET.UNUSED.SELECT.LIST' from
+    the Cedarville subroutines directory.  Compile and catalog this
+    subroutine.
+
+
+
+
+
+Dave Rotman
+rotmand@cedarville.edu
+October 1997
+February 2001
+November 2004

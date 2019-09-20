@@ -1,0 +1,159 @@
+*
+* I_PRINT.PAGE.COMMON
+* Common statement for the Print.Page module
+*
+*
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+* Stamped: p2 rotmand, /disk1/collive, user #14054, 05 Apr 00, 07:42AM.
+*  Implement sleep delay for sending email to large groups (pause
+*  after every PP.MAIL.DELAY.INTERVAL records)
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 15:59:08 on 12/14/1988.
+* Update to 3.0
+*     Last updated by LIVE (SJOQUIST) at 09:57:33 on 02/16/1988.
+*       REV 2.2
+*       Allow expandable lines (for multi-value lists)
+*       Allow options top.of.form
+*        Allow inserting fields (instead of overlaying, default = overlay)
+*     Last updated by LIVE (SJOQUIST) at 14:20:25 on 02/12/1988.
+*      Allow multiple pages
+*
+*
+*************************************************************************
+*
+*  COPYRIGHT (C) 1989, ROTMAN & SJOQUIST
+*
+*      The information contained in this file is proprietary to
+*      ROTMAN & SJOQUIST and shall not be reproduced in part or
+*      in whole without their prior written authorization.
+*      This file may be modified for the internal use of this
+*      institution, but no part of this file nor any program or
+*      file derived from it may be distributed to any other
+*      individual or institution.
+*
+*************************************************************************
+*
+      TRUE = 1
+      FALSE = 0
+      CLEAR.SCREEN = @(-1)
+      CLEAR.EOS = @(-3)
+      CLEAR.EOL = @(-4)
+      START.REVERSE = @(-13)
+      END.REVERSE = @(-14)
+      BKSP = @(-9)
+      PROMPT ''
+*
+      MAX.FORMS = 4
+      MAX.FIELDS = 99
+      MAX.LINES = 264
+      MAX.POSITIONS = MAX.FIELDS * 2
+      MAX.FILES = 9
+*
+      COMMON /PRTPAGE/ PP.FIELD(MAX.FIELDS,MAX.FORMS),
+      PP.FILE.NUM(MAX.FIELDS,MAX.FORMS),
+      DICT.NAME(MAX.FIELDS,MAX.FORMS),
+      DICT.REC(MAX.FIELDS,MAX.FORMS),
+      PP.SUBR.NAMES(MAX.FIELDS,MAX.FORMS),
+      FIELD.TYPE(MAX.FIELDS,MAX.FORMS),
+      CONV.CODE(MAX.FIELDS,MAX.FORMS),
+      SPECIAL.CONV.CODE(MAX.FIELDS,MAX.FORMS),
+      FMT.CODE(MAX.FIELDS,MAX.FORMS),
+      FIELD.ARGS(MAX.FIELDS,MAX.FORMS),
+      IGNORE.ERROR(MAX.FIELDS,MAX.FORMS),
+      MAX.LENGTH(MAX.FIELDS,MAX.FORMS),
+      MULTI.VALUE(MAX.FIELDS,MAX.FORMS),
+      NUM.VALUES(MAX.FIELDS,MAX.FORMS),
+      NUM.SUBVALUES(MAX.FIELDS,MAX.FORMS),
+      USE.LAST.VALUES(MAX.FIELDS,MAX.FORMS),
+      BY.EXP(MAX.FIELDS,MAX.FORMS),
+      EXPAND.LINES(MAX.FIELDS,MAX.FORMS),
+      INSERTING(MAX.FIELDS,MAX.FORMS),
+      DEFAULT.VALUE(MAX.FIELDS,MAX.FORMS),
+      PROMPT.TEXT(MAX.FIELDS,MAX.FORMS),
+      INPUT.MASK(MAX.FIELDS,MAX.FORMS),
+      PROMPT.VALUE(MAX.FIELDS,MAX.FORMS),
+      POSTFIX.PHRASE(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.1(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.2(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.3(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.4(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.5(MAX.FIELDS,MAX.FORMS),
+      PPSPARE.FLD.FRM.6(MAX.FIELDS,MAX.FORMS),
+      ROW.NUM(MAX.POSITIONS,MAX.FORMS),
+      COLUMN.NUM(MAX.POSITIONS,MAX.FORMS),
+      RC.FIELD.NUM(MAX.POSITIONS,MAX.FORMS),
+      PPSPARE.POS.FRM.1(MAX.POSITIONS,MAX.FORMS),
+      PPSPARE.POS.FRM.2(MAX.POSITIONS,MAX.FORMS),
+      MASK.LINES(MAX.LINES,MAX.FORMS),
+      DUMMY.LINES(MAX.LINES,MAX.FORMS),
+      PRINT.LINES(MAX.LINES,MAX.FORMS),
+      NEW.PAGE(MAX.LINES,MAX.FORMS),
+      SKIP.NULL.LINES(MAX.LINES,MAX.FORMS),
+      FILL.MARGINS(MAX.LINES,MAX.FORMS),
+      PPSPARE.LIN.FRM.1(MAX.LINES,MAX.FORMS),
+      PPSPARE.LIN.FRM.2(MAX.LINES,MAX.FORMS),
+      PPSPARE.LIN.FRM.3(MAX.LINES,MAX.FORMS),
+      PPSPARE.LIN.FRM.4(MAX.LINES,MAX.FORMS),
+      PPSPARE.LIN.FRM.5(MAX.LINES,MAX.FORMS),
+      NUM.FIELDS(MAX.FORMS),
+      NUM.LINES(MAX.FORMS),
+      NUM.RECS(MAX.FORMS),
+      NUM.FILES(MAX.FORMS),
+      NUM.PAGES(MAX.FORMS),
+      NUM.POSITIONS(MAX.FORMS),
+      NUM.LINE.UP(MAX.FORMS),
+      FORM.LENGTH(MAX.FORMS),
+      TOP.OF.FORM(MAX.FORMS),
+      PRINT.LINES.ON.FORM(MAX.FORMS),
+      HEADING.BEGIN.LINE(MAX.FORMS),
+      HEADING.END.LINE(MAX.FORMS),
+      FOOTING.BEGIN.LINE(MAX.FORMS),
+      FOOTING.END.LINE(MAX.FORMS),
+      BODY.BEGIN.LINE(MAX.FORMS),
+      BODY.END.LINE(MAX.FORMS),
+      PPSPARE.FRM.1(MAX.FORMS),
+      PPSPARE.FRM.2(MAX.FORMS),
+      PPSPARE.FRM.3(MAX.FORMS),
+      PP.FILE.NAME(MAX.FILES,MAX.FORMS),
+      PP.KEY.FIELD.NUM(MAX.FILES,MAX.FORMS),
+      F.PP.FILE(MAX.FILES,MAX.FORMS),
+      PPSPARE.FIL.FRM.1(MAX.FORMS),
+      PPSPARE.FIL.FRM.2(MAX.FORMS),
+      PPSPARE.FIL.FRM.3(MAX.FORMS),
+      PP.INITIALIZATION,
+      PP.TERMINATION,
+      COMMENT.CHARACTER,
+      SECTION.DELIMITER,
+      SPECIAL.COMMAND.DELIMITER,
+      FILE.FIELD.DELIMITER,
+      FIELD.DELIMITER,
+      PREDEFINED.FIELD.CHARACTER,
+      PREDEFINED.FIELD.LIST,
+      PREDEFINED.FIELD.FMT,
+      PREDEFINED.FIELD.CONV,
+      PREDEFINED.FIELD.ARGS,
+      SPECIAL.CONV.CODE.LIST,
+      DAY.OF.WEEK.TEXT(7),
+      MONTH.TEXT(12),
+      MAIL.ID.FIELD,
+      MAIL.ID.FIELD.NUM,
+      PP.ATTACH.FORM.NAME,
+      PP.ATTACH.TEXT,
+      MAIL.F.NETWORK.LOGINS,
+      MAIL.SUBJECT,
+      MAIL.SENDER,
+      PP.HAVE.MAIL,
+      PP.HAVE.ATTACH,
+      PP.MAIL.DELAY.INTERVAL,
+      PP.MAIL.DELAY.TIME,
+      PP.SPARE5,
+      PP.SPARE4,
+      PP.SPARE3,
+      PP.SPARE2,
+      PP.SPARE1
+*

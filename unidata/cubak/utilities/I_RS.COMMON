@@ -1,0 +1,16 @@
+*
+* I_RS.COMMON
+*
+* Standard insert for the Rotman & Sjoquist programs
+*
+*     Last updated by LIVE (SJOQUIST) at 20:29:25 on 02/15/1988.
+*
+      TRUE = 1
+      FALSE = 0
+      CLEAR.SCREEN = @(-1)
+      CLEAR.EOS = @(-3)
+      CLEAR.EOL = @(-4)
+      START.REVERSE = @(-13)
+      END.REVERSE = @(-14)
+      BKSP = @(-9)
+      PROMPT ''

@@ -1,0 +1,116 @@
+      SUBROUTINE IF.COMPARE(RETURN.LIST,VALUES,FIELD.1,OPERATOR,FIELD.2,SM.FLAG)
+*
+* INFO/BASIC SUBROUTINE
+* 3/14/89
+* DLR
+* TITLE ----- IF.COMPARE
+*
+*
+* PURPOSE: SELECT RETURN OF VALUES IN 'VALUES'
+*  IF FIELD.1 (WHICH IS MV ASSOC WITH "VALUES") COMPARES FAVORABLY
+*    (BASED ON THE "OPERATOR") TO FIELD.2 (IF SM.FLAG IS 'S' THEN
+*     IT REUSES FIELD.2, OTHERWISE IT DOES A VALUE BY VALUE COMPARE)
+*     THEN THEN ASSOCIATED VALUE IN "VALUES" IS INSERTED IN THE RETURN.LIST.
+*
+*     Last updated by LIVE (ROTMAN) at 08:49:17 on 07/30/1991.
+* Add alphabetic equivalents of operators (EQ, NE, LT, GT, LE, GE).
+*     Last updated by LIVE (SJOQUIST) at 16:40:12 on 08/06/1990.
+* Add LIKE operator
+*     Last updated by LIVE (ROTMAN) at 13:24:30 on 03/14/1989.
+* BASED ON 'IF.SUM' BY DOUG SJOQUIST
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+*
+*  IF THERE ARE NO VALUES TO RETURN, THEN RETURN EMPTY LIST
+*
+      RETURN.LIST = ''
+      IF VALUES = '' THEN
+         RETURN
+      END
+
+
+      NUM.RETURN.VALUES = 0
+      NUM.FIELDS = COUNT(VALUES,@VM) + 1
+      NUM.FIELD.2 = COUNT(FIELD.2,@VM) + (FIELD.2 # '')
+      FOR FLD.CTR.1=1 TO NUM.FIELDS
+         IF SM.FLAG = 'M' THEN
+            FLD.CTR.2 = FLD.CTR.1
+         END ELSE
+            FLD.CTR.2 = 1
+         END
+         CHECK.FIELD.1 = FIELD.1<1,FLD.CTR.1>
+         CHECK.VALUE = VALUES<1,FLD.CTR.1>
+         CHECK.FIELD.2 = FIELD.2<1,FLD.CTR.2>
+         BEGIN CASE
+            CASE OPERATOR = '=' OR OPERATOR = 'EQ'
+               IF CHECK.FIELD.1 = CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = '<' OR OPERATOR = 'LT'
+               IF CHECK.FIELD.1 < CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = '>' OR OPERATOR = 'GT'
+               IF CHECK.FIELD.1 > CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = '<=' OR OPERATOR = 'LE'
+               IF CHECK.FIELD.1 <= CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = '>=' OR OPERATOR = 'GE'
+               IF CHECK.FIELD.1 >= CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = '#' OR OPERATOR = 'NE'
+               IF CHECK.FIELD.1 # CHECK.FIELD.2 THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = 'IN'
+               LOCATE CHECK.FIELD.1 IN FIELD.2<1,1> SETTING POS THEN
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = 'NOTIN'
+               LOCATE CHECK.FIELD.1 IN FIELD.2<1,1> SETTING POS ELSE
+                  NUM.RETURN.VALUES += 1
+                  RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+               END
+            CASE OPERATOR = 'LIKE'
+               MATCH.FOUND = @FALSE
+               FOR LOOP.FLD.2=1 TO NUM.FIELD.2 UNTIL MATCH.FOUND
+                  LOOP.CHECK.FIELD.2 = FIELD.2<1,LOOP.FLD.2>
+                  IF CHECK.FIELD.1 MATCHES LOOP.CHECK.FIELD.2 THEN
+                     MATCH.FOUND = @TRUE
+                     NUM.RETURN.VALUES += 1
+                     RETURN.LIST<1,NUM.RETURN.VALUES> = CHECK.VALUE
+                  END
+               NEXT LOOP.FLD.2
+         END CASE
+      NEXT FLD.CTR.1
+      RETURN
+   END

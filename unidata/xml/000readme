@@ -1,0 +1,78 @@
+C26.UNIDATA.PARSE.XML                                            March 2004
+
+
+This routine provides an easy method for programs 
+to fetch data received via XML in a Unidata environment.  
+
+===============================================================
+
+Arguments:
+CALL C26.UNIDATA.PARSE.XML(AL.RETURN, 
+	A.RETURN.STATUS, A.XML.STRING,
+	A.EXTRACT.STRING, A.DEBUG)
+
+AL.RETURN
+   Output
+      One field per input record
+      Each value represents an extraction specified by A.EXTRACT.STRING
+
+A.RETURN.STATUS
+   Output
+      Zero if no errors occurred, otherwise the Unidata-generated
+      error code from the parsing operation
+
+A.XML.STRING
+   Input
+      The actual XML data to be parsed
+
+A.EXTRACT.STRING
+   Input
+      An extraction string for this XML (see chapter 10, Unidata Using Uniquery)
+
+A.DEBUG
+   Input
+      Set to @TRUE if you wish to see debugging messages during execution
+
+
+===============================================================
+Code example (see also DUG.XML.EXTRACT.EXAMPLE for a complete
+program example)
+
+   Suppose you have XML data which looks like this assigned to
+   variable MY.XML.DATA:
+	<persons>
+		<person idnumber="123">
+			<lname>Anthony</lname>
+			<fname>Susan</fname>
+			<gender>Female</gender>
+		</person>
+		<person idnumber="406">
+			<lname>Harrison</lname>
+			<fname>William</fname>
+			<gender>Male</gender>
+		</person>
+	</persons>
+
+   Assign the following to variable MY.XML.EXTRACT:
+	<?xml version="1.0"?>
+	<U2xml-extraction xmlns:U2xml="http://www.ibm.com/U2-xml">
+	<U2xml:file_extraction start="/persons/person" dictionary="JUNK.FILE"/>
+	<U2xml:field_extraction field="ID.NO" path="@idnumber" />
+	<U2xml:field_extraction field="FIRST.NAME" path="fname/text()" />
+	<U2xml:field_extraction field="LAST.NAME" path="lname/text()" />
+	</U2xml-extraction>
+
+   Call the subroutine:
+	MY.OUTPUT = ''
+	X.DEBUG = @FALSE
+	X.ERROR.CODE = ''
+	CALL C26.UNIDATA.PARSE.XML(MY.OUTPUT,
+		X.ERROR.CODE, MY.XML.DATA, MY.XML.EXTRACT, X.DEBUG)
+
+   The results in MY.OUTPUT will look like this:
+	001: 123}Susan}Anthony
+	002: 406}William}Harrison
+
+   Note that the subroutine writes a temporary record to the _HOLD_
+   directory in order to call the Unidata parsing routines.
+

@@ -1,0 +1,241 @@
+*
+* INFO/BASIC PROGRAM
+* 3/21/88
+* DWS
+* TITLE ----- CONVERT.NUMBER
+*
+*
+* PURPOSE: CONVERTS NUMBERS FROM ONE BASE TO ANOTHER
+*
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #4292, 24 Jun 94, 04:32PM.
+* Updated for HP-UX
+*     Last updated by LIVE (SJOQUIST) at 12:18:26 on 03/21/1988.
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      $INSERT I_C26.STANDARD
+      GOSUB SET.UP
+      GOSUB PROCESS.NUMBERS
+      STOP
+
+
+*
+*
+* SET.UP
+*
+SET.UP: 
+      PROMPT ''
+      DEFAULT.BASE = 'DEC'
+      BASE.LIST = 'BIN':@FM:'OCT':@FM:'DEC':@FM:'HEX'
+      DIM BASE.DIGITS(16)
+      FOR I=0 TO 9
+         BASE.DIGITS(I) = I
+      NEXT I
+      FOR I=10 TO 16
+         BASE.DIGITS(I) = CHAR(55+I)
+      NEXT I
+
+*
+*   POSSIBLE COMMAND LINE ENTRIES
+*     CONVERT.NUMBER
+*        (ASKS FOR NUMBERS, INPUT NUMBERS ARE ASSUMED TO BE DECIMAL)
+*     CONVERT.NUMBER BIN
+*        (ASKS FOR NUMBERS, INPUT NUMBERS ARE BINARY; CHOICES BIN/OCT/DEC/HEX)
+*     CONVERT.NUMBER 235 387 29835
+*        (INPUT NUMBERS ARE ASSUMED TO BE DECIMAL)
+*     CONVERT.NUMBER OCT 352 587 111 103772
+*        (INPUT NUMBERS ARE OCTAL)
+*
+      COMMAND.LINE = @SENTENCE
+      PARAM.STR = ''
+      PARAM.QUOTED = ''
+      NUM.PARAMS = 0
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      GOSUB DETERMINE.INPUT.BASE
+      IF NUM.PARAMS < 2 THEN
+         CRT 'NUMBER(S)......: ':
+         INPUT NUMBER.LIST
+         NUMBER.LIST = TRIM(NUMBER.LIST)
+         CONVERT ' ' TO @FM IN NUMBER.LIST
+      END ELSE
+         NUMBER.LIST = FIELD(PARAM.STR,@FM,BEG.POS,NUM.PARAMS)
+      END
+      RETURN
+
+
+
+*
+*
+* DETERMINE INPUT BASE OF NUMBERS
+*
+DETERMINE.INPUT.BASE: 
+      FIRST.PARAM = PARAM.STR<2>
+      IF NUM.PARAMS < 2 THEN
+         INPUT.BASE = DEFAULT.BASE
+      END ELSE
+         INPUT.BASE = FIRST.PARAM
+         LOCATE INPUT.BASE IN BASE.LIST<1> SETTING POS ELSE
+            POS = 0
+         END
+         IF POS THEN
+            BEG.POS = 3
+         END ELSE
+            IF NUM(FIRST.PARAM) THEN
+               BEG.POS = 2
+               INPUT.BASE = DEFAULT.BASE
+            END ELSE
+               CRT 'The first parameter "':FIRST.PARAM:'" must either be a number,'
+               CRT '  or the base used to input numbers (BIN/OCT/DEC/HEX)'
+               STOP
+            END
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* PROCESS GROUP OF NUMBERS
+*
+PROCESS.NUMBERS: 
+      GOSUB SET.UP.HEADING
+      LOOP
+         IN.NUM = REMOVE(NUMBER.LIST,DELIM)
+      UNTIL IN.NUM = ''
+         GOSUB CONVERT.TO.INTERNAL      ;* (INTERNAL FORMAT IS DECIMAL)
+         GOSUB CONVERT.TO.OUTPUT
+         GOSUB PRINT.LINE
+      REPEAT
+      RETURN
+
+*
+* SET UP HEADING
+*
+SET.UP.HEADING: 
+      HEADING.LINE = FMT('INPUT "':INPUT.BASE:'"','14R')
+      HEADING.LINE := FMT('BINARY','22R')
+      HEADING.LINE := FMT('OCTAL','16R')
+      HEADING.LINE := FMT('DECIMAL','14R')
+      HEADING.LINE := FMT('HEX','12R')
+      CRT HEADING.LINE
+      RETURN
+
+*
+* PRINT LINE
+*
+PRINT.LINE: 
+      LINE = FMT(IN.NUM,'14R')
+      IF LEN(OUT.NUM.BIN) > 22 THEN
+         LINE := FMT('** OVERFLOW **','22R')
+      END ELSE
+         LINE := FMT(OUT.NUM.BIN,'22R')
+      END
+      LINE := FMT(OUT.NUM.OCT,'16R')
+      LINE := FMT(OUT.NUM.DEC,'14R')
+      LINE := FMT(OUT.NUM.HEX,'12R')
+      CRT LINE
+      RETURN
+
+
+
+*
+*
+* CONVERT TO INTERNAL FORMAT (DECIMAL)
+*
+CONVERT.TO.INTERNAL: 
+      BEGIN CASE
+         CASE INPUT.BASE = 'BIN'
+            BASE = 2
+            GOSUB CONVERT.IN.BASE
+         CASE INPUT.BASE = 'OCT'
+            BASE = 8
+            GOSUB CONVERT.IN.BASE
+         CASE INPUT.BASE = 'DEC'
+            INTERNAL.NUM = IN.NUM
+         CASE INPUT.BASE = 'HEX'
+            BASE = 16
+            GOSUB CONVERT.IN.BASE
+      END CASE
+      RETURN
+
+*
+* CONVERT BASES
+*
+CONVERT.IN.BASE: 
+      INTERNAL.NUM = 0
+      L = LEN(IN.NUM)
+      POWER = 0
+      FOR I=L TO 1 STEP -1
+         DIGIT = IN.NUM[I,1]
+         IF DIGIT > '9' THEN
+            DIGIT.VALUE = SEQ(DIGIT)-55
+         END ELSE
+            DIGIT.VALUE = DIGIT
+         END
+         INTERNAL.NUM += (BASE**POWER)*DIGIT.VALUE
+         POWER += 1
+      NEXT I
+      RETURN
+
+
+*
+*
+* CONVERT TO OUTPUT FORMATS
+*
+CONVERT.TO.OUTPUT: 
+*   BINARY
+      BASE = 2
+      GOSUB CONVERT.OUT.BASE
+      OUT.NUM.BIN = OUT.NUM
+*   OCTAL
+      BASE = 8
+      GOSUB CONVERT.OUT.BASE
+      OUT.NUM.OCT = OUT.NUM
+*   DECIMAL
+      OUT.NUM.DEC = INTERNAL.NUM
+*   HEX
+      BASE = 16
+      GOSUB CONVERT.OUT.BASE
+      OUT.NUM.HEX = OUT.NUM
+      RETURN
+
+
+*
+* CONVERT TO OUTPUT BASE
+*
+CONVERT.OUT.BASE: 
+      OUT.NUM = ''
+      WORK.NUM = INTERNAL.NUM
+*
+*  BASE**POWER = NUMBER     (FIND LOWEST INTEGER >= POWER)
+*
+      BEG.POWER = INT(LN(INTERNAL.NUM)/LN(BASE)+1)
+      IF BASE**BEG.POWER > INTERNAL.NUM THEN
+         BEG.POWER -= 1
+      END
+      FOR POWER=BEG.POWER TO 0 STEP -1
+         TEMP = BASE**POWER
+         DIGIT.POS = INT(WORK.NUM/TEMP)
+         OUT.NUM := BASE.DIGITS(DIGIT.POS)
+         WORK.NUM -= TEMP*DIGIT.POS
+      NEXT POWER
+      RETURN
+   END

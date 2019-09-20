@@ -1,0 +1,55 @@
+      SUBROUTINE RUNNING.TOTAL(RETURN.VALUE,BREAK.NAME,BREAK.VALUE,AMOUNT)
+*
+* INFO/BASIC SUBROUTINE
+* 04/11/90
+* DWS
+* TITLE ----- RUNNING.TOTAL
+*
+*
+* PURPOSE: KEEP A RUNNING TOTAL (BASED ON "BREAK.VALUE") FOR INFORM REPORTS
+*
+* Stamped: p2 rotmand, /disk1/collive, user #4435, 19 Aug 97, 08:28AM.
+*   Clarify some of the logic
+* Stamped: pty/ttyp8 rotmand, /disk1/collive, user #2092, 26 Jun 95, 12:33PM.
+* Allow multiple running totals on same report (using BREAK.NAME).
+* Allow running total for the entire report (set break value to null).
+*     Last updated by LIVE (SJOQUIST) at 09:43:20 on 04/11/1990.
+*
+*************************************************************************
+*
+
+
+      COMMON /RUNTOTA/ RUNTOTA.TOTALS,
+      RUNTOTA.BREAK.NAMES,
+      RUNTOTA.PREVIOUS.BREAK.VALUES,
+      RUNTOTA.SPARE5,
+      RUNTOTA.SPARE4,
+      RUNTOTA.SPARE3,
+      RUNTOTA.SPARE2,
+      RUNTOTA.SPARE1
+
+      THIS.IS.THE.FIRST = ''
+      CALL FIRST.RECORD(THIS.IS.THE.FIRST, 'RUNNING.TOTAL')
+      IF THIS.IS.THE.FIRST THEN
+         RUNTOTA.TOTALS = ''
+         RUNTOTA.BREAK.NAMES = ''
+         RUNTOTA.PREVIOUS.BREAK.VALUES = ''
+      END
+      IF BREAK.NAME = '' THEN
+         BREAK.POS = 1
+      END ELSE
+         LOCATE BREAK.NAME IN RUNTOTA.BREAK.NAMES<1,2> SETTING BREAK.POS ELSE
+            RUNTOTA.BREAK.NAMES<1,BREAK.POS> = BREAK.NAME
+            BREAK.POS = COUNT(RUNTOTA.BREAK.NAMES,@VM) + 1
+         END
+      END
+      IF BREAK.VALUE = RUNTOTA.PREVIOUS.BREAK.VALUES<1,BREAK.POS> THEN
+         RUNTOTA.TOTALS<1,BREAK.POS> += AMOUNT
+      END ELSE
+         RUNTOTA.PREVIOUS.BREAK.VALUES<1,BREAK.POS> = BREAK.VALUE
+         RUNTOTA.TOTALS<1,BREAK.POS> = AMOUNT
+      END
+      RETURN.VALUE = RUNTOTA.TOTALS<1,BREAK.POS>
+      RETURN
+
+   END

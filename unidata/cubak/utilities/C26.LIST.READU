@@ -1,0 +1,84 @@
+*
+* INFO/BASIC PROGRAM
+* 06/28/94
+* DLR
+* TITLE ----- C26.LIST.READU
+*
+*
+* MODULE :
+* PURPOSE: REFORMAT 'LIST.READU' COMMAND
+*
+*
+* Stamped: p1 rotmand, /disk1/collive, user #2743, 19 Sep 97, 11:06AM.
+*   Allow filtering for a particular user name
+* Stamped: pty/ttyp4 rotmand, /disk1/collive, user #25132, 30 Jun 94, 06:50AM.
+*************************************************************************
+*
+
+      COMMAND.LINE = @SENTENCE
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      FILTER.NAME = PARAM.STR<STARTING.PARAM>
+      LEN.FILTER.NAME = LEN(FILTER.NAME)
+
+
+      BPIOCP
+      LIST.READU.DATA = GETREADU()
+      COUNT.LINES = COUNT(LIST.READU.DATA,@FM)+1
+      CLEAR.SCREEN = @(-1)
+      BPIOCP
+      PRINT COUNT.LINES:' locks on the system.'
+      TITLE.LINE = 'Procs Usr Name     Time     Port      File             Key'
+      PRINT TITLE.LINE
+      FOR WHICH.LINE = 1 TO COUNT.LINES
+         DATA.LINE = LIST.READU.DATA<WHICH.LINE>
+         USER.NAME = DATA.LINE<1,4>
+         IF FILTER.NAME = '' OR FILTER.NAME = USER.NAME[1,LEN.FILTER.NAME] THEN
+            UNIDATA.LICENSE = DATA.LINE<1,1>
+            USER.NUMBER = DATA.LINE<1,2>
+            USER.ID = DATA.LINE<1,3>
+            TTY.PORT = DATA.LINE<1,5>
+            PATH.NAME = DATA.LINE<1,6>
+            INODE = DATA.LINE<1,7>
+            DEVICE = DATA.LINE<1,8>
+            RECORD.KEY = DATA.LINE<1,9>
+            LOCK.MODE = DATA.LINE<1,10>
+            UDT.TIME = DATA.LINE<1,11>
+            UDT.DATE = DATA.LINE<1,12>
+            SLASH.COUNT = COUNT(PATH.NAME,'/')
+            TEMP = PATH.NAME
+            IF SLASH.COUNT < 1 THEN
+               PATH.NAME = ''
+               FILE.NAME = TEMP
+            END ELSE
+               PATH.NAME = FIELD(TEMP,'/',1,SLASH.COUNT):'/'
+               FILE.NAME = FIELD(TEMP,'/',SLASH.COUNT+1,1)
+            END
+            PRINT.LINE = FMT(USER.NUMBER,'5R')
+            PRINT.LINE := ' ':FMT(USER.ID,'3R')
+            PRINT.LINE := ' ':FMT(USER.NAME,'8L')
+            IF UDT.DATE < @DATE THEN
+               PRINT.LINE := ' ':OCONV(UDT.DATE,'D4/')
+            END ELSE
+               PRINT.LINE := ' ':OCONV(UDT.TIME,'MTHS')
+            END
+            PRINT.LINE := ' ':FMT(TTY.PORT,'9L')
+            PRINT.LINE := ' ':FMT(FILE.NAME,'16L')[1,16]
+            PRINT.LINE := ' ':RECORD.KEY
+            PRINT PRINT.LINE
+         END
+      NEXT WHICH.LINE
+      PRINT.LINE = COUNT.LINES:' active lock'
+      IF COUNT.LINES # 1 THEN
+         PRINT.LINE := 's'
+      END
+      PRINT PRINT.LINE
+      STOP
+   END

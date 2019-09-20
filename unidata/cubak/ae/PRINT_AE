@@ -1,0 +1,33 @@
+      SUBROUTINE PRINT_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 05/01/01
+* RAB
+* TITLE ----- PRINT_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING DISPLAY STATEMENTS INTO SOURCE
+*
+* Stamped: q2 bowenr, /datatel/live/collive, user #113, 01 May 01, 09:16AM.
+*
+*************************************************************************
+*
+
+* Usage:
+* $PRINT MY.VARIABLE
+*   inserts this line:  PRINT 'MY.VARIABLE: ':MY.VARIABLE
+*
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+ 
+      VARIABLE.NAMES = FIELD(X$C,' ',2,99)
+      NUM.VARIABLE.NAMES = DCOUNT(VARIABLE.NAMES,' ')
+      FOR WHICH.VARIABLE = 1 TO NUM.VARIABLE.NAMES
+         VARIABLE.NAME = FIELD(X$C,' ',WHICH.VARIABLE+1,1)
+         COMMAND.TO.STORE = "I PRINT '":VARIABLE.NAME:" ':":VARIABLE.NAME
+         X$CC<-1> = COMMAND.TO.STORE
+      NEXT WHICH.VARIABLE
+      RETURN
+
+
+   END

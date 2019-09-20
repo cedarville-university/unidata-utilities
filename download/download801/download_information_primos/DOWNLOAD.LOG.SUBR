@@ -1,0 +1,133 @@
+      SUBROUTINE DOWNLOAD.LOG.SUBR(A.RETURN.MSG,A.DOWNLOAD.COMMAND,A.NUM.RECS)
+*
+* UNIBASIC SUBROUTINE
+* 04/30/2010
+* DLR
+* TITLE ----- DOWNLOAD.LOG.SUBR
+*
+*
+* PURPOSE: SAMPLE ROUTINE FOR LOGGING ACTIVITY FROM CEDARVILLE DOWNLOAD
+*  The installer needs to select:
+*   the actual file to hold the logs
+*   the method for generating the key to the log file
+*
+*
+* Input:
+*    A.DOWNLOAD.COMMAND       actual command that was entered
+*    A.NUM.RECS               number of records in the active select list
+* Output:
+*    A.RETURN.MSG             null value or numeric value indicates that
+*                                the log entry was written successfully
+*                             any other value will halt execution
+*
+*************************************************************************
+*
+* Stamped: p12 rotmand, /usr/local/download, user #2048, 29 Sep 15, 07:41AM.
+* Version 8.01
+*
+********************************************************************
+*
+*
+*
+
+
+      $INCLUDE I_DOWNLOAD_MAX_COMMON
+      $INSERT I_DOWNLOAD_MAIN_COMMON
+
+      A.RETURN.MSG = ''
+      DOWNLOAD.LOG.FILE.NAME = 'DOWNLOAD.LOG'
+      OPEN DOWNLOAD.LOG.FILE.NAME TO F.DOWNLOAD.LOG ELSE
+         A.RETURN.MSG = 'Unable to open log file ':DOWNLOAD.LOG.FILE.NAME
+         RETURN
+      END
+
+* EACH U2 ACCOUNT CAN HAVE ITS OWN METHOD FOR GENERATING THE LOG KEY
+* SELECT AN APPROPRIATE METHOD
+      X.METHOD.TO.USE = 3
+      BEGIN CASE
+         CASE X.METHOD.TO.USE = 1
+            GOSUB GET.NEXT.KEY.1
+         CASE X.METHOD.TO.USE = 2
+            GOSUB GET.NEXT.KEY.2
+         CASE X.METHOD.TO.USE = 3
+            GOSUB GET.NEXT.KEY.3
+         CASE 1
+            A.RETURN.MSG = 'Unable to identify method for logging activity'
+      END CASE
+      IF A.RETURN.MSG THEN
+         RETURN
+      END
+
+* Individual sites may have a different preference for the
+* contents of field 1.  Suggested variables are:
+*   @COMMAND
+*   @SENTENCE
+*   @PARASENTENCE
+      X.TEMP.VALUE = @COMMAND
+      CONVERT @FM TO @VM IN X.TEMP.VALUE
+ 
+      DOWNLOAD.LOG.REC = ''
+      DOWNLOAD.LOG.REC<1> = X.TEMP.VALUE
+      DOWNLOAD.LOG.REC<2> = A.DOWNLOAD.COMMAND
+      DOWNLOAD.LOG.REC<3> = A.NUM.RECS
+      DOWNLOAD.LOG.REC<4> = DATE()
+      DOWNLOAD.LOG.REC<5> = TIME()
+      DOWNLOAD.LOG.REC<6> = @LOGNAME
+      WRITE DOWNLOAD.LOG.REC ON F.DOWNLOAD.LOG, KV.DOWNLOAD.LOG.FILE
+      A.RETURN.MSG = KV.DOWNLOAD.LOG.FILE
+      RETURN
+
+
+* Method 1:  key stored in VOC DOWNLOAD.CONFIG, item LOG.COUNTER
+GET.NEXT.KEY.1: 
+      KV.VOC = 'DOWNLOAD.CONFIG'
+      READ XL.DOWNLOAD.CONFIG FROM DLMAIN.F.VOC,KV.VOC ELSE
+         XL.DOWNLOAD.CONFIG = ''
+      END
+      XL.DOWNLOAD.CONFIG = OCONV(XL.DOWNLOAD.CONFIG,'MCU')
+      X.HAVE.KEY = @FALSE
+      NUM.XL.DOWNLOAD.CONFIG = DCOUNT(XL.DOWNLOAD.CONFIG,@FM)
+      FOR WHICH.XL.DOWNLOAD.CONFIG = 1 TO NUM.XL.DOWNLOAD.CONFIG
+         X.DOWNLOAD.CONFIG = XL.DOWNLOAD.CONFIG<WHICH.XL.DOWNLOAD.CONFIG>
+         X.TEMP.PARAM.NAME = TRIM(FIELD(X.DOWNLOAD.CONFIG,'=',1,1))
+         X.TEMP.PARAM.VALUE = TRIM(FIELD(X.DOWNLOAD.CONFIG,'=',2,1))
+         IF X.TEMP.PARAM.NAME = 'LOG.COUNTER' THEN
+            X.HAVE.KEY = TRUE
+            X.TEMP.PARAM.VALUE += 1
+            XL.DOWNLOAD.CONFIG<WHICH.XL.DOWNLOAD.CONFIG> = 'LOG.COUNTER=':X.TEMP.PARAM.VALUE
+            WRITE XL.DOWNLOAD.CONFIG ON DLMAIN.F.VOC, KV.VOC
+            KV.DOWNLOAD.LOG.FILE = X.TEMP.PARAM.VALUE
+         END
+      NEXT WHICH.XL.DOWNLOAD.CONFIG
+      IF NOT(X.HAVE.KEY) THEN
+         A.RETURN.MSG = 'Unable to determine log file counter from DOWNLOAD.CONFIG'
+         RETURN
+      END
+      RETURN
+
+
+* Method 2:  key stored in a designated file
+GET.NEXT.KEY.2: 
+      KEY.FILE.NAME = 'SOME.FILE'
+      OPEN '',KEY.FILE.NAME TO F.KEY.FILE.NAME ELSE
+         A.RETURN.MSG = 'Unable to open log counter file ':KEY.FILE.NAME
+         RETURN
+      END
+      KV.KEY.FILE.NAME = 'DOWNLOAD.LOG'
+      READ R.KEY.FILE.NAME FROM F.KEY.FILE.NAME, KV.KEY.FILE.NAME ELSE
+         A.RETURN.MSG = 'Unable to generate counter for log file'
+         RETURN
+      END
+      KV.DOWNLOAD.LOG.FILE = R.KEY.FILE.NAME<1> + 1
+      R.KEY.FILE.NAME<1> = KV.DOWNLOAD.LOG.FILE
+      WRITE R.KEY.FILE.NAME ON F.KEY.FILE.NAME, KV.KEY.FILE.NAME
+      RETURN
+
+
+* Method 3:  call custom subroutine to get the key
+GET.NEXT.KEY.3: 
+      CALL S.NEXT.KEY(DOWNLOAD.LOG.FILE.NAME,KV.DOWNLOAD.LOG.FILE,'','')
+      RETURN
+
+
+   END

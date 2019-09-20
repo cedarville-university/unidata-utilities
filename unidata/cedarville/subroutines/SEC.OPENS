@@ -1,0 +1,49 @@
+      SUBROUTINE SEC.OPENS
+*
+* INFO/BASIC SUBROUTINE
+* 5/4/88
+* DWS
+* TITLE ----- SEC.OPENS
+*
+*
+* MODULE : SEC
+* PURPOSE: OPEN SECURITY MODULE FILES
+*
+*     Last updated by LIVE (SJOQUIST) at 12:33:59 on 05/04/1988.
+*
+*************************************************************************
+*
+*
+* Common statement for Security routines
+*
+      COMMON /SECCOM/ F.SECURITY, F.INFO.USERS, F.SECURITY.AUDIT,
+         F.C26.MAIL.FILE,
+         SEC.OPENS.FLAG
+
+*
+***** CHECK TO SEE IF FILES NEED TO BE OPENED
+
+*
+* OPEN FILES
+*
+
+      OPEN '','SECURITY' TO F.SECURITY ELSE
+         CALL FATAL.ERROR('MISSING.FILE','SECURITY')
+         STOP
+      END
+      OPEN '','INFO.USERS' TO F.INFO.USERS ELSE
+         CALL FATAL.ERROR('MISSING.FILE','INFO.USERS')
+         STOP
+      END
+      OPEN '','SECURITY.AUDIT' TO F.SECURITY.AUDIT ELSE
+         CALL FATAL.ERROR('MISSING.FILE','SECURITY.AUDIT')
+         STOP
+      END
+      OPEN '','C26.MAIL.FILE' TO F.C26.MAIL.FILE ELSE
+         CALL FATAL.ERROR('MISSING.FILE','C26.MAIL.FILE')
+         STOP
+      END
+      SEC.OPENS.FLAG = 1
+      RETURN
+
+   END

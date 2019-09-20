@@ -1,0 +1,25 @@
+*
+* Set which operating system this program is running on
+* 06/07/2002
+* DLR
+* TITLE ----- I_WHICH_OP_SYS_WINDOWS
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*
+*
+*
+*
+*
+*
+*
+
+*
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIX LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.PRIMOS LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.WINDOWS LIT ''
+      OP.SYS.NAME = 'WINDOWS'

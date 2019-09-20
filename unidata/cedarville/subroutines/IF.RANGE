@@ -1,0 +1,50 @@
+      SUBROUTINE IF.RANGE(RETURN.LIST,VALUES,FIELD.1,LOW.RANGE,HIGH.RANGE,SM.FLAG)
+*
+* SELECTIVE RETURN OF VALUES IN 'VALUES'
+* IF FIELD.1 (WHICH IS MV ASSOC WITH "VALUES") LIES WITHIN THE
+* RANGE SPECIFIED BY 'LOW.RANGE' AND 'HIGH.RANGE'.
+* (IF SM.FLAG IS 'S' THEN THE PROGRAM RESUSES 'LOW.RANGE' AND 'HIGH.RANGE',
+* OTHERWISE THE RANGES ARE ASSUMED TO BE MULTI-VALUEDLISTS IN ASSOCIATION
+* WITH 'VALUES' AND 'FIELD.1'
+*
+*     Last updated by LIVE (ROTMAN) at 12:19:51 on 08/11/1989.
+* BASED ON 'IF.SUM' BY DOUG SJOQUIST
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      RETURN.LIST = ''
+      IF VALUES = '' THEN
+         RETURN
+      END
+      NUM.RETURN.VALUES = 0
+      NUM.FIELDS = COUNT(VALUES,@VM) + 1
+      FOR I=1 TO NUM.FIELDS
+         IF SM.FLAG = 'M' THEN
+            I2 = I
+         END ELSE
+            I2 = 1
+         END
+         IF FIELD.1<1,I> >= LOW.RANGE<1,I2> AND FIELD.1<1,I> <= HIGH.RANGE<1,I2> THEN
+            NUM.RETURN.VALUES += 1
+            RETURN.LIST<1,NUM.RETURN.VALUES> = VALUES<1,I>
+         END
+      NEXT I
+      RETURN
+   END

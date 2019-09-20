@@ -1,0 +1,46 @@
+      SUBROUTINE DEBUGI_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 07/10/98
+* RAB
+* TITLE ----- DEBUGI_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING DISPLAY STATEMENTS INTO SOURCE
+*          WRAPPED BY IF @LOGNAME...
+*
+* Stamped: pty_ttys0 bowenr, /datatel/live/collive, user #20009, 15 Jan 01, 04:18PM.
+*  Modified $DEBUG
+* Stamped: q9 howders, /disk1/collive, user #21894, 10 Jul 98, 10:17AM.
+*   modified $CRT
+*
+*************************************************************************
+*
+
+* Usage:
+* $DEBUGI MY.VARIABLE
+*   inserts these lines:  IF @LOGNAME = 'username' THEN
+*                            CRT 'MY.VARIABLE: ':MY.VARIABLE
+*                            INPUT JUNK.VARIABLE
+*                         END
+*
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      COMMAND.TO.STORE = "I IF @LOGNAME = '":@LOGNAME:"' THEN"
+      X$CC<-1> = COMMAND.TO.STORE
+      VARIABLE.NAMES = FIELD(X$C,' ',2,99)
+      NUM.VARIABLE.NAMES = DCOUNT(VARIABLE.NAMES,' ')
+      FOR WHICH.VARIABLE = 1 TO NUM.VARIABLE.NAMES
+         VARIABLE.NAME = FIELD(X$C,' ',WHICH.VARIABLE+1,1)
+         COMMAND.TO.STORE = "I    CRT '":VARIABLE.NAME:" ':":VARIABLE.NAME
+         X$CC<-1> = COMMAND.TO.STORE
+      NEXT WHICH.VARIABLE
+      COMMAND.TO.STORE = "I    INPUT JUNK.VARIABLE"
+      X$CC<-1> = COMMAND.TO.STORE
+      COMMAND.TO.STORE = "I END"
+      X$CC<-1> = COMMAND.TO.STORE
+      RETURN
+
+
+   END

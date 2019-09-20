@@ -1,0 +1,27 @@
+*
+* Common for DOWNLOAD programs
+* 10/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD_OP_SYS_COMMON
+*
+*
+* PURPOSE: OP.SYS VALUES (SET BY DOWNLOAD.INIT DEPENDING ON VALUE OF OP.SYS)
+*
+*
+*************************************************************************
+*
+* Stamped: p43 rotmand, /usr/local/download, user #1026, 06 May 08, 11:55AM.
+* Version 7.30
+*
+*
+
+      COMMON /DL.OPSY/ OP.SYS.NAME,
+      OP.SYS.BUFFER,
+      OP.SYS.BUFFER.SIZE,
+      OP.SYS.FILE.FUNIT,
+      OP.SYS.FILE.PATH.NAME,
+      OP.SYS.PATH.DELIM,
+      OP.SYS.CHAR.ZERO,
+      OP.SYS.SPARE3,
+      OP.SYS.SPARE2,
+      OP.SYS.SPARE1

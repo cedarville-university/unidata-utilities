@@ -1,0 +1,116 @@
+      SUBROUTINE DL.PARSE.COMMAND.LINE(LINE,PARAMS,PARAM.QUOTED,NUM.PARAMS,OTHER.SEPARATORS)
+*
+* INFO/BASIC SUBROUTINE
+* 4/11/91
+* DWS
+* TITLE ----- DL.PARSE.COMMAND.LINE
+*
+*
+* PURPOSE: PARSE COMMAND LINE, NO EXPANSION OF ITEMS IS DONE
+*
+*
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+*
+*
+* MAIN
+*
+
+      GOSUB SET.UP
+      GOSUB PROCESS.LINE
+      RETURN
+
+
+*
+*
+* SET UP
+*
+SET.UP:
+      SGL.SPACE = ' '
+      TRUE = 1
+      FALSE = 0
+*
+*  PARSE LINE INTO LIST OF SEPARATE ITEMS & FLAG THEM AS QUOTED OR NOT
+*
+      NUM.PARAMS = 0
+      PARAMS = ''
+      PARAM.QUOTED = ''
+*
+      PREV.CHAR = SGL.SPACE
+      QUOTE = ''
+      NEXT.ITEM.IS.NEW = FALSE
+      RETURN
+
+
+
+
+*
+*   READ THROUGH COMMAND LINE AND PARSE IT
+*
+PROCESS.LINE:
+      LEN.LINE = LEN(LINE)
+      FOR ITEM.CTR=1 TO LEN.LINE
+         CUR.CHAR = LINE[ITEM.CTR,1]
+*
+*     IF THE QUOTE FLAG IS ON, THEN TAKE EVERYTHING UP TO THE
+*       MATCHING END QUOTE AS PART OF THE ITEM
+*       THE MATCHING END QUOTE ENDS THIS ITEM, IF THERE IS ANY OTHER ITEM,
+*          THEN IT IS A NEW ITEM (THE FLAG NEXT.ITEM.IS.NEW IS SET TO TRUE)
+*
+         IF QUOTE THEN
+            BEGIN CASE
+               CASE CUR.CHAR = QUOTE
+                  QUOTE = ''
+                  NEXT.ITEM.IS.NEW = TRUE
+               CASE 1
+                  PARAMS<NUM.PARAMS> = PARAMS<NUM.PARAMS>:CUR.CHAR
+            END CASE
+*
+*    IF THE CUR.CHARACTER IS A QUOTE, TURN ON QUOTE MODE
+*      OTHERWISE ADD IT THE CURRENT ITEM
+*
+         END ELSE
+            BEGIN CASE
+               CASE CUR.CHAR = SGL.SPACE
+                  NULL
+               CASE CUR.CHAR = '"' OR CUR.CHAR = "'"
+                  QUOTE = CUR.CHAR
+                  NUM.PARAMS += 1
+                  PARAM.QUOTED<NUM.PARAMS> = QUOTE
+                  NEXT.ITEM.IS.NEW = FALSE
+*
+* IF THE CHARACTER IS IN THE LIST "OTHER.SEPARATORS", THEN
+*   FINISH THE OLD ITEM, MAKE A NEW ITEM JUST FOR THE CHARACTER,
+*   AND FORCE THE NEXT CHARACTER TO START A NEW ITEM
+* OTHERWISE, CHECK IF THERE IS A NEW ITEM, OTHERWISE JUST ADD THE
+*   CHARACTER TO THE CURRENT ITEM
+*
+               CASE 1
+                  LOCATE CUR.CHAR IN OTHER.SEPARATORS<1> SETTING OTHER.POS THEN
+                     NUM.PARAMS += 1
+                     PARAMS<NUM.PARAMS> = CUR.CHAR
+                     NEXT.ITEM.IS.NEW = TRUE
+                  END ELSE
+                     IF PREV.CHAR = SGL.SPACE OR NEXT.ITEM.IS.NEW THEN
+                        NUM.PARAMS += 1
+                        PARAM.QUOTED<NUM.PARAMS> = ''
+                        NEXT.ITEM.IS.NEW = FALSE
+                     END
+                     PARAMS<NUM.PARAMS> = PARAMS<NUM.PARAMS>:CUR.CHAR
+                  END
+            END CASE
+         END
+         PREV.CHAR = CUR.CHAR
+      NEXT ITEM.CTR
+      RETURN
+
+   END

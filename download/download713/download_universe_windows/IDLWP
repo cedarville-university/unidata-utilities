@@ -1,0 +1,24 @@
+*
+* Common for DOWNLOAD programs
+* 20/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD.WP.COMMON
+*
+*
+* PURPOSE: VARIABLES PERTAINING TO WORDPERFECT FORMAT OPTIONS
+*
+*
+*************************************************************************
+* Stamped: p8 rotmand, /usr/local/download, user #1502, 08 Sep 05, 10:59AM.
+* Version 7.13
+*
+*
+*
+*
+*
+*
+*
+
+      COMMON /DL.WP/ K.WORDPERFECT.DATA.SEP,
+         K.WORDPERFECT.FIELD.SEP,
+         K.WORDPERFECT.END.RECORD

@@ -1,0 +1,173 @@
+*
+* PROGRAM -- START.COMO
+*
+* 12/2/87
+*
+* STARTS A COMO FILE BASED ON @PARASENTENCE WITH VOC.KEY NAME
+*  & DISPLAYS PARAGRAPH AFTERWARDS FOR FUTURE REFERENCE
+*
+*
+*
+* Stamped: pty/ttypb rotmand, /disk1/collive, user #2689, 22 Nov 96, 04:46PM.
+* Use PARSE.LINE to parse the command line
+* If we are executing a paragraph via RUN.REPORT or some other program,
+*    do not look in the VOC to get the paragraph.
+* Stamped: pty/ttyp8 sjoquist, /disk1/collive, user #25189, 25 Jun 94, 04:56PM.
+* Updated for HP-UX
+* Stamped: pty/ttyp8 sjoquist, /disk1/collive, user #25189, 25 Jun 94, 04:56PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAN) at 10:18:46 on 01/03/1992.
+* Allow como file to be created under different name than VOC record key.
+*     Last updated by LIVE (ROTMAN) at 11:20:18 on 04/09/1990.
+* Call RECORD.PHANTOM unless user wants to waive this option.
+*     Last updated by LIVE (ROTMAN) at 16:52:34 on 12/22/1987.
+* REINSTATE THE DATE PORTION OF THE COMO NAME
+*
+*
+* EG.
+*
+*      IN THE VOC ITEM 'EVERYDAY'
+*
+*   001: PA
+*   002: RC START.COMO
+*   003: RUN.WHATEVER
+*   004: OTHER.REPORTS
+*
+*
+
+      COMMAND.LINE = @SENTENCE
+
+      GOSUB SET.UP
+      GOSUB GET.PARAGRAPH.BEING.EXECUTED
+      GOSUB GET.OPTIONS
+      GOSUB PROCESS.OPTIONS
+      STOP
+
+
+SET.UP: 
+      OPEN '','VOC' TO F.VOC ELSE
+         STOP 'CAN NOT OPEN VOC FILE'
+      END
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      RETURN
+
+
+GET.PARAGRAPH.BEING.EXECUTED: 
+      VOC.KEY = FIELD(@PARASENTENCE,' ',1,1)
+      IF VOC.KEY = '' THEN
+         PARAGRAPH.BEING.EXECUTED = @COMMAND
+      END ELSE
+         READ PARAGRAPH.BEING.EXECUTED FROM F.VOC,VOC.KEY ELSE
+            PRINT '"':VOC.KEY:'" NOT IN "VOC" FILE'
+            STOP
+         END
+      END
+      RETURN
+
+
+GET.OPTIONS: 
+      OPTIONS = FIELD(PARAM.STR,@FM,STARTING.PARAM,999)
+      GOSUB GET.REMIND.OPTIONS
+      GOSUB GET.RECORD.PHANTOM.OPTIONS
+      GOSUB GET.COMO.NAME
+      RETURN
+
+
+GET.REMIND.OPTIONS: 
+      LOCATE 'NO.REMIND' IN OPTIONS<1> SETTING POS THEN
+         HAVE.NO.REMIND = @TRUE
+         DEL OPTIONS<POS>
+      END ELSE
+         HAVE.NO.REMIND = @FALSE
+         LOCATE 'REMIND' IN OPTIONS<1> SETTING REMIND.POS THEN
+            HAVE.REMIND.NAME = @TRUE
+            REMIND.NAME = OPTIONS<REMIND.POS+1>
+            DEL OPTIONS<REMIND.POS>
+            DEL OPTIONS<REMIND.POS>
+         END ELSE
+            HAVE.REMIND.NAME = @FALSE
+         END
+      END
+      RETURN
+
+
+GET.RECORD.PHANTOM.OPTIONS: 
+      LOCATE 'NO.RECORD.PHANTOM' IN OPTIONS<1> SETTING POS THEN
+         HAVE.NO.RECORD.PHANTOM = @TRUE
+         DEL OPTIONS<POS>
+      END ELSE
+         HAVE.NO.RECORD.PHANTOM = @FALSE
+      END
+      RETURN
+
+
+GET.COMO.NAME: 
+      IF OPTIONS = '' THEN
+         IF VOC.KEY = '' THEN
+            COMO.NAME = OCONV(@LOGNAME,'MCU'):'_':DATE():'_':TIME()
+         END ELSE
+            COMO.NAME = VOC.KEY
+         END
+      END ELSE
+         COMO.NAME = OPTIONS<1>
+      END
+      RETURN
+
+
+PROCESS.OPTIONS: 
+      IF NOT(HAVE.NO.REMIND) THEN
+         REMIND.COMMAND = 'REMIND'
+         IF HAVE.REMIND.NAME THEN
+            REMIND.COMMAND := ' ':REMIND.NAME
+         END
+*PRIME*         REMIND.COMMAND := ' TOMORROW CHECK ':COMO.NAME:'.COMO'
+         REMIND.COMMAND := ' TOMORROW CHECK O_':COMO.NAME
+         EXECUTE REMIND.COMMAND
+      END
+      IF NOT(HAVE.NO.RECORD.PHANTOM) THEN
+         RECORD.PHANTOM.PROGRAM = 'VOC ':VOC.KEY
+         RECORD.PHANTOM.COMMAND = @PARASENTENCE
+         CALL RECORD.PHANTOM(RECORD.PHANTOM.PROGRAM,RECORD.PHANTOM.COMMAND)
+      END
+      EXECUTE 'COMO ON ':COMO.NAME
+*
+* DISPLAY VOC ITEM (TO LIST IN COMO FILE)
+*
+      NO.PAUSE = @(0,0)
+      NUM.LINES = COUNT(PARAGRAPH.BEING.EXECUTED,@FM) + 1
+      IF VOC.KEY = '' THEN
+         PRINT '*** PARAGRAPH BEING EXECUTED HAS ':NUM.LINES:' LINES ***'
+      END ELSE
+         PRINT '**** VOC PARAGRAPH "':VOC.KEY:'" HAS ':NUM.LINES:' LINES ****'
+      END
+      PRINT '**** AND IS BEING RUN BY USER ':@LOGNAME:' ':@USERNO:' ****'
+      PRINT OCONV(DATE(),'D4/'):' ':OCONV(TIME(),'MTHS')
+      FOR WHICH.LINE = 1 TO NUM.LINES
+         PRINT PARAGRAPH.BEING.EXECUTED<WHICH.LINE>
+      NEXT WHICH.LINE
+      PARAGRAPH.TYPE = PARAGRAPH.BEING.EXECUTED[1,1]
+      IF PARAGRAPH.TYPE = 'R' THEN
+         OPEN '', PARAGRAPH.BEING.EXECUTED<2> TO F.TEMP THEN
+            READ TEMP.REC FROM F.TEMP, PARAGRAPH.BEING.EXECUTED<3> THEN
+               NUM.LINES = COUNT(TEMP.REC,@FM) + 1
+               PRINT '**** REMOTE ITEM: "':PARAGRAPH.BEING.EXECUTED<2>:'" "':PARAGRAPH.BEING.EXECUTED<3>:'"'
+               FOR WHICH.LINE = 1 TO NUM.LINES
+                  PRINT TEMP.REC<WHICH.LINE>
+               NEXT WHICH.LINE
+            END
+         END
+      END
+      PRINT '**** END LIST ***'
+      PRINT
+      PRINT
+      RETURN
+
+   END

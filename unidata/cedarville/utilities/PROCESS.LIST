@@ -1,0 +1,117 @@
+*
+* UniBASIC PROGRAM
+* 08/16/2014
+* DLR
+* TITLE ----- PROCESS.LIST
+* REL 0.0
+*
+*
+* MODULE :
+* PURPOSE: EXECUTE A COMMAND FOR EACH ENTRY IN A SAVED LIST
+*
+* Stamped: pts_2 rotmand, /datatel/coll18/live/apphome, user #16628, 16 Aug 14, 12:27PM.
+*
+*************************************************************************
+*
+
+      X.DEBUG = @FALSE
+
+      COMMAND.LINE = @SENTENCE
+      GOSUB SET.UP
+      IF X.DEBUG THEN
+         CRT 'Processing list ':X.LIST.NAME
+      END
+      X.COMMAND = 'GET.LIST ':X.LIST.NAME
+      EXECUTE X.COMMAND
+      READLIST XL.LIST ELSE
+         CRT 'List ':X.LIST.NAME:' was empty.'
+         STOP
+      END
+      CONVERT @IM TO @FM IN XL.LIST
+      NUM.XL.LIST = DCOUNT(XL.LIST,@FM)
+      FOR WHICH.XL.LIST = 1 TO NUM.XL.LIST
+         X.LIST = XL.LIST<WHICH.XL.LIST>
+         IF X.DEBUG THEN
+            CRT '     Processing entry ':X.LIST
+         END
+         FOR WHICH.XL.SAVE.COMMAND = 1 TO NUM.XL.SAVE.COMMAND
+            X.SAVE.COMMAND = XL.SAVE.COMMAND<WHICH.XL.SAVE.COMMAND>
+            X.COMMAND = X.SAVE.COMMAND:' ':X.LIST
+            IF X.DEBUG THEN
+               CRT 'X.COMMAND ':X.COMMAND
+            END ELSE
+               EXECUTE X.COMMAND
+            END
+         NEXT WHICH.XL.SAVE.COMMAND
+      NEXT WHICH.XL.LIST
+      STOP
+
+
+SET.UP: 
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      X.LIST.NAME = PARAM.STR<STARTING.PARAM>
+      IF X.LIST.NAME = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      X.INDEX = INDEX(COMMAND.LINE,X.LIST.NAME,1)
+      X.START.POS = X.INDEX + LEN(X.LIST.NAME) + 1
+      XL.SAVE.COMMAND = COMMAND.LINE[X.START.POS,LEN(COMMAND.LINE)]
+      IF XL.SAVE.COMMAND = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+      CONVERT ';' TO @FM IN XL.SAVE.COMMAND
+      NUM.XL.SAVE.COMMAND = DCOUNT(XL.SAVE.COMMAND,@FM)
+      IF X.DEBUG THEN
+         CRT 'X.LIST.NAME ':X.LIST.NAME
+         CRT 'XL.SAVE.COMMAND ':XL.SAVE.COMMAND
+      END
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT
+      CRT 'Syntax:'
+      CRT 'PROCESS.LIST ListName CommandToExecute'
+      CRT 'PROCESS.LIST ListName Command1;Command2;...CommandN'
+      CRT
+      CRT 'Examples:'
+      CRT
+      CRT 'PROCESS.LIST NEW.EMPLOYEES NOTIFY.HUMAN.RESOURCES'
+      CRT 'will execute commands like this (assuming a 5-digit employee id number):'
+      CRT '         NOTIFY.HUMAN.RESOURCES 50827'
+      CRT '         NOTIFY.HUMAN.RESOURCES 40826'
+      CRT '         NOTIFY.HUMAN.RESOURCES 12094'
+      CRT '         NOTIFY.HUMAN.RESOURCES 34058'
+      CRT
+      CRT 'PROCESS.LIST ADDRESSES.TO.VERIFY RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS'
+      CRT 'will execute commands like this (assuming a 6-character customer id):'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS MI3842'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS OH4075'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS NY2938'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS NY4228'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS MI1677'
+      CRT '         RUN MY.SOURCE VERIFY.CUSTOMER.ADDRESS MI4822'
+      CRT
+      CRT 'PROCESS.LIST STUDENTS.TO.REVIEW DISPLAY;GENERATE.STUDENT.SUMMARY'
+      CRT 'will execute commands like this (assuming a 7-digit student id number):'
+      CRT '         DISPLAY 3048337'
+      CRT '         GENERATE.STUDENT.SUMMARY 3048337'
+      CRT '         DISPLAY 1924408'
+      CRT '         GENERATE.STUDENT.SUMMARY 1924408'
+      CRT '         DISPLAY 4165729'
+      CRT '         GENERATE.STUDENT.SUMMARY 4165729'
+      RETURN
+
+
+
+   END

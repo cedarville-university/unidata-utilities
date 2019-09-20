@@ -1,0 +1,16 @@
+*
+*
+* Stamped: p4 rotmand, /usr/local/collive, user #4051, 06 Sep 03, 03:15PM.
+* Version 7.00
+*
+*
+*
+*
+*
+*
+* HEADER INFO FOR dBASE IV 'DBF' FILE
+*
+
+      DBF.BUF.SIZE = 512
+      DBF.WORDS.TO.WRITE = DBF.BUF.SIZE / 2
+      DBF.DEFAULT.LENGTH.VALUE = 8

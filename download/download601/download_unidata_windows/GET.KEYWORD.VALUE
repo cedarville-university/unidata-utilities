@@ -1,0 +1,46 @@
+$BASICTYPE "U"
+      SUBROUTINE GET.KEYWORD.VALUE(KEYWORD.VALUE,KEYWORD.NAME)
+*
+* INFO/BASIC SUBROUTINE
+* 2/27/89
+* DLR
+* TITLE ----- GET.KEYWORD.VALUE
+* REL 0.0
+*
+*
+* MODULE :
+* PURPOSE: RETURN KEYWORD VALUE FROM VOC FILE
+*
+*
+* Stamped: p7 rotmand, /user/local/collive, user #13273, 29 Jan 03, 04:46PM.
+* Version 6.01
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+      KEYWORD.VALUE = ''
+      IF KEYWORD.NAME = '' THEN
+         RETURN
+      END
+
+      ERROR.RETURN = 0
+      ERROR.MSG = ''
+      F.VOC = ''
+      CALL OPEN.FILE(F.VOC,'VOC',ERROR.RETURN,ERROR.MSG)
+
+      READ VOC.REC FROM F.VOC,KEYWORD.NAME ELSE
+         RETURN
+      END
+      VOC.REC.TYPE = FIELD(VOC.REC<1>,' ',1,1)
+      IF VOC.REC.TYPE = 'K' OR VOC.REC.TYPE = 'k' THEN
+         KEYWORD.VALUE = VOC.REC<2>
+      END
+      RETURN
+
+
+   END

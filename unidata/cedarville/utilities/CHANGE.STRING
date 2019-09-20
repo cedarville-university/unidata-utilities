@@ -1,0 +1,466 @@
+*
+*
+*
+*
+* PROGRAM     : CHANGE.STRING
+*
+* PURPOSE     : CHANGE THE VALUE OF SELECTED STRINGS IN AN INFO FILE
+*
+* PROGRAMMER  : DL ROTMAN (BASED ON A PROGRAM BY DW SJOQUIST)
+*
+* DATE WRITTEN: 06/3/87
+*
+*
+* Stamped: pts_3 rotmand, /datatel/coll18/test5/apphome, user #13487, 05 Mar 08, 07:39AM.
+*  Display syntax if no arguments are provided.
+* Stamped: pty/ttyta root, /disk1/collive, user #24128, 30 Sep 94, 03:41PM.
+* REQUIRE SELECT LIST!
+* Stamped: pty/ttyq6 rotmand, /disk1/collive, user #26541, 07 Jul 94, 08:09AM.
+* Allow updating dictionaries.
+*     Last updated by LIVE (ROTMAN) at 07:52:18 on 09/14/1988.
+* DISPLAY PROGRESS WITH '*' EVERY TEN RECORDS
+*     Last updated by FAKE (ROTMAN) at 10:20:33 on 07/13/1987.
+* REMOVE FIELD NAME FROM DELIMITED STRING
+*     Last updated by LIVE (ROTMAN) at 21:00:12 on 06/05/1987.
+*     Last updated by LIVE (ROTMAN) at 08:33:41 on 06/03/1987.
+*
+*-------------------------------------------------------------
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+*
+
+
+
+      PROGRAM CHANGE.STRING
+
+      DIM PARAM(20)                     ;* COMMAND LINE PARAMETERS
+
+
+      COMMAND.LINE = @SENTENCE
+
+* SAVE THE 'SAVE LIST' IF THERE IS ONE...
+
+      IF @SYSTEM.RETURN.CODE > 0 THEN
+         SAVE.LIST = 'TEMP_':@TIME:'_':@DATE
+         COMMAND = 'SAVE.LIST ':SAVE.LIST
+         EXECUTE COMMAND
+      END ELSE
+         CRT
+         CRT 'NO ACTIVE SELECT LIST...PROCESSING TERMINATED.'
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+
+      PROMPT ''
+      NUM.SRC.RECS = 0
+      NUM.RECS.CHANGED = 0
+
+
+      GOSUB LOAD.PARAMETERS
+      GOSUB OPEN.FILES
+      GOSUB READ.DICT
+
+
+      PRINT 'SOURCE FILE:              ':SRC.FILENAME
+      PRINT 'FIELD:                    ':SRC.FIELD.NAME:' (FIELD ':SRC.FIELD.NUMBER:')'
+      PRINT 'STRING TO CHANGE:         ':OLD.STRING
+      PRINT 'NEW VALUE OF STRING:      ':NEW.STRING
+      PRINT
+
+      GOSUB CONVERT.FILE
+
+      PRINT
+      PRINT 'TOTAL SOURCE RECORDS       ':FMT(NUM.SRC.RECS,'5R')
+      PRINT 'SOURCE RECORDS CHANGED     ':FMT(NUM.RECS.CHANGED,'5R')
+
+      GOSUB CLOSE.FILES
+
+      STOP
+
+
+
+
+*
+*
+* LOAD PARAMETERS
+*
+
+LOAD.PARAMETERS: 
+      COMMAND.LINE = TRIM(COMMAND.LINE)
+      MATPARSE PARAM FROM COMMAND.LINE, ' '
+      NPARAM = INMAT()
+      HAVE.G=''
+      HAVE.B=''
+
+* Command should look like this:
+*  RUN CC.SOURCE CHANGE.STRING filename field /oldstr/newstr/gb
+*
+      IF PARAM(1) = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      IF NPARAM<STARTING.PARAM THEN
+         PRINT NPARAM
+         FOR I=1 TO NPARAM
+            PRINT PARAM(I)
+         NEXT I
+         PRINT "You must supply a filename, field name, and value list."
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+      SRC.FILENAME = PARAM(STARTING.PARAM)
+      IF SRC.FILENAME = 'DICT' THEN
+         UPDATING.DICT = @TRUE
+         SRC.FILENAME = PARAM(STARTING.PARAM+1)
+         SRC.FIELD.NAME = PARAM(STARTING.PARAM+2)
+         COMMAND.ARGS = FIELD(COMMAND.LINE,' ',STARTING.PARAM+3,999)
+      END ELSE
+         UPDATING.DICT = @FALSE
+         SRC.FIELD.NAME = PARAM(STARTING.PARAM+1)
+         COMMAND.ARGS = FIELD(COMMAND.LINE,' ',STARTING.PARAM+2,999)
+      END
+      IF SRC.FILENAME = '' THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+      FIRST.POS = 1
+      ARGS.LEN = LEN(COMMAND.ARGS)
+      DELIM=COMMAND.ARGS[FIRST.POS,1]
+      FOUND.SECOND = @FALSE
+      FOR SECOND.POS=FIRST.POS+1 TO ARGS.LEN UNTIL FOUND.SECOND
+         IF COMMAND.ARGS[SECOND.POS,1] = DELIM THEN
+            FOUND.SECOND = @TRUE
+            SAVE.SECOND.POS = SECOND.POS
+         END
+      NEXT SECOND.POS
+      IF NOT(FOUND.SECOND) THEN
+         PRINT 'MIS-MATCHED DELIMITERS'
+         PRINT 'HUNTING FOR SECOND ':DELIM
+         STOP
+      END
+
+      SECOND.POS = SAVE.SECOND.POS
+      FOUND.THIRD = @FALSE
+      FOR THIRD.POS=SECOND.POS+1 TO ARGS.LEN UNTIL FOUND.THIRD
+         IF COMMAND.ARGS[THIRD.POS,1] = DELIM THEN
+            FOUND.THIRD = @TRUE
+            SAVE.THIRD.POS = THIRD.POS
+         END
+      NEXT THIRD.POS
+      IF FOUND.THIRD THEN
+         THIRD.POS = SAVE.THIRD.POS
+      END ELSE
+         COMMAND.LINE:=DELIM
+         ARGS.LEN += 1
+         THIRD.POS = ARGS.LEN
+      END
+
+      X.CHAR=COMMAND.ARGS[THIRD.POS+1,1]
+      BEGIN CASE
+         CASE X.CHAR = ''
+            NULL
+         CASE X.CHAR='G'
+            HAVE.G='1'
+         CASE X.CHAR='g'
+            HAVE.G='1'
+         CASE X.CHAR='B'
+            HAVE.B='1'
+            NO.PAUSE = @(0,0)
+         CASE X.CHAR='b'
+            HAVE.B='1'
+            NO.PAUSE = @(0,0)
+         CASE 1
+            PRINT 'BAD CHARACTER(S) FOLLOWING THIRD DELIMITER'
+            PRINT COMMAND.ARGS[1,99]
+            STOP
+      END CASE
+      X.CHAR=COMMAND.ARGS[THIRD.POS+2,1]
+      BEGIN CASE
+         CASE X.CHAR = ''
+            NULL
+         CASE X.CHAR='G'
+            HAVE.G='1'
+         CASE X.CHAR='g'
+            HAVE.G='1'
+         CASE X.CHAR='B'
+            HAVE.B='1'
+            NO.PAUSE = @(0,0)
+         CASE X.CHAR='b'
+            HAVE.B='1'
+            NO.PAUSE = @(0,0)
+         CASE 1
+            PRINT 'BAD CHARACTER(S) FOLLOWING THIRD DELIMITER'
+            PRINT COMMAND.ARGS[1,99]
+            STOP
+      END CASE
+      IF ARGS.LEN > THIRD.POS+2 THEN
+         PRINT 'BAD CHARACTER(S) FOLLOWING THIRD DELIMITER'
+         PRINT COMMAND.ARGS[THIRD.POS+1,99]
+         STOP
+      END
+
+      OLD.STRING=COMMAND.ARGS[FIRST.POS + 1,SECOND.POS - FIRST.POS - 1]
+      NEW.STRING=COMMAND.ARGS[SECOND.POS + 1,THIRD.POS - SECOND.POS - 1]
+      OLD.STRING.LEN=LEN(OLD.STRING)
+      NEW.STRING.LEN=LEN(NEW.STRING)
+      RETURN
+
+
+
+*
+*
+* OPEN FILES
+*
+
+OPEN.FILES: 
+
+      FOUND=''
+      IF UPDATING.DICT THEN
+         OPEN 'DICT', SRC.FILENAME TO F.SRC ELSE FOUND = 'N'
+         IF FOUND = 'N' THEN
+            ERR.MSG = 'SOURCE FILE DICT "':SRC.FILENAME:'" NOT FOUND'
+            PRINT ERR.MSG
+            STOP
+         END ELSE
+            FOUND = 'Y'
+            OPEN '', 'DICT.DICT' TO D.SRC ELSE FOUND = 'N'
+            IF FOUND = 'N' THEN
+               ERR.MSG = 'DICT.DICT NOT FOUND'
+               PRINT ERR.MSG
+               STOP
+            END
+         END
+      END ELSE
+         OPEN '', SRC.FILENAME TO F.SRC ELSE FOUND = 'N'
+         IF FOUND = 'N' THEN
+            ERR.MSG = 'SOURCE FILE "':SRC.FILENAME:'" NOT FOUND'
+            PRINT ERR.MSG
+            STOP
+         END ELSE
+            FOUND = 'Y'
+            OPEN 'DICT', SRC.FILENAME TO D.SRC ELSE FOUND = 'N'
+            IF FOUND = 'N' THEN
+               ERR.MSG = 'DICTIONARY "':SRC.FILENAME:'" NOT FOUND'
+               PRINT ERR.MSG
+               STOP
+            END
+         END
+      END
+
+
+      RETURN
+
+
+*
+* CLOSE FILES
+*
+
+CLOSE.FILES: 
+      CLOSE F.SRC
+      CLOSE D.SRC
+
+      RETURN
+
+
+*
+*
+* READ.DICT
+*
+
+READ.DICT: 
+
+      SOURCE.FOUND = 'Y'
+      READ DICT.REC FROM D.SRC, SRC.FIELD.NAME ELSE SOURCE.FOUND = 'N'
+      IF SOURCE.FOUND = 'Y' THEN
+         SRC.FIELD.NUMBER = DICT.REC<2>
+      END ELSE
+         PRINT "CANNOT LOCATE ":SRC.FIELD.NAME:" IN DICTIONARY"
+         STOP
+      END
+      IF DICT.REC<1>[1,1] <> 'D' THEN
+         PRINT "CAN ONLY PROCESS DATA DESCRIPTORS"
+         STOP
+      END
+      RETURN
+*
+*
+*
+* CONVERT FILE
+*
+*
+
+CONVERT.FILE: 
+
+      SRC.EOF = 'N'
+*
+*   RESTORE SAVE.LIST
+*
+      IF SAVE.LIST > '' THEN
+         COMMAND = 'GET.LIST ':SAVE.LIST
+         EXECUTE COMMAND
+         NUM.RECORDS=@SYSTEM.RETURN.CODE
+         PRINT NUM.RECORDS:' RECORDS BEING CONVERTED...'
+      END ELSE
+         SELECT F.SRC
+         PRINT 'PROCESSING ENTIRE SOURCE FILE...'
+      END
+
+      NEED.RETURN = 0
+      LOOP
+         RECORD.OK = 'Y'
+         GOSUB READ.SRC.REC
+      UNTIL SRC.EOF = 'Y'
+         NUM.SRC.RECS += 1
+         IF MOD(NUM.SRC.RECS,10) = 0 THEN
+            NEED.RETURN = 1
+            CRT '*':
+            IF MOD(NUM.SRC.RECS,500) = 0 THEN
+               CRT ' ':NUM.SRC.RECS
+               NEED.RETURN = 0
+            END
+         END
+         GOSUB CHECK.FOR.CHANGES
+         IF RECORD.CHANGED = 'Y' THEN
+            SRC.REC<SRC.FIELD.NUMBER>=NEW.FIELD
+            WRITE SRC.REC ON F.SRC, SRC.KEY
+            NUM.RECS.CHANGED+=1
+            IF NOT(HAVE.B) THEN
+               IF NEED.RETURN THEN
+                  CRT
+                  NEED.RETURN = 0
+               END
+               IF LEN(SRC.KEY)<18 AND LEN(OLD.FIELD)<30 AND LEN(NEW.FIELD)<30 THEN
+                  PRINT FMT(SRC.KEY,'L#18'):": ":FMT(OLD.FIELD,'L#30'):NEW.FIELD
+               END ELSE
+                  PRINT SRC.KEY:":"
+                  PRINT OLD.FIELD
+                  PRINT NEW.FIELD
+                  PRINT
+               END
+            END
+         END ELSE
+            RELEASE F.SRC, SRC.KEY
+         END
+
+
+      REPEAT
+
+*
+*    GET RID OF SAVE LIST
+*
+      IF SAVE.LIST > '' THEN
+         COMMAND = 'DELETE.LIST ':SAVE.LIST
+         EXECUTE COMMAND
+      END
+
+      RETURN
+
+
+
+
+
+* READ SRC REC
+
+
+READ.SRC.REC: 
+
+      LOOP
+         FOUND = 1
+         READNEXT SRC.KEY ELSE
+            SRC.EOF='Y'
+         END
+
+         IF SRC.EOF = 'N' THEN
+            SRC.KEY = TRIM(SRC.KEY)
+            READU SRC.REC FROM F.SRC, SRC.KEY LOCKED
+               LOCKED.BY = STATUS()
+               PRINT SRC.KEY:' LOCKED BY USER ':LOCKED.BY
+               FOUND = 0
+            END ELSE
+               PRINT 'READ SRC FAILED ON RECORD ':SRC.KEY
+               FOUND = 0
+            END
+         END
+      UNTIL SRC.EOF = 'Y' OR FOUND
+      REPEAT
+
+      RETURN
+
+
+
+
+
+
+CHECK.FOR.CHANGES: 
+      RECORD.CHANGED='N'
+      OLD.FIELD=SRC.REC<SRC.FIELD.NUMBER>
+      NEW.FIELD=OLD.FIELD
+* HANDLE SPECIAL CASE WHEN 'OLD.STRING' IS NULL
+      IF OLD.STRING='' THEN
+         NEW.FIELD=NEW.STRING:OLD.FIELD
+         RECORD.CHANGED='Y'
+         RETURN
+      END
+* LOOK FOR FIRST STRING WHICH MATCHES
+      POS=INDEX(NEW.FIELD,OLD.STRING,1)
+      IF POS#0 THEN
+         RECORD.CHANGED='Y'
+         NEW.FIELD=NEW.FIELD[1,POS-1]:NEW.STRING:NEW.FIELD[POS+OLD.STRING.LEN,LEN(NEW.FIELD)]
+      END
+      IF NOT(HAVE.G) THEN
+         RETURN
+      END
+* USER REQUESTED 'G' OPTION...LOOK FOR OTHER MATCHING STRINGS
+      ISTART = POS+NEW.STRING.LEN
+      LOOP
+         POS=INDEX(NEW.FIELD[ISTART,LEN(NEW.FIELD)],OLD.STRING,1)
+      UNTIL POS=0
+         NEW.FIELD=NEW.FIELD[1,ISTART+POS-2]:NEW.STRING:NEW.FIELD[ISTART+POS+OLD.STRING.LEN-1,LEN(NEW.FIELD)]
+         ISTART+=NEW.STRING.LEN+POS-1
+      REPEAT
+      RETURN
+
+
+DISPLAY.HELP: 
+      CRT 'COMMAND LINE SYNTAX:'
+      CRT ' RUN CC.SOURCE CHANGE.STRING filename field /oldstr/newstr/gb'
+      CRT
+      CRT 'Example:'
+      CRT 'RUN CC.SOURCE CHANGE.STRING MAJORS DESCRIPTION /run/ran/gb'
+      CRT
+      CRT 'Omitting the "g" on the command line will change only the first'
+      CRT 'occurrence of the string in the specified field of the record.'
+      CRT
+      CRT 'Omitting the "b" on the command line will display each change as'
+      CRT 'it is being made.'
+      CRT
+      CRT 'A select list must be active.'
+      RETURN
+
+
+
+
+   END

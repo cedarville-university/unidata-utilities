@@ -1,0 +1,154 @@
+Print.Page, Version 5.2
+December 2014
+ 
+The format for running the PRINT.PAGE utility is:
+
+ PRINT.PAGE unidata.file type.1.file type.1.rec
+   [-AT atname]
+   [-FORM formname]
+   [-COPIES]
+   [-NODISPLAY]
+   [-HELP]
+   [-TTY]
+   [-NOERRORS]
+   [-MAIL addressee.field
+       -SENDER sender.name
+       -SUBJECT email.subject
+       [-MAIL.DELAY.TIME numseconds]
+       [-MAIL.DELAY.INTERVAL numrecords]
+       [-ATTACH form.to.attach]
+       [-ATTACH.FILE DirectoryName FileName]
+   ]
+
+unidata.file  is the UNIDATA file containing the records to be printed
+type.1.file   is the UNIDATA directory containing the form description file.
+type.1.record is the form description file.
+ 
+  -AT          appends an "AT" option to the SETPTR command
+  -FORM        appends a "FORM' option to the SETPTR command
+  -COPIES      appends a "COPIES" option to the SETPTR command
+  -NODISPLAY   turns off the display of record counts during processing
+  -HELP        displays this help file
+  -TTY         sends the output to the screen instead of spooling it
+  -NOERRORS    suppress display of errors on individual records (loading
+                    errors will still be displayed)
+  -MAIL        generate e-mail rather than spooling the output
+
+A select list must be active to run PRINT.PAGE, either at the time
+PRINT.PAGE is executed or by placing a GET.LIST statement in the
+&INITIALIZATION section of the form description file.
+ 
+Additional help is available in the documentation (PrintPage50.PDF).
+ 
+===========================================================================
+ 
+Sample commands
+ 
+ 
+   SELECT STUDENTS WITH ANT.DEGREE.DATE = '06/89' BY NAME
+   PRINT.PAGE STUDENTS REG.FILES GRAD.LETTER
+
+STUDENTS    is an Unidata data file
+REG.FILES   is a type-1 file (directory) containing form definition files
+GRAD.LETTER is a particular record (document) in the REG.FILES directory
+
+
+   SELECT AR.FILE WITH AR.BALANCE > 500.00 BY ZIP BY NAME
+   PRINT.PAGE AR.FILE BUS.OFFICE DUNNING -FORM 2PART
+
+AR.FILE     is an Unidata data file
+BUS.OFFICE  is a type-1 file (directory) containing form definition files
+DUNNING     is a particular record (document) in the BUS.OFFICE directory
+2PART       is the "spool" attribute or form to be used for printing
+ 
+===========================================================================
+ 
+Form description file (brief rules)
+ 
+ 
+The form description file contains a definition section and an image section.
+The definition section lists field names, formatting, etc. which are to be used
+in creating the form.  The image section shows the layout to be used.
+
+Definition clauses include FIELD, LINE.UP, FORM.LENGTH, and TOP.OF.FORM.  These
+may occur in any order.
+
+
+    Clause or sub-clause                                Default value
+
+1.  &DEFINITION          (Marks the beginning of the definition section.)
+
+2.  FIELD Print.page.field.name Info.file.dict.name
+    FIELD Print.page.field.name Info.file.dict.location
+      CONV code                                         Dict CONV code
+      FMT code                                          Dict FMT code
+      MAX.LENGTH length                                 No default
+      INSERTING                                         false
+      NUM.VALUES number                                 1
+      SKIP.IF.NULL                                      false unless
+                                                           EXPAND.LINES used
+      EXPAND.LINES                                      false
+      ARGS                                              No default
+
+
+3.  LINE.UP number.alignment.forms                      0
+
+4.  FORM.LENGTH length                                  66
+
+5.  TOP.OF.FORM [FORM.FEED/BLANKS/NONE]                 FORM.FEED if
+                                                           form.length = 66
+                                                        BLANKS if
+                                                           form.length # 66
+
+6.  &BODY                (Separates definition section from image section.)
+
+    Whatever text is desired may be put in the image section.  Variables
+    are enclosed in percent signs (%).
+
+
+7.  &INITIALIZATION (optional section)
+
+    Contains PERFORM statements (VOC items) to do necessary setup for
+    a particular application.  A typical use would be the initialization
+    of COMMON for a subroutine field.
+
+
+8.  &TERMINATION (optional section)
+
+    Contains PERFORM statements (VOC items) to do necessary wrapup for
+    a particular application.  A typical use would be the reporting of
+    totals for the select list just completed.
+
+===========================================================================
+ 
+Form description file (example)
+ 
+&DEFINITION
+FORM.LENGTH 30
+TOP.OF.FORM NONE
+FIELD ID.NO ID.NO
+FIELD FIRST FIRST
+  INSERTING
+FIELD TIME APPOINTMENT.TIME
+  INSERTING
+FIELD ADATE APPOINTMENT.DATE
+  INSERTING
+&BODY
+                                                      %#DATE()%
+                                                      %NAME%
+                                                      %ID.NO%
+
+
+Dear %FIRST%:
+
+This is just a short note to remind you that you have an advising
+session secheduled in our office at %TIME% on %ADATE%.
+
+Registration materials for the next term will be issued at that
+time.
+
+                               Sincerely,
+
+
+                               Fred A. Rogers
+                               Registrar

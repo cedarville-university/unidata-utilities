@@ -1,0 +1,22 @@
+*
+* Set which database system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_DBMS_INFORMATION
+*
+*
+*
+*
+*************************************************************************
+*
+* Stamped: p12 rotmand, /usr/local/download, user #2048, 29 Sep 15, 07:41AM.
+* Version 8.01
+*
+********************************************************************
+*
+*
+
+      EQU COMMENT.OUT.EXCEPT.FOR.INFORMATION LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIDATA LIT *'
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIVERSE LIT '*'
+      DBMS.NAME = 'INFORMATION'

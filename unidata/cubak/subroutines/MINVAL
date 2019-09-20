@@ -1,0 +1,39 @@
+      SUBROUTINE MINVAL(RETURN.VALUE,VALUE.LIST)
+*
+* RETURN THE MINIMUM VALUE IN A LIST OF VALUES
+*
+*     Last updated by LIVE (ROTMAN) at 15:36:13 on 03/17/1988.
+
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      NUM = COUNT(VALUE.LIST,@VM) + (VALUE.LIST # '')
+      IF NUM < 1 THEN
+         MINVAL = ''
+      END ELSE
+         MINVAL = VALUE.LIST<1,1>
+         FOR I=2 TO NUM
+            VALUE = VALUE.LIST<1,I>
+            IF VALUE < MINVAL THEN MINVAL = VALUE
+         NEXT I
+      END
+      RETURN.VALUE = MINVAL
+      RETURN
+   END

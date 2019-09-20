@@ -1,0 +1,114 @@
+* Stamped: p1 rotmand, /disk1/test, user #17092, 25 Feb 02, 02:16PM.
+*   Version 5.11
+*    Fixed bug in variable-file-name logic (embedded at-variable
+*        was not being handled correctly)
+*    Allow use of at-variable for output file (directory) as well as
+*        for the output record name
+*    Move processing of DEBUG.LEVEL option earlier in parsing so that
+*        some additional error checking can be displayed.
+*
+*
+*
+* Stamped: pe rotmand, /disk1/coltest, user #12980, 01 Feb 01, 08:04AM.
+* Version 5.10
+*    Enable "@" variables in file names
+*    Add WRITE.INTERVAL option to pause between writing groups of
+*       records (necessary on some systems communicating via NFS
+*       or Samba)
+*    Fix bug in WP51 format where null fields were suppressed if they
+*       were at the end of the output record.
+*    Fix bug in field qualifier MAX (used in break lines).
+*
+*
+*
+* Stamped: pe rotmand, /disk1/coltest, user #12980, 06 Jul 00, 08:04AM.
+* Version 5.00
+*    Added support for HTML files
+*    Added APPEND option
+*    Added REMOVE.PUNCTUATION option
+*    Corrected typographical errors in the documentation
+*    Produce PDF version of the documentation
+*
+*
+*
+* Stamped: p4 rotmand, /disk1/collive, user #28726, 21 Apr 00, 07:59AM.
+* Version 4.04
+*    When using FIELD.NAMES in heading, repeat a particular field
+*    name as many times as an explicit NUM.VALUES clause would indicate.
+*    Also, cleanup version numbering (some files referenced version 4.1
+*    which does not yet exist.)
+* Stamped: pa rotmand, /disk1/collive, user #4649, 27 Apr 99, 08:29AM.
+*    Fix bug when totalling values from an exploded select list.
+* Stamped: p2 rotmand, /disk1/collive, user #23083, 13 Feb 99, 08:09PM.
+*    Correct bug in WordPerfect output handling of BY.EXP list
+*    (program was using record id in output rather than the BY.EXP
+*    value)
+* 
+*
+*
+* Stamped: s8 rotmand, /disk1/collive, user #23262, 19 Aug 98, 12:05PM.
+* Version 4.0
+*    Added support for DBF files
+*    Changed headings used in FIXED and DBF formats to follow same
+*       lengths as detail records unless over-ridden on the command line
+*    Added FIELD.NAMES clause to HEADING option
+*    Added support for "@" variables such as @DATE, @SYSTEM.RETURN.CODE
+*    Added NO.PAGE option to turn off screen pauses on progress meter
+*       and screen-based output
+*    Added ability to write to a subdirectory without creating a VOC
+*       pointer (see documentation for FILE option).
+*    Various bug fixes, including:
+*       Default @ID when using secondary file
+*       More-complete DIF output (required by Excel)
+*    Moved version history to separate file
+*    Modified on-line help
+*    Created WordPerfect documentation
+*
+*
+*
+* Version 3.1
+* Stamped: pty/ttyp4 rotmand, /disk1/collive, user #2968, 05 Jul 95, 01:16PM.
+*    Added BREAK.SUP option.
+*
+*
+*
+* Version 3.0
+* Stamped: pty/ttyp8 sjoquist, /disk1/collive, user #3835, 01 Nov 94, 01:38PM.
+*    Added file relations (avoid building multiple, complicated i-descriptors)
+*
+*
+*
+* Version 2.2
+* Last updated by TEST (SJOQUISTD) at 16:41:41 on 02/11/1994.
+*    Modified COMMA format (numeric values do not have quotes)
+*    Added QUOTE format (functions like COMMA used to)
+*    Created DIF format
+*
+*
+*
+* Version 2.1, miscellaneous changes
+* Last updated by LIVE (SJOQUISTD) at 13:42:17 on 10/27/1993.
+*    Set up new distributable copy (version 2.1)
+* Last updated by LIVE (ROTMAND) at 12:26:26 on 09/01/1993.
+*    Add 'T' and 'D' option to LITERAL fields.
+* Last updated by LIVE (SJOQUIST) at 09:19:31 on 09/09/1992.
+*    Add COMMA.CHAR option.
+* Last updated by LIVE (ROTMAN) at 17:19:31 on 08/12/1992.
+*    Add QUOTE.CHAR option.
+* Last updated by LIVE (SJOQUIST) at 08:18:42 on 08/06/1991.
+*    Rename DOWNLOAD.LOAD to DOWNLOAD.PARSE
+*    Split DOWNLOAD.PROCESS into DOWNLOAD.LOAD & DOWNLOAD.PROCESS
+*
+*
+*
+* Version 2.0, HEADING/FOOTING/BREAK.ON
+* Last updated by LIVE (SJOQUIST) at 09:34:44 on 07/26/1991.
+*    Split into INIT/LOAD/PROCESS subroutines
+*
+*
+*
+* Version 1.1, BEGIN ... END keywords with prompting using PROMPT.STACK
+* Last updated by LIVE (SJOQUIST) at 08:28:29 on 07/26/1991.
+* Last updated by LIVE (SJOQUIST) at 16:20:31 on 04/10/1991.
+*
+*

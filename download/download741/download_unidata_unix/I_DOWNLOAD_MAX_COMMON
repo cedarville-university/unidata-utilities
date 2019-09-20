@@ -1,0 +1,26 @@
+*
+* Common for DOWNLOAD programs
+* 20/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD_MAX_COMMON
+*
+*
+* PURPOSE: MAXIMUM SIZES OF VARIOUS COMMON ARRAYS
+*          MUST BE LISTED FIRST IN ANY LIST OF COMMONS
+*
+*
+*************************************************************************
+*
+* Stamped: p17 rotmand, /usr/local/download, user #1026, 09 Mar 12, 06:48AM.
+* Version 7.41
+*
+*
+
+      EQU DLMAX.FILES TO 10
+      EQU DLMAX.DICT.RECS TO 300
+      EQU DLMAX.LITERAL.VALUES TO 300
+      EQU DLMAX.EVAL.FORMULAE TO 100
+      EQU DLMAX.SUBR.NAMES TO 200
+      EQU DLMAX.SUBR.ARGS TO 10
+      EQU DLMAX.OUT.RECS TO 10
+      EQU DLMAX.BREAK.FIELDS TO 25

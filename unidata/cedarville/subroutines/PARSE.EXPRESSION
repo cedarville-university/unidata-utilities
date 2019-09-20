@@ -1,0 +1,79 @@
+      SUBROUTINE PARSE.EXPRESSION(EXPRESSION,ITEMS)
+*
+* INFO/BASIC SUBROUTINE
+* 4/25/88
+* DWS
+* TITLE ----- PARSE.EXPRESSION
+*
+*
+* PURPOSE: Parse string with expression into separate elements
+*          Eg. "A+B*(35.0/C)" into "A","+","B","*","(","35.0","/","C",")"
+*
+*     Last updated by LIVE (SJOQUIST) at 15:21:32 on 04/25/1988.
+*
+*************************************************************************
+*
+
+
+
+*
+*
+* MAIN
+*
+* SET UP
+*
+      SEPARATORS = '*^/+-:<>=#&!(),'
+      SGL.SPACE = ' '
+      ITEMS = ''
+      TRUE = 1
+      FALSE = 0
+      PREV.CHAR = ''
+      QUOTE = ''
+*
+*   READ THROUGH COMMAND EXPRESSION AND PARSE IT
+*
+      LEN.EXPRESSION = LEN(EXPRESSION)
+      FOR I=1 TO LEN.EXPRESSION
+         CUR.CHAR = EXPRESSION[I,1]
+*
+*     IF THE QUOTE FLAG IS ON, THEN TAKE EVERYTHING UP TO THE
+*       MATCHING END QUOTE AS PART OF THE ITEM
+*
+         IF QUOTE THEN
+            BEGIN CASE
+               CASE CUR.CHAR = QUOTE
+                  QUOTE = ''
+               CASE 1
+                  ITEMS := CUR.CHAR
+            END CASE
+*
+*    IF THE CUR.CHARACTER IS A QUOTE, TURN ON QUOTE MODE
+*      OTHERWISE ADD IT THE CURRENT ITEM
+*
+         END ELSE
+            BEGIN CASE
+               CASE CUR.CHAR = SGL.SPACE
+               CASE CUR.CHAR = '"' OR CUR.CHAR = "'"
+                  QUOTE = CUR.CHAR
+                  ITEMS := @FM
+               CASE 1
+*
+*          IF THIS IS THE BEGINNING OF A NEW ITEM, ADD 1 TO NUM.ITEMS
+*
+                  BEGIN CASE
+                     CASE PREV.CHAR = SGL.SPACE
+                        ITEMS := @FM:CUR.CHAR
+                     CASE INDEX(SEPARATORS,CUR.CHAR,1) AND PREV.CHAR
+                        ITEMS := @FM:CUR.CHAR
+                     CASE INDEX(SEPARATORS,PREV.CHAR,1) AND PREV.CHAR
+                        ITEMS := @FM:CUR.CHAR
+                     CASE 1
+                        ITEMS := CUR.CHAR
+                  END CASE
+            END CASE
+         END
+         PREV.CHAR = CUR.CHAR
+      NEXT I
+      RETURN
+*
+   END

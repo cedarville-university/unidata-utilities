@@ -1,0 +1,121 @@
+      SUBROUTINE MV.IF(RETURN.LIST,LIST.1,OPERATOR,LIST.2,INPUT.SM.FLAG,TRUE.LIST,TRUE.SM.FLAG,FALSE.LIST,FALSE.SM.FLAG)
+EQU DBG LIT '*IF @LOGNAME = "sjoquist" THEN'
+
+*
+* INFO/BASIC SUBROUTINE
+* 3/1/89
+* DWS
+* TITLE ----- MV.IF
+*
+*
+* PURPOSE: MULTI-VALUED IF,  IF THE OPERATION BETWEEN EACH PAIR OF VALUES
+*          IN LIST.1 & LIST.2 IS TRUE, RETURN THE CORRESPONDING VALUE
+*          IN TRUE.LIST ELSE RETURN THE CORRES VALUE IN FALSE.LIST
+*
+*     Last updated by LIVE (SJOQUIST) at 15:51:11 on 03/01/1989.
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+*
+* FOR EACH VALUE IN LIST.1, DO THE OPERATION.
+*  IF THE RESULT IS TRUE, USE TRUE.LIST ELSE USE FALSE.LIST
+*
+      RETURN.LIST = ''
+      NUM.VALUES = COUNT(LIST.1,@VM) + (LIST.1 # '')
+DBG CRT '|':LIST.1:'| ':NUM.VALUES
+      FOR LIST.1.CTR=1 TO NUM.VALUES
+*
+* INPUT.SM.FLAG TELLS WHETHER "LIST.2" IS REALLY AN ASSOCIATED MV LIST
+*   WITH "LIST.1" OR IF IT IS JUST A SINGLE VALUE
+*
+         IF INPUT.SM.FLAG = 'M' THEN
+            LIST.2.CTR = LIST.1.CTR
+         END ELSE
+            LIST.2.CTR = 0
+         END
+*
+         OPERATION.TRUE = 0
+         BEGIN CASE
+            CASE OPERATOR = '='
+               IF LIST.1<1,LIST.1.CTR> = LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = '<'
+               IF LIST.1<1,LIST.1.CTR> < LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = '>'
+               IF LIST.1<1,LIST.1.CTR> > LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = '<='
+               IF LIST.1<1,LIST.1.CTR> <= LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = '>='
+               IF LIST.1<1,LIST.1.CTR> >= LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = 'LIKE'
+               IF LIST.1<1,LIST.1.CTR> MATCHES LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = 'UNLIKE'
+               IF NOT(LIST.1<1,LIST.1.CTR> MATCHES LIST.2<1,LIST.2.CTR>) THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = '#'
+               IF LIST.1<1,LIST.1.CTR> # LIST.2<1,LIST.2.CTR> THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = 'IN'
+               LOCATE LIST.1<1,LIST.1.CTR> IN LIST.2<1,1> SETTING POS THEN
+                  OPERATION.TRUE = 1
+               END
+            CASE OPERATOR = 'NOTIN'
+               LOCATE LIST.1<1,LIST.1.CTR> IN LIST.2<1,1> SETTING POS ELSE
+                  OPERATION.TRUE = 1
+               END
+         END CASE
+*
+*
+* TRUE.SM.FLAG TELLS WHETHER "TRUE.LIST" IS REALLY AN
+*   ASSOCIATED MV LIST WITH "LIST.1" OR JUST A SINGLE VALUE
+* SAME FOR FALSE...
+*
+         IF OPERATION.TRUE THEN
+            IF TRUE.SM.FLAG = 'M' THEN
+               RETURN.VALUE.CTR = LIST.1.CTR
+            END ELSE
+               RETURN.VALUE.CTR = 0
+            END
+            RETURN.LIST<1,LIST.1.CTR> = TRUE.LIST<1,RETURN.VALUE.CTR>
+         END ELSE
+            IF FALSE.SM.FLAG = 'M' THEN
+               RETURN.VALUE.CTR = LIST.1.CTR
+            END ELSE
+               RETURN.VALUE.CTR = 0
+            END
+            RETURN.LIST<1,LIST.1.CTR> = FALSE.LIST<1,RETURN.VALUE.CTR>
+         END
+      NEXT LIST.1.CTR
+      RETURN
+   END

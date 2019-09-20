@@ -1,0 +1,37 @@
+      SUBROUTINE OPEN_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 02/27/2002
+* JDB
+* TITLE ----- OPEN_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING OPEN STATEMENTS INTO SOURCE
+*
+* Stamped: pty_ttysa bourdeaj, /datatel/live/collive, user #16203, 27 Feb 02, 10:54AM.
+*
+*************************************************************************
+*
+
+* Usage:
+* $OPEN FILE.NAME
+* ERROR.RET = ''
+* ERROR.MSG = ''
+* F.FILE.NAME = ''
+* CALL OPEN.FILE(F.FILE.NAME,'FILE.NAME',ERROR.RET,ERROR.MSG)
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      XL.FILE.NAME = FIELD(X$C,' ',1,99)
+      NUM.XL.FILE.NAME = DCOUNT(XL.FILE.NAME,' ')
+      X$CC<-1> = "I ERROR.RET = ''"
+      X$CC<-1> = "I ERROR.MSG = ''"
+      FOR WHICH.XL.FILE.NAME = 2 TO NUM.XL.FILE.NAME
+         X.FILE.NAME = FIELD(XL.FILE.NAME,' ',WHICH.XL.FILE.NAME,1)
+         X$CC<-1> = "I F.":X.FILE.NAME:" = ''"
+         X$CC<-1> = "I CALL OPEN.FILE(F.":X.FILE.NAME:",'":X.FILE.NAME:"',ERROR.RET,ERROR.MSG)"
+      NEXT WHICH.XL.FILE.NAME
+      RETURN
+
+
+   END

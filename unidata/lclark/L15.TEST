@@ -1,0 +1,854 @@
+854 LINES
+*----------------------- USERS.LIB SUBMISSION FORM -----------------------
+*--- PROGRAM NAME...: L15.TEST
+*--- 40-CHAR DESC...: Creates certified loan download file
+*--- KEYWORDS.......: ELM, LOAN
+*--- SUBMISSION DATE: 05/23/97
+*--- RELEASE LEVEL..: COLL13.11
+*--- SITE NAME......: Lewis & Clark College
+*--- CONTACT NAME...: Anne Byrne
+*--- CONTACT PHONE#-: 503-768-7241
+*--- CONTACT EMAIL..: abyrne@lclark.edu
+*--- LONG DESC......: Creates a download file for certified loans, to
+*---                : send to ELM Resources, a service bureau, who 
+*---                : distributes the data to lenders, guarantors,  and
+*---                : disbursement processors (based on school specific
+*---                : destination logic).
+*-------------------------------------------------------------------------
+FILE/RECORD INFORMATION:
+  1 CUSTOM.SOURCE...................... FA.ELM                        
+  2 CUSTOM.SOURCE...................... FA.ELM.1                      
+  3 SELECT.TABLES...................... FA.ELM                        
+ ##### FILE CUSTOM.SOURCE #########################    2 RECORDS ######
+ ======== RECORD FA.ELM ===========================   140 FIELDS ======
+ * PROGRAM:
+ * precompiled on 03/30/95
+ *==================================================================
+ *                     Lewis & Clark College
+ *==================================================================
+ *
+ * A. Byrne   2/  /97  Prompt program to select records to download
+ *                     and send to ELM.
+ *
+ *
+ *=====================================================================
+ *                I N I T I A L I Z A T I O N
+ *---------------------------------------------------------------------
+       $INSERT I_COMMON FROM UT.INSERTS
+       $INSERT I_SYSTEM.COMMON FROM SOURCE.INSERTS
+       $INSERT I_PROMPTS.COMMON FROM SOURCE.INSERTS
+ *      CALL PASSWORD.ENTRY("PROG.NAME.GOES.HERE","",F.PROC.HIST,"")
+ 
+ 
+       EQU TRUE TO 1
+       EQU FALSE TO 0
+       TITLE = "ELM LOAN PROCESSING"                        ;* Holds sc
+Creen heading
+ *
+ 
+       LOOP
+ 
+          PRINT CLEAR.SCREEN:@(40-INT((LEN(TITLE)/2)),0):TITLE
+ *
+ *
+ * Prompt for YR
+ *
+          PRINT @(0,2):CLEAR.EOS
+          PRINT @(0,2):"ENTER ACADEMIC YEAR OR END..........:":CLEAR.EO
+CL:
+          LOOP
+             PRINT @(38,2):"####":CLEAR.EOL:@(38): ; INPUT ACADEMIC.YEA
+CR,4_
+             IF (ACADEMIC.YEAR = "") THEN
+                CALL LINE.22("THIS IS A MANDATORY ITEM.")
+             END
+          UNTIL ACADEMIC.YEAR MATCHES "4N" OR ACADEMIC.YEAR = "END"
+          REPEAT
+          IF ACADEMIC.YEAR = "END" THEN RETURN
+          SA.YEAR = "SA.":ACADEMIC.YEAR
+ *---------------------------------------------------------------------
+C---
+ * INITIALIZE I_PROMPTS.COMMON VARIABLES
+ *---------------------------------------------------------------------
+C---
+ * These are the default I_PROMPTS.COMMON settings.
+ * Before setting PROMPT.FLAGS, initialize any I_PROMPTS.COMMON variabl
+Ces
+ * to cover the specific needs of your desired process.
+ * See I_PROMPTS.COMMON for descriptions.
+ 
+          PORT = @USERNO
+          PROMPT.LIST.NAME = ""
+          PROMPT.ALL = FALSE
+          PROMPT.COPIES = 1
+          PROMPT.SORT.FIELDS = ""
+          PROMPT.SORT.CRITERIA = ""
+          PROMPT.SEL.CRITERIA = ""
+          PROMPT.SELECT.TABLES = "FA.ELM"
+          PROMPT.SEL.SUB1.ANS = ""
+          PROMPT.SORT.TABLE = ""
+          PROMPT.FLAGS = ""
+          PROMPT.LINE = 7
+          PROMPT.WANT = ""
+          PROMPT.RETURN.POINT = ""
+          PROMPT.PHANT = FALSE           ;* These three COMMON variable
+Cs
+          PROMPT.QUEUE = ""
+          PROMPT.SUBFILE = "SL.":ACADEMIC.YEAR
+          PROMPT.PURPOSE = ""
+          PROMPT.ERRORS = 0
+          PROMPT.ORIG.PORT = @USERNO
+          PROMPT.PROGRAM = "FA.ELM"            ;* This program name
+          PROMPT.PROCESSOR = "FA.ELM.1"          ;* Final process name
+          PROMPT.ABORT = ""
+ * PROMPT.FLAGS default to FALSE, but you can change this below.
+          FOR X = 1 TO 29
+             PROMPT.FLAGS<X> = FALSE
+          NEXT X
+ 
+ 
+ 
+ *---------------------------------------------------------------------
+ * SET PROMPT.FLAGS (SEE I_PROMPTS.COMMON FOR DETAILED DESCRIPTIONS)
+ *---------------------------------------------------------------------
+ * Since PROMPT.FLAGS are all FALSE, assign TRUE to prompting
+ * needed for this routine.
+ 
+ 
+          PROMPT.FLAGS<P.SEL.SUB.1> = TRUE
+          PROMPT.FLAGS<P.OTHER.SEL> = TRUE
+          PROMPT.FLAGS<P.DISP.SELECT> = TRUE       ;* Shows current sel
+Cect
+          PROMPT.FLAGS<P.VERIFY> = TRUE  ;* IS THIS?
+ *---------------------------------------------------------------------
+C---
+ * CALL PROMPTS SUBROUTINE
+ *---------------------------------------------------------------------
+C---
+          CALL PROMPTS
+          IF PROMPT.ABORT THEN RETURN
+ 
+       UNTIL PROMPT.WANT = "Y" REPEAT
+ *---------------------------------------------------------------------
+C--
+ * BUILD OUTBUF AND CALL PROCESS, PHANTOM.PROCESS, OR JOB STREAM
+ *---------------------------------------------------------------------
+C--
+       PRINT @(0,7):CLEAR.EOS
+       PASS = ""
+ *
+ * The PROMPT.COPIES and PROMPT.PURPOSE common variables are passed to 
+Cthe
+ * processor to allow a call to the SET.PRINTER (COLLEAGUE) routine.  T
+Chis
+ * approach is consistent with COLLEAGUE in allowing non-programming st
+Caff
+ * to make changes to printing characteristics through REPORT.CONTROL.
+ *
+ 
+       PASS<1> = ACADEMIC.YEAR
+       PASS<2> = PROMPT.SEL.SUB1.ANS<1>
+       PASS<3> = PROMPT.SEL.SUB1.ANS<2>
+ 
+ 
+       IF PROMPT.LIST.NAME THEN
+          OUTBUF = "GET.LIST ":PROMPT.LIST.NAME
+          IF PROMPT.SORT.FIELDS THEN
+             OUTBUF := @FM:"SELECT ":PROMPT.SUBFILE:PROMPT.SORT.CRITERI
+CA
+          END
+       END ELSE
+          OUTBUF = "SELECT ":PROMPT.SUBFILE
+          IF PROMPT.SORT.FIELDS THEN
+             OUTBUF := PROMPT.SORT.CRITERIA
+          END
+          OUTBUF := PROMPT.SEL.CRITERIA
+          OUTBUF := " SAVING UNIQUE ID.NO"
+          OUTBUF := @FM:"SSELECT ":SA.YEAR:" WITH SA.ACTION = 'T' BY SA
+C.LAST BY SA.FIRST REQUIRE.SELECT"
+       END
+       OUTBUF := @FM:PROMPT.PROCESSOR
+       OUTBUF := @FM:"PRINTER.RESET"
+ 
+       IF PROMPT.PHANT THEN
+          CALL PHANTOM.PROCESS(OUTBUF,PASS,PROMPT.PROGRAM)
+          RETURN
+       END ELSE
+          CALL PROCESS(OUTBUF,PASS)
+       END
+ *
+    END                                  ;*  Last line of code
+ ======== END OF RECORD ===============================================
+ ======== RECORD FA.ELM.1 =========================   628 FIELDS ======
+ *  PROGRAM: FA.ELM.1
+ *  precompiled on 3/10/97
+ * ==================================================================
+ *                Lewis & Clark college
+ * ==================================================================
+ *
+ * A. Byrne    2/17/97  Program to create download file of
+ *                      certified award candidates. Sent to
+ *                      ELM for processing.
+ *
+ *  
+ * ------------------------------------------------------------------
+ *                     PROGRAM LOGIC
+ * ------------------------------------------------------------------
+ *  R13 COMPATIBLE.
+ *
+ *  PROMPT:
+ *   1. Prompt for Academic Year
+ *   2. Prompt for date range of LOAN.START.DATE (start date falls
+ *      between dates)
+ *   3. Prompt for individual ID.NO(s)
+ *   4. SELECT SL.YEAR SAVING UNIQUE ID.NO
+ *   5. SSELECT SA.YEAR WITH SA.ACTION = "T" REQUIRE.SELECT
+ *   6. PASS 3 VARIABLES TO PROCESSING PROGRAM 
+ *        ACADEMIC.YEAR
+ *        BEGINNING LOAN START DATE (X.START.DATE)
+ *        ENDING LOAN START DATE (X.END.DATE)
+ * ------------------------------------------------------------
+ *                   INITIALIZATION
+ * ------------------------------------------------------------
+
+       $INSERT I_COMMON FROM UT.INSERTS
+       $INSERT I_COMMON FROM ST.SOURCE
+       $INSERT I_SYSTEM.COMMON FROM SOURCE.INSERTS
+ 
+ 
+       PASS = ""
+       CALL GET.PARAM(PASS)
+ 
+       X.ACADEMIC.YEAR = PASS<1>
+       X.START.DATE = ICONV(PASS<2>,'D2/')
+       X.END.DATE = ICONV(PASS<3>,'D2/')
+ 
+       OPEN '', 'PEOPLE' TO F.PEOPLE ELSE
+          STOP 'Cannot open PEOPLE file.'
+       END
+       OPEN '', 'STUDENTS' TO F.STUDENTS ELSE
+          STOP 'Cannot open STUDENTS file.'
+       END
+       OPEN '', 'FIN.AID' TO F.FIN.AID ELSE
+          STOP 'Cannot open FIN.AID file.'
+       END
+       OPEN '', 'TERMS' TO F.TERMS ELSE
+          STOP 'Cannot open TERMS file.'
+       END
+       OPEN '', 'SA.':X.ACADEMIC.YEAR TO F.SA.FILE ELSE
+          STOP 'Cannot open SA.ACYR file.'
+       END
+       OPEN '', 'SL.':X.ACADEMIC.YEAR TO F.SL.FILE ELSE
+          STOP 'Cannot open SL.ACYR file.'
+       END
+       OPEN '', 'CS.':X.ACADEMIC.YEAR TO F.CS.FILE ELSE
+          STOP 'Cannot open CS.ACYR file.'
+       END
+       OPEN '', 'YS.':X.ACADEMIC.YEAR TO F.YS.FILE ELSE
+          STOP 'Cannot open YS.ACYR file.'
+       END
+       OPEN '', 'TA.':X.ACADEMIC.YEAR TO F.TA.FILE ELSE
+          STOP 'Cannot open TA.ACYR file.'
+       END
+       OPEN '', 'ST.PARMS' TO F.ST.PARMS ELSE
+          STOP 'Cannot open ST.PARMS file.'
+       END
+       OPEN '', 'ERROR.FILE' TO F.ERROR.FILE ELSE
+          STOP 'Cannot open ERROR.FILE file.'
+       END
+ *
+ ********************************************************************
+ * Name the output file. Use OPENSEQ with the UNIX path and directory
+ * where the output file will be stored.
+ ********************************************************************
+       OUT.FILE = "ELM.UNIV"
+       OPENSEQ "HOME.FTP",OUT.FILE TO F.OUT.FILE ELSE
+          NULL
+       END
+       WEOFSEQ F.OUT.FILE
+ *
+       DIM AWD.ARR(20)
+       DIM TERM.ARR(10)
+ 
+       PR.LINE = ""
+       FULL.NAME = ""
+       FIRST.TIME = ""
+       ERRORS = 0
+ 
+ ******************************************************************
+ *  Loan Specialist Information.  Change first 3 if necessary.
+ ******************************************************************
+       READ R.ST.PARMS FROM F.ST.PARMS, "FA.SYS.PARAMS" ELSE
+          CALL LINE.22("Cannot read FA.SYS.PARAMS from ST.PARMS")
+       END
+       SCH.OFFICIAL =           ;*Enter appropriate
+       SCH.OFFICIAL.TITLE =    ;*info for individual
+       SCH.PHONE =                ;*institution
+ *
+       SCH.CODE = R.ST.PARMS<23>
+       SCH.NAME = R.ST.PARMS<4>
+       SCH.ADDRESS = R.ST.PARMS<5,1>
+       SCH.CSZ = R.ST.PARMS<6>
+ * ---------------------------------------------------------------
+ *                      MAINLINE
+ * ---------------------------------------------------------------
+ 
+       DONE = 0
+       PRINTER ON
+       CALL PRINTER.RESET
+       LOOP
+          READNEXT KEY.ID.NO ELSE DONE = 1
+       UNTIL DONE DO
+ *
+          ERROR.MSG = ""
+          ERROR.FLAG = ""
+ 
+          MAT AWD.ARR = 0
+          MAT TERM.ARR = 0
+          AWD = ""
+ 
+          GOSUB 1500   ;* INITIALIZE LOAN DATA - RESET AMOUNTS TO ZERO
+ 
+          READ R.PEOPLE FROM F.PEOPLE, KEY.ID.NO ELSE
+             CALL LINE.22("Cannot read ":ID.NO:" from PEOPLE")
+          END
+          READU R.SA.FILE FROM F.SA.FILE, KEY.ID.NO ELSE
+             CALL LINE.22("Cannot read ":ID.NO:" from SA.":X.ACADEMIC.Y
+CEAR)
+          END
+          READ R.CS.FILE FROM F.CS.FILE, KEY.ID.NO ELSE
+             CALL LINE.22("Cannot read ":ID.NO:" from CS.":X.ACADEMIC.Y
+CEAR)
+          END
+ 
+ ********************************************************************
+ *  SFS will maintain Misc Fld 6 on FMF screen as LENDER.ID.
+ ********************************************************************
+ 
+          READV DEFAULT.LENDER.ID FROM F.FIN.AID,KEY.ID.NO,29 ELSE
+             DEFAULT.LENDER.ID = ''
+          END
+ *
+          LOAN.FP.STATUS = "F"
+          LOAN.LAST = R.PEOPLE<1>
+          LOAN.FIRST = R.PEOPLE<2>
+          LOAN.MIDDLE = R.PEOPLE<3>
+          LOAN.ADDRESS.1 = R.PEOPLE<5,1>
+          LOAN.ADDRESS.2 = R.PEOPLE<5,2>
+          LOAN.CITY = R.PEOPLE<6>
+          LOAN.STATE = R.PEOPLE<7>
+          LOAN.ZIP = R.PEOPLE<8>
+          LOAN.PHONE = R.PEOPLE<10>
+          LOAN.SSN = R.PEOPLE<13>
+          LOAN.BIRTHDATE = OCONV(R.PEOPLE<21>,'D2/')
+ *
+          CS.STD.TOTAL.EXPENSES = R.CS.FILE<13>
+          CS.BUDGET.ADJ = R.CS.FILE<14>
+          CS.FC = R.CS.FILE<18>
+ 
+ ********************************************************************
+ *  Read award info from SA.ACYR file.
+ ********************************************************************
+ 
+          AWARD.COUNT = COUNT(R.SA.FILE<7>,@VM)+(R.SA.FILE<7> # '')
+          FOR N = 1 TO AWARD.COUNT
+             AWARD.CODE = R.SA.FILE<7,N>
+             AWARD.AMOUNT = R.SA.FILE<8,N>
+             AWARD.ACTION = R.SA.FILE<14,N>
+ 
+             BEGIN CASE
+                CASE AWARD.CODE[1,2] = "SS"
+                   AWARD.TYPE = 1         ;*SUBSIDIZED STAFFORD LOAN
+                CASE AWARD.CODE[1,3] = "US0"
+                   AWARD.TYPE = 2         ;*UNSUBSIDIZED STAFFORD LOAN
+                CASE AWARD.CODE = "PLUS" OR AWARD.CODE[1,3] = "PL0" OR 
+CAWARD.CODE = "AKPL"
+                   AWARD.TYPE = 3         ;*PLUS LOAN
+                CASE AWARD.CODE = "AKLS" OR AWARD.CODE = "LOAN" OR AWAR
+CD.CODE[1,3] = "LA0" OR AWARD.CODE[1,3] = "LS0"
+                   AWARD.TYPE = 4         ;*PRIVATE LOAN
+                CASE AWARD.CODE[2,3] = "EFS" OR AWARD.CODE[2,3] = "EFU"
+                   AWARD.TYPE = 5         ;*EFT - BYPASS
+                CASE 1
+                   AWARD.TYPE = 6
+             END CASE
+ 
+ 
+             IF AWARD.ACTION = "T" AND AWARD.TYPE < 4 THEN
+ 
+ ********************************************************************
+ * PROCESS LOAN
+ ********************************************************************
+ 
+                GOSUB 1000 ;* READ LOAN RECORD
+ 
+                IF R.SL.FILE<13> GE X.START.DATE AND R.SL.FILE<13> LE X
+C.END.DATE THEN  ;* PROCESS SPECIFIC LOAN START DATES
+ 
+ 
+ ********************************************************************
+ * BUILD AWARD ARRAY FOR USE IN SUBR1800
+ ********************************************************************
+                   AWD += 1
+                   AWD.ARR(AWD) = R.SA.FILE<7,N>
+ 
+ ********************************************************************
+ *  While processing a loan record that has multiple loans on it 
+ *  (SS01 & US01), check to see if critical fields match.  If not,
+ *  bypass output file, don't update SA.ACTION, and print Error 
+ *  Report.  If fields match, continuing processing.
+ ********************************************************************
+                   IF LOAN.CLASS # "" THEN
+                      CHECK.CLASS = LOAN.CLASS
+                      LOAN.CLASS = R.SL.FILE<46>
+                      IF LOAN.CLASS # CHECK.CLASS THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Class codes. Check file
+C."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END ELSE
+                      LOAN.CLASS = R.SL.FILE<46>
+                   END
+ 
+                   IF LOAN.GRAD.DATE # "" THEN
+                      CHECK.GRAD.DATE = LOAN.GRAD.DATE
+                      LOAN.GRAD.DATE = OCONV(R.SL.FILE<43>,'D2/')
+                      IF LOAN.GRAD.DATE # CHECK.GRAD.DATE THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Graduation Dates. Check
+C file."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END ELSE
+                      LOAN.GRAD.DATE = OCONV(R.SL.FILE<43>,'D2/')
+                      IF LOAN.GRAD.DATE = "" THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Graduation Date is blank. Please 
+Cfill in appropriate date."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END
+ 
+                   IF PRORATION # "" THEN
+                      CHECK.PRORATION = PRORATION
+                      CHECK.EFA = LOAN.EFA.AWARD
+                      IF R.SL.FILE<10> = '' THEN
+                         PRORATION = 100
+                      END ELSE
+                         PRORATION = R.SL.FILE<10>
+                         LOAN.EFA.AWARD = FMT((R.SL.FILE<9>/10),'MD02')
+C + 0
+                      END
+                      IF PRORATION # CHECK.PRORATION THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Proration amount. Check
+C file."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                      IF LOAN.EFA.AWARD # CHECK.EFA THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Est. Financial Aid amou
+Cnts. Check file."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END ELSE
+                      IF R.SL.FILE<10> = '' THEN
+                         PRORATION = 100
+                      END ELSE
+                         PRORATION = R.SL.FILE<10>
+                         LOAN.EFA.AWARD = FMT((R.SL.FILE<9>/10),'MD02')
+C + 0
+                      END
+                   END
+ 
+                   IF LOAN.PERIOD.CODE # "" THEN
+                      CHECK.LOAN.PERIOD = LOAN.PERIOD.CODE
+                      LOAN.PERIOD.CODE = R.SL.FILE<55>
+                      IF LOAN.PERIOD.CODE # CHECK.LOAN.PERIOD THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Loan Periods.  Check fi
+Cle."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END ELSE
+                      LOAN.PERIOD.CODE = R.SL.FILE<55>
+                      IF LOAN.PERIOD.CODE = "" THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Loan Period is required. Please f
+Cill in appropriate code."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                         LOAN.PERIOD.CODE = "ERR"
+                      END
+                   END
+ 
+                   IF LOAN.START.DATE = "" THEN
+                      LOAN.START.DATE = OCONV(R.SL.FILE<13>,'D2/')
+                   END
+ 
+                   IF LOAN.END.DATE = "" THEN
+                      LOAN.END.DATE = OCONV(R.SL.FILE<14>,'D2/')
+                   END
+ 
+                   IF LOAN.DISB.1 = "" THEN
+                      LOAN.DISB.1 = OCONV((R.SL.FILE<56,1>),'D2/')
+                   END
+ 
+                   IF LOAN.DISB.2 = "" THEN
+                      LOAN.DISB.2 = OCONV((R.SL.FILE<56,2>),'D2/')
+                   END
+ 
+                   IF LOAN.LENDER.ID # "" THEN
+                      CHECK.LENDER.ID = LOAN.LENDER.ID
+                      LOAN.LENDER.ID = R.SL.FILE<5>
+                      IF LOAN.LENDER.ID # CHECK.LENDER.ID THEN
+                         ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                         ERROR.MSG :="Different Lender ID. Check file."
+                         ERROR.FLAG = 1
+                         GOSUB 9000
+                      END
+                   END ELSE
+                      LOAN.LENDER.ID = R.SL.FILE<5>
+                   END
+ 
+                   BEGIN CASE
+                      CASE AWARD.TYPE = 1
+                         LOAN.SS.AWARD += AWARD.AMOUNT
+                      CASE AWARD.TYPE = 2
+                         LOAN.US.AWARD += AWARD.AMOUNT
+                      CASE AWARD.TYPE = 3
+                         LOAN.PL.AWARD += AWARD.AMOUNT
+                   END CASE
+ 
+                   R.SA.FILE<14,N> = "A"
+ 
+                END
+             END
+ 
+             IF AWARD.TYPE > 5 THEN
+ 
+ ********************************************************************
+ * PROCESS EFA
+ ********************************************************************
+ 
+                EFA += AWARD.AMOUNT
+             END
+ 
+ 
+             CHECK.CLASS = LOAN.CLASS
+             CHECK.GRAD.DATE = LOAN.GRAD.DATE
+             CHECK.PRORATION = PRORATION
+             CHECK.LOAN.PERIOD = LOAN.PERIOD.CODE
+             CHECK.LENDER.ID = LOAN.LENDER.ID
+             CHECK.EFA = LOAN.EFA.AWARD
+          NEXT N
+ 
+ 
+ ********************************************************************
+ * BUILD LOAN RECORD
+ ********************************************************************
+ 
+          LOAN.CERT.DATE = OCONV(DATE(),'D2/')
+ 
+          IF LOAN.LENDER.ID = "" THEN
+             LOAN.LENDER.ID = DEFAULT.LENDER.ID
+             IF DEFAULT.LENDER.ID = "" THEN
+                ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+                ERROR.MSG :="Lender ID is required. Please fill in appr
+Copriate value."
+                ERROR.FLAG = 1
+                GOSUB 9000
+             END
+          END
+ 
+          IF LOAN.PL.AWARD # "" THEN
+             LOAN.PLUS.NAME = R.PEOPLE<54>
+             LOAN.PLUS.ADDRESS = R.PEOPLE<55>
+             LOAN.PLUS.CITY = R.PEOPLE<56>
+             LOAN.PLUS.STATE = R.PEOPLE<57>
+             LOAN.PLUS.ZIP = R.PEOPLE<58>
+             LOAN.PLUS.COUNTRY = R.PEOPLE<59>
+             LOAN.PLUS.PHONE = R.PEOPLE<60>
+          END
+ 
+          LOAN.COST.OF.ED = OCONV((CS.STD.TOTAL.EXPENSES+CS.BUDGET.ADJ)
+C*PRORATION,"MD02")
+          LOAN.FAMILY.CONTRIB = OCONV(CS.FC*PRORATION,"MD02")
+ 
+          IF PRORATION = 100 THEN
+             LOAN.EFA.AWARD = EFA
+          END
+          LOAN.EFA.AWARD = OCONV((LOAN.EFA.AWARD + 0),'MD02')
+ 
+          LOAN.TOTAL.LOAN.AWARD = LOAN.SS.AWARD + LOAN.US.AWARD + LOAN.
+CPL.AWARD
+ 
+          LOAN.SS.AWARD = OCONV(LOAN.SS.AWARD,'MD02')
+          LOAN.US.AWARD = OCONV(LOAN.US.AWARD,'MD02')
+          LOAN.PL.AWARD = OCONV(LOAN.PL.AWARD,'MD02')
+          LOAN.TOTAL.LOAN.AWARD = OCONV(LOAN.TOTAL.LOAN.AWARD,'MD02')
+ 
+ ********************************************************************
+ * Total Loan and Other Financial Aid amount cannot exceed Cost of Ed.
+ ********************************************************************
+          IF (LOAN.TOTAL.LOAN.AWARD + LOAN.EFA.AWARD) > LOAN.COST.OF.ED
+C THEN
+             ERROR.MSG = "ID.NO: ":KEY.ID.NO:". "
+             ERROR.MSG :="Total Loan amount exceeds Cost of Education. 
+CCheck file."
+             ERROR.FLAG = 1
+             GOSUB 9000
+          END
+ 
+ ********************************************************************
+ *  Write information to OUT.FILE = ELM.UNIV.  Only process if 
+ *  an award amount exists AND there are no errors.
+ ********************************************************************
+ 
+          IF LOAN.TOTAL.LOAN.AWARD > 0 AND ERROR.FLAG = "" THEN
+             R.OUT.FILE = ""
+             R.OUT.FILE := LOAN.LAST
+             R.OUT.FILE := CHAR(9):LOAN.FIRST
+             R.OUT.FILE := CHAR(9):LOAN.MIDDLE
+             R.OUT.FILE := CHAR(9):LOAN.ADDRESS.1
+             R.OUT.FILE := CHAR(9):LOAN.ADDRESS.2
+             R.OUT.FILE := CHAR(9):LOAN.CITY
+             R.OUT.FILE := CHAR(9):LOAN.STATE
+             R.OUT.FILE := CHAR(9):LOAN.ZIP
+             R.OUT.FILE := CHAR(9):LOAN.PHONE
+             R.OUT.FILE := CHAR(9):LOAN.SSN
+             R.OUT.FILE := CHAR(9):LOAN.BIRTHDATE
+             R.OUT.FILE := CHAR(9):LOAN.GRAD.DATE
+             R.OUT.FILE := CHAR(9):LOAN.CLASS
+             R.OUT.FILE := CHAR(9):LOAN.FP.STATUS
+             R.OUT.FILE := CHAR(9):LOAN.CERT.DATE
+             R.OUT.FILE := CHAR(9):LOAN.PERIOD.CODE
+             R.OUT.FILE := CHAR(9):LOAN.START.DATE
+             R.OUT.FILE := CHAR(9):LOAN.END.DATE
+             R.OUT.FILE := CHAR(9):LOAN.DISB.1
+             R.OUT.FILE := CHAR(9):LOAN.DISB.2
+             R.OUT.FILE := CHAR(9):LOAN.LENDER.ID
+             R.OUT.FILE := CHAR(9):LOAN.COST.OF.ED
+             R.OUT.FILE := CHAR(9):LOAN.FAMILY.CONTRIB
+             R.OUT.FILE := CHAR(9):LOAN.SS.AWARD
+             R.OUT.FILE := CHAR(9):LOAN.US.AWARD
+             R.OUT.FILE := CHAR(9):LOAN.PL.AWARD
+             R.OUT.FILE := CHAR(9):LOAN.TOTAL.LOAN.AWARD
+             R.OUT.FILE := CHAR(9):LOAN.EFA.AWARD
+             R.OUT.FILE := CHAR(9):SCH.OFFICIAL
+             R.OUT.FILE := CHAR(9):SCH.OFFICIAL.TITLE
+             R.OUT.FILE := CHAR(9):SCH.PHONE
+             R.OUT.FILE := CHAR(9):SCH.CODE
+             R.OUT.FILE := CHAR(9):SCH.NAME
+             R.OUT.FILE := CHAR(9):SCH.ADDRESS
+             R.OUT.FILE := CHAR(9):SCH.CSZ
+ 
+ ********************************************************************
+ * If a PLUS loan exists, must provide parent/guardian info with it.
+ ********************************************************************
+             IF LOAN.PL.AWARD # "" THEN
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.NAME
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.ADDRESS
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.CITY
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.STATE
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.ZIP
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.COUNTRY
+                R.OUT.FILE := CHAR(9):LOAN.PLUS.PHONE
+             END
+ 
+ *********************************************************************
+ * Write Loan Application information to the OUT.FILE.
+ *********************************************************************
+             WRITESEQ R.OUT.FILE APPEND TO F.OUT.FILE THEN NULL
+ 
+ *********************************************************************
+ * Update SA.ACTION from 'T' to 'A'.
+ *********************************************************************
+             WRITE R.SA.FILE ON F.SA.FILE,KEY.ID.NO
+ 
+ *********************************************************************
+ * Update TA.ACTION from 'T' to 'A'.
+ *********************************************************************
+             GOSUB 1800         ;*COUNT TERMS, UPDATE TA.ACTION IN TA.A
+CCYR
+ 
+             GOSUB 2000         ;*Report to verify what is transmitted
+ 
+          END ELSE
+             RELEASE F.SA.FILE,KEY.ID.NO
+          END
+       REPEAT
+ *
+ **********************************************************************
+C*
+ * If errors occur, run REPORT.ERROR process. Must fix any errors 
+ * before re-running the download process.
+ **********************************************************************
+C*
+       IF ERRORS THEN
+          OUTBUF = "REPORT.ERROR":"PRINTER.RESET"
+          PASS = "ELM LOAN PROCESSING"
+          CALL PROCESS("REPORT.ERROR",PASS)
+       END
+ 
+ 
+       PRINTER OFF
+ 
+       RETURN
+ * -----------------------------------------------------------------
+ *                       SUBROUTINES
+ * -----------------------------------------------------------------
+ *****
+ 1000: ;* GET KEY FOR SL.ACYR 
+ *****
+ 
+       KV.SL.FILE = KEY.ID.NO:"*":AWARD.CODE
+       READ R.SL.FILE FROM F.SL.FILE,KV.SL.FILE ELSE
+          CALL LINE.22('Cannot read ':KV.SL.FILE:' from SL.':X.ACADEMIC
+C.YEAR)
+       END
+       RETURN
+ 
+ 
+ *****
+ 1500: ;* CLEAR LOAN DATA
+ *****
+ 
+       EFA = 0
+       PRORATION = ""
+ 
+       LOAN.LAST = ""
+       LOAN.FIRST = ""
+       LOAN.MIDDLE = ""
+       LOAN.ADDRESS.1 = ""
+       LOAN.ADDRESS.2 = ""
+       LOAN.CITY = ""
+       LOAN.STATE = ""
+       LOAN.ZIP = ""
+       LOAN.PHONE = ""
+       LOAN.SSN = ""
+       LOAN.BIRTHDATE = ""
+       LOAN.GRAD.DATE = ""
+       LOAN.CLASS = ""
+       LOAN.FP.STATUS = ""
+       LOAN.CERT.DATE = ""
+       LOAN.SS.AWARD = 0
+       LOAN.US.AWARD = 0
+       LOAN.PL.AWARD = 0
+       LOAN.PRIVATE.AWARD = 0
+       LOAN.EFA.AWARD = 0
+       LOAN.TOTAL.LOAN.AWARD = 0
+       LOAN.PERIOD.CODE = ""
+       LOAN.DISB.1 = ""
+       LOAN.DISB.2 = ""
+       LOAN.LENDER.ID = ""
+       LOAN.COST.OF.ED = ""
+       LOAN.FAMILY.CONTRIB = ""
+       LOAN.START.DATE = ""
+       LOAN.END.DATE = ""
+ 
+       LOAN.PLUS.NAME = ""
+       LOAN.PLUS.ADDRESS = ""
+       LOAN.PLUS.CITY = ""
+       LOAN.PLUS.STATE = ""
+       LOAN.PLUS.ZIP = ""
+       LOAN.PLUS.COUNTRY = ""
+       LOAN.PLUS.PHONE = ""
+ 
+       CHECK.CLASS = ""
+       CHECK.GRAD.DATE = ""
+       CHECK.PRORATION = ""
+       CHECK.LOAN.PERIOD = ""
+       CHECK.LENDER.ID = ""
+       CHECK.EFA = ""
+ 
+       RETURN
+ 
+ *****
+ 1800: ;* COUNT TERMS, UPDATE TA.ACTION IN TA.ACYR
+ *****
+ 
+       FOR K = 1 TO AWD
+          TERM.COUNT = COUNT(R.SA.FILE<25>,@VM)+(R.SA.FILE<7>#'')
+          FOR J = 1 TO TERM.COUNT
+             TERM.ARR(J) = R.SA.FILE<25,J>
+             TEMP.KEY = KEY.ID.NO:"*":AWD.ARR(K):"*":TERM.ARR(J)
+             READU R.TA.FILE FROM F.TA.FILE, TEMP.KEY ELSE
+                CALL LINE.22("Cannot read ":TEMP.KEY:" from TA.":X.ACAD
+CEMIC.YEAR)
+             END
+             IF LOAN.TOTAL.LOAN.AWARD > 0 AND ERROR.FLAG = "" THEN
+                R.TA.FILE<6> = "A"
+                WRITE R.TA.FILE ON F.TA.FILE,TEMP.KEY
+             END ELSE
+                RELEASE F.TA.FILE, TEMP.KEY
+             END
+          NEXT J
+       NEXT K
+ 
+       RETURN
+ 
+ *****
+ 2000: ;* PRINT LOAN PROCESSING REPORT
+ *****
+ 
+ *********************************************************************
+ * Report shows student name, SSN, loan period dates, loan amounts, 
+ * and Lender ID. This is more for a verification that the record was
+ * transmitted.
+ *********************************************************************
+ 
+       IF FIRST.TIME = "" OR FIRST.TIME = "Y" THEN
+          HEAD = "'D'":SPACE(47):"LOAN PROCESSING REPORT":SPACE(43):"Pa
+Cge: 'PL'" 
+          HEAD := SPACE(60):"Download File'L'"
+          HEAD := SPACE(56):"Certified on: ":OCONV(DATE(),'D2/'):"'LLL'
+C"
+          HEAD := "ID.NO":SPACE(5):"Name":SPACE(21):"SSN":SPACE(10):"Lo
+Can Period":SPACE(10):"SS Award":SPACE(5):"US Award":SPACE(5):"PL Award
+C":SPACE(5):"Lender ID":"'LL'"
+          HEADING HEAD
+          FIRST.TIME = "N"
+       END
+       FULL.NAME = LOAN.LAST:", ":LOAN.FIRST:" ":LOAN.MIDDLE
+       PR.LINE = KEY.ID.NO:SPACE(3):FMT(FULL.NAME,'25L')
+       PR.LINE := LOAN.SSN:SPACE(2)
+       PR.LINE := LOAN.START.DATE:"-":LOAN.END.DATE:SPACE(2)
+       PR.LINE := FMT(LOAN.SS.AWARD,'10R2$,'):SPACE(3)
+       PR.LINE := FMT(LOAN.US.AWARD,'10R2$,'):SPACE(3)
+       PR.LINE := FMT(LOAN.PL.AWARD,'10R2$,'):SPACE(5)
+       PR.LINE := LOAN.LENDER.ID
+       PRINT PR.LINE
+ 
+       RETURN
+ 
+ *****
+ 9000: ;* PROCESS ERRORS
+ *****
+       ERRORS += 1
+       ERROR.FLAG = 1
+       CALL WRITE.ERROR(F.ERROR.FILE,@USERNO,ERROR.MSG)
+       RETURN
+ ======== END OF RECORD ===============================================
+ ### END OF FILE ######################################################
+ ##### FILE SELECT.TABLES #########################    1 RECORDS ######
+ ======== RECORD FA.ELM ===========================    10 FIELDS ======
+ SL.START.DATE~SL.START.DATE~ID.NO
+ S~S~M
+ ~~
+ ##/##/##~##/##/##~#######
+ 
+ 8~8~7
+ >=~<=~=
+ Y~Y~N
+ ~~0
+ D2/~D2/~
+ ======== END OF RECORD ===============================================
+ ### END OF FILE ######################################################

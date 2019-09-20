@@ -1,0 +1,76 @@
+      SUBROUTINE C26.SUBROUTINE.INTERLUDE(RETURN.VALUE,SUBR.TO.CALL,NUM.ARGS,ARG.TO.RETURN,ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7,ARG8,ARG9,ARG10)
+*
+* INFO/BASIC SUBROUTINE
+* 12/10/97
+* DLR
+* TITLE ----- C26.SUBROUTINE.INTERLUDE
+*
+*
+* MODULE :
+* PURPOSE: RETURN SELECTED ARGUMENT AFTER CALLING ANOTHER SUBROUTINE
+*   (Used to make Datatel subroutines available for use in i-descriptors)
+*
+*
+* Stamped: q3 rotmand, /disk1/collive, user #3641, 10 Dec 97, 03:26PM.
+*
+*************************************************************************
+*
+
+      RETURN.VALUE = ''
+      IF SUBR.TO.CALL = '' THEN
+         RETURN
+      END
+      IF NUM.ARGS = '' OR NOT(NUM(NUM.ARGS)) THEN
+         RETURN
+      END
+      BEGIN CASE
+         CASE NUM.ARGS = 1
+            CALL @SUBR.TO.CALL(ARG1)
+         CASE NUM.ARGS = 2
+            CALL @SUBR.TO.CALL(ARG1,ARG2)
+         CASE NUM.ARGS = 3
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3)
+         CASE NUM.ARGS = 4
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4)
+         CASE NUM.ARGS = 5
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5)
+         CASE NUM.ARGS = 6
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5,ARG6)
+         CASE NUM.ARGS = 7
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7)
+         CASE NUM.ARGS = 8
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7,ARG8)
+         CASE NUM.ARGS = 9
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7,ARG8,ARG9)
+         CASE NUM.ARGS = 10
+            CALL @SUBR.TO.CALL(ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7,ARG8,ARG9)
+         CASE 1
+            RETURN
+      END CASE
+      BEGIN CASE
+         CASE ARG.TO.RETURN = 1
+            RETURN.VALUE = ARG1
+         CASE ARG.TO.RETURN = 2
+            RETURN.VALUE = ARG2
+         CASE ARG.TO.RETURN = 3
+            RETURN.VALUE = ARG3
+         CASE ARG.TO.RETURN = 4
+            RETURN.VALUE = ARG4
+         CASE ARG.TO.RETURN = 5
+            RETURN.VALUE = ARG5
+         CASE ARG.TO.RETURN = 6
+            RETURN.VALUE = ARG6
+         CASE ARG.TO.RETURN = 7
+            RETURN.VALUE = ARG7
+         CASE ARG.TO.RETURN = 8
+            RETURN.VALUE = ARG8
+         CASE ARG.TO.RETURN = 9
+            RETURN.VALUE = ARG9
+         CASE ARG.TO.RETURN = 10
+            RETURN.VALUE = ARG10
+         CASE 1
+            RETURN
+      END CASE
+      RETURN
+
+   END

@@ -1,0 +1,16 @@
+PA
+********************************************************************
+*
+* Stamped: p12 rotmand, /usr/local/download, user #2048, 29 Sep 15, 07:41AM.
+* Version 8.01
+*
+********************************************************************
+DELETE.CATALOG EXPAND.ITEMS
+DELETE.CATALOG FLIP.8TH.BIT
+DELETE.CATALOG GET.KEYWORD.VALUE
+DELETE.CATALOG OPEN.FILE
+DELETE.CATALOG PARSE.COMMAND.LINE
+DELETE.CATALOG PROMPT.ANS
+DELETE.CATALOG PROMPT.STACK
+DELETE.CATALOG VIEW.FILE
+DELETE.CATALOG VIEW.SEQ.FILE

@@ -1,0 +1,63 @@
+* I_PP.FONTS.COMMON
+* Standard fonts to be used as predefined fields
+ 
+ 
+ 
+* Stamped: pts_4 rotmand, /datatel/coll18/live/apphome, user #27508, 08 Dec 14, 08:55AM.
+*  Version 5.2
+*  Allow field name for mail subject
+* Stamped: pts_3 rotmand, /datatel/coll18/live/apphome, user #21570, 31 Jan 12, 05:22PM.
+*  Version 5.1
+*  Allow numeric field numbers in addition to field names.
+* Stamped: pts_82 rotmand, /datatel/live/collive, user #29971, 19 Mar 07, 04:42PM.
+*  Version 5.0
+*  Add ATTACH.FILE option.
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+ 
+ 
+ 
+*
+* INSERT
+*   1.  FONT NAME
+*   2.  CODE TO START THE FONT (PRIOR TO SETTING PITCH SIZE)
+*   3.  CODE TO FINISH THE FONT (AFTER SETTING PITCH SIZE)
+*
+* SHIPPED VERSION OF PRINT.PAGE INCLUDES DEFINITIONS FOR VARIOUS
+* PCL FONTS USED ON HEWLETT-PACKARD LASERJET PRINTERS
+*
+
+      COMMON /PPFONTS/ PPFONTS.NAME,
+      PPFONTS.START,
+      PPFONTS.FINISH
+
+
+      PPFONTS.NAME = ''
+      PPFONTS.START = ''
+      PPFONTS.FINISH = ''
+
+      PPFONTS.NAME<1,1> = 'COURIER'
+      PPFONTS.START<1,1> = CHAR(27):'(8U':CHAR(27):'(s0p'
+      PPFONTS.FINISH<1,1> = 'h0s0b4099T'
+
+      PPFONTS.NAME<1,2> = 'CGTIMES'
+      PPFONTS.START<1,2> = CHAR(27):'(8U':CHAR(27):'(s1p'
+      PPFONTS.FINISH<1,2> = 'v0s0b4101T'
+
+      PPFONTS.NAME<1,3> = 'ARIAL'
+      PPFONTS.START<1,3> = CHAR(27):'(8U':CHAR(27):'(s1p'
+      PPFONTS.FINISH<1,3> = 'v0s0b16602T'
+
+      PPFONTS.NAME<1,4> = 'COURIERBOLD'
+      PPFONTS.START<1,4> = CHAR(27):'(8U':CHAR(27):'(s0p'
+      PPFONTS.FINISH<1,4> = 'h0s3b4099T'
+
+      PPFONTS.NAME<1,5> = 'COURIERITALIC'
+      PPFONTS.START<1,5> = CHAR(27):'(8U':CHAR(27):'(s0p'
+      PPFONTS.FINISH<1,5> = 'h1s0b4099T'
+
+      PPFONTS.NAME<1,6> = 'HELVETICA'
+      PPFONTS.START<1,6> = CHAR(27):'(8U':CHAR(27):'(s1p'
+      PPFONTS.FINISH<1,6> = 'v0s0b24580T'
+

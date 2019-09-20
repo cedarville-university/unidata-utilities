@@ -1,0 +1,150 @@
+      SUBROUTINE POPEN(FUNIT, PATH.NAME, ACTION, OVERWRITING, ERRMSG)
+*
+* INFO/BASIC SUBROUTINE
+* 3/15/91
+* DWS
+* TITLE ----- POPEN
+*
+*
+* PURPOSE: OPEN A FILE DIRECTLY (USING PRIMOS CALL SRSFX$)
+*
+*
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #184, 05 Nov 02, 07:56AM.
+*   Version 6.00
+*
+*
+*
+*
+*
+*
+*************************************************************************
+*
+
+$INCLUDE IDLKEYS_INS
+$INSERT SYSCOM>ERRD.INS.IBAS
+
+*
+*
+* CHECK FOR VALID ACTION
+*
+      ERRMSG = ''
+      IF ACTION # 'READ' AND ACTION # 'WRITE' THEN
+         ERRMSG = 'INVALID ACTION "':ACTION:'"'
+         RETURN
+      END
+
+*
+*
+* MAIN CONTROL
+*
+
+      GOSUB SET.UP
+      IF ACTION = 'WRITE' AND NOT(OVERWRITING) THEN
+         GOSUB MAKE.SURE.FILE.IS.NEW
+         IF ERRMSG THEN
+            RETURN
+         END
+      END
+      GOSUB OPENFILE
+      IF ERRMSG THEN
+         RETURN
+      END
+      IF ACTION = 'WRITE' THEN
+         GOSUB TRUNCATE.FILE
+      END
+      RETURN
+
+
+
+* SET UP PARAMETERS FOR CALL
+*
+SET.UP:
+      NUM.SUFFIXES = 0
+      SUFFIXES = ''
+      WHICH.SUFFIX = 0
+      BASE.NAME = ''
+      FUNIT = ''
+      TYPE = ''
+      CODE = ''
+      IF ACTION = 'READ' THEN
+         ACTION.FLAG = K$READ+K$GETU
+      END ELSE
+         ACTION.FLAG = K$WRIT+K$GETU
+      END
+      RETURN
+
+
+
+*
+*
+* OPEN THE FILE FOR READ OR WRITE
+*
+OPENFILE:
+      CALL $SRSFX$(ACTION.FLAG, PATH.NAME, FUNIT, TYPE, NUM.SUFFIXES, SUFFIXES, BASE.NAME, WHICH.SUFFIX, CODE)
+      BEGIN CASE
+         CASE CODE = E$OK
+            BEGIN CASE
+               CASE TYPE = 0 OR TYPE = 1          ;* SAM OR DAM FILE
+                  NULL
+               CASE TYPE = 2 OR TYPE = 3          ;* SAM SEGDIR OR DAM SEGTDIR
+                  ERRMSG = '"':PATH.NAME:'" is a segment directory'
+               CASE TYPE = 4
+                  ERRMSG = '"':PATH.NAME:'" is an UFD'
+               CASE 1
+                  ERRMSG = '"':PATH.NAME:'" is not a SAM or DAM file, type = ':TYPE
+            END CASE
+         CASE CODE = E$FNTF
+            ERRMSG = '"':PATH.NAME:'" does not exist'
+         CASE CODE = E$BNAM OR CODE = E$NMLG OR CODE = E$ITRE
+            ERRMSG = '"':PATH.NAME:'" is an illegal file name'
+         CASE CODE = E$UIUS OR CODE = E$FIUS
+            ERRMSG = '"':PATH.NAME:'" is already in use'
+         CASE CODE = E$NRIT
+            ERRMSG = 'Insufficient rights to access "':PATH.NAME:'"'
+         CASE CODE = E$DIRE
+            ERRMSG = '"':PATH.NAME:'" is a directory'
+         CASE 1
+            ERRMSG = '"SRSFX$" returned an error code of: ':CODE:' in OPEN for ':ACTION
+      END CASE
+      RETURN
+
+
+*
+*
+* TRUNCATE THE FILE
+*
+TRUNCATE.FILE:
+      BUFFER = ''
+      WORDS.TO.WRITE = 0
+      POSITION = 0
+      WORDS.ACTUALLY.WRITTEN = 0
+      CODE = ''
+      CALL $PRWF$$(K$TRNC, FUNIT, BUFFER, WORDS.TO.WRITE, POSITION, WORDS.ACTUALLY.WRITTEN, CODE)
+      IF CODE THEN
+         ERRMSG = '"PRWF$$" returned an error code of: ':CODE:' while truncating "':PATH.NAME:'"'
+      END
+      RETURN
+
+
+*
+*
+* CHECK IF FILE EXISTS
+*
+MAKE.SURE.FILE.IS.NEW:
+      CALL $SRSFX$(K$EXST, PATH.NAME, FUNIT, TYPE, NUM.SUFFIXES, SUFFIXES, BASE.NAME, WHICH.SUFFIX, CODE)
+      BEGIN CASE
+         CASE CODE = E$OK
+            ERRMSG = '"':PATH.NAME:'" already exists'
+         CASE CODE = E$FNTF
+            NULL
+         CASE CODE = E$BNAM OR CODE = E$NMLG OR CODE = E$ITRE
+            ERRMSG = '"':PATH.NAME:'" is an illegal file name'
+         CASE 1
+            ERRMSG = '"SRSFX$" returned an error code of: ':CODE:' in checking for existence'
+      END CASE
+      RETURN
+
+
+   END

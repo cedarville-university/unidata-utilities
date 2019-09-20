@@ -1,0 +1,27 @@
+      SUBROUTINE ADJUST.CENTURY(RETURN.STRING,PASSED.YEAR)
+*
+* INFO/BASIC SUBROUTINE
+* 01/06/97
+* DLR
+* TITLE ----- ADJUST.CENTURY
+*
+*
+* MODULE :
+* PURPOSE: CHANGE TWO-DIGIT YEAR TO FOUR-DIGIT YEAR
+*
+* Stamped: pty/ttyp9 rotmand, /disk1/collive, user #13200, 06 Jan 97, 09:41AM.
+*
+*************************************************************************
+*
+
+      IF LEN(PASSED.YEAR) > 2 THEN
+         RETURN.STRING = PASSED.YEAR
+         RETURN
+      END
+
+      TEST.DATE = ICONV('1/1/':PASSED.YEAR,'D2/')
+      RETURN.STRING = OCONV(TEST.DATE,'D4/')[7,4]
+      RETURN
+
+
+   END

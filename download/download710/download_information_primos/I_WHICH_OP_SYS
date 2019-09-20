@@ -1,0 +1,25 @@
+*
+* Set which operating system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_OP_SYS_PRIMOS
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p2 rotmand, /datatel/live/collive, user #2463, 17 Feb 04, 10:49AM.
+* Version 7.10
+*
+*
+*
+*
+*
+*
+*
+
+*
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIX LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.PRIMOS LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.WINDOWS LIT '*'
+      OP.SYS.NAME = 'PRIMOS'

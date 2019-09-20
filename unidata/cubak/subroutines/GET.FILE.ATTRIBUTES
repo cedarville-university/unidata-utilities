@@ -1,0 +1,161 @@
+      SUBROUTINE GET.FILE.ATTRIBUTES(RETURN.VALUE,TYPE.1.FILE,RECORD.NAME,VALUE.TO.GET)
+*
+* INFO/BASIC SUBROUTINE
+* 8/9/89
+* DLR
+* TITLE ----- GET.FILE.ATTRIBUTES
+*
+*
+* MODULE :
+* PURPOSE: RETURN DATE MODIFIED AND OTHER ATTRIBUTES FOR RECORDS (FILES)
+*          WITHIN A TYPE-1 FILE (DIRECTORY).
+*
+*          THIS SUBROUTINE CAN THEN BE USED IN I-DESCRIPTORS AND INFORM:
+*             SELECT &SAVEDLISTS& WITH DATE.CREATED < '5/1/89'
+*
+*
+* Stamped: v9 rotmand, /disk1/collive, user #3945, 29 Mar 99, 09:38AM.
+*  Utilized DIR function call to get date modified, instead of executing
+*  an 'ls' command.
+* Stamped: pty/ttyp5 rotmand, /disk1/collive, user #2275, 05 Aug 94, 04:24PM.
+* Modified for HP-UX
+* This is a minimal implementation!
+*     Last updated by LIVE (ROTMAN) at 11:30:14 on 08/09/1989.
+*
+*************************************************************************
+*
+
+
+      $INCLUDE SYSCOM FILEINFO.INS.IBAS
+
+
+
+      COMMON /GETFILA/ LAST.PATHNAME, LAST.RECORD.DATA, LAST.RECORD.NAME,
+      GETFILA.F.VOC,
+      GETFILA.SPARE5,
+      GETFILA.SPARE4,
+      GETFILA.SPARE3,
+      GETFILA.SPARE2,
+      GETFILA.SPARE1,
+      GETFILA.SET
+
+
+      IF NOT(GETFILA.SET) THEN
+         GOSUB SET.UP
+      END
+
+
+      RETURN.VALUE = ''
+      IF TYPE.1.FILE = '' THEN
+         RETURN
+      END
+      GOSUB GET.PATHNAME
+      IF NOT(FOUND.VOC) THEN
+         RETURN
+      END
+      IF PATHNAME = LAST.PATHNAME AND RECORD.NAME = LAST.RECORD.NAME THEN
+         RECORD.DATA = LAST.RECORD.DATA
+      END ELSE
+         GOSUB GET.RECORD.DATA
+      END
+      IF NOT(HAVE.RECORD.DATA) THEN
+         RETURN
+      END
+      LAST.PATHNAME = PATHNAME
+      LAST.RECORD.DATA = RECORD.DATA
+      LAST.RECORD.NAME = RECORD.NAME
+*DLR*      END
+      GOSUB PROCESS.REQUEST
+      RETURN
+
+
+GET.RECORD.DATA: 
+      HAVE.RECORD.DATA = @TRUE
+      FILE.NAME = PATHNAME:'/':RECORD.NAME
+*DLR*      BUFFER = ''
+*DLR*      F.STATUS = CALLC c_finfo(FILE.NAME,BUFFER)
+*DLR*      IF F.STATUS THEN
+*DLR*         HAVE.RECORD.DATA = @FALSE
+*DLR*         RETURN
+*DLR*      END
+*DLR*      DATE.ACCESSED = ICONV(BUFFER<3>,'D2/')
+*DLR*      DATE.MODIFIED = ICONV(BUFFER<4>,'D2/')
+*DLR*      DATE.CREATED = ICONV(BUFFER<5>,'D2/')
+
+      COMMAND = 'ls -ud ':FILE.NAME
+      PCPERFORM COMMAND CAPTURING LS.OUTPUT
+      GOSUB PARSE.LS.OUTPUT
+      DATE.ACCESSED = LS.DATE
+
+*DLR*      COMMAND = 'ls -ld ':FILE.NAME
+*DLR*      PCPERFORM COMMAND CAPTURING LS.OUTPUT
+*DLR*      GOSUB PARSE.LS.OUTPUT
+*DLR*      DATE.MODIFIED = LS.DATE
+      X.DIR.DATA = DIR(FILE.NAME)
+      DATE.MODIFIED = X.DIR.DATA<2>
+
+      RECORD.DATA = ''
+      RECORD.DATA<-1> = DATE.ACCESSED
+      RECORD.DATA<-1> = DATE.MODIFIED
+*DLR*      RECORD.DATA<-1> = DATE.CREATED
+      RETURN
+
+
+PARSE.LS.OUTPUT: 
+      TEMP.OUTPUT = TRIM(LS.OUTPUT<1>)
+      LS.MONTH = FIELD(TEMP.OUTPUT,' ',6,1)
+      LS.DAY = FIELD(TEMP.OUTPUT,' ',7,1)
+      LS.TIME = FIELD(TEMP.OUTPUT,' ',8,1)
+      IF NUM(LS.TIME) THEN
+         LS.YEAR = LS.TIME
+      END ELSE
+         LS.YEAR = ''
+      END
+      LS.DATE = ICONV(LS.MONTH:' ':LS.DAY:' ':LS.YEAR,'D')
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PROCESS.REQUEST: 
+      STATUS = ''
+      BEGIN CASE
+         CASE VALUE.TO.GET = 'ALL'
+            RETURN.VALUE<1,-1> = RECORD.DATA
+         CASE VALUE.TO.GET = 'DATE.ACCESSED'
+            RETURN.VALUE = RECORD.DATA<1>
+         CASE VALUE.TO.GET = 'DATE.MODIFIED'
+            RETURN.VALUE = RECORD.DATA<2>
+*DLR*         CASE VALUE.TO.GET = 'DATE.CREATED'
+*DLR*            RETURN.VALUE = RECORD.DATA<3>
+         CASE 1
+            NULL
+      END CASE
+      RETURN
+
+
+GET.PATHNAME: 
+      FOUND.VOC = @TRUE
+      READ VOC.REC FROM GETFILA.F.VOC, TYPE.1.FILE ELSE
+         FOUND.VOC = @FALSE
+         RETURN
+      END
+      PATHNAME = VOC.REC<2>
+      RETURN
+
+
+
+
+SET.UP: 
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      GETFILA.F.VOC = ''
+      CALL OPEN.FILE(GETFILA.F.VOC,'VOC',ERROR.RET,ERROR.MSG)
+      GETFILA.SET = @TRUE
+      RETURN
+
+
+
+   END

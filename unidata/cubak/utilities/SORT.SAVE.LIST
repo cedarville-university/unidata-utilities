@@ -1,0 +1,45 @@
+*
+* INFO/BASIC PROGRAM
+* 3/6/89
+* DLR
+* TITLE ----- SORT.SAVE.LIST
+* REL 0.0
+*
+*
+* MODULE :
+* PURPOSE: SORT AN EXISTING SAVE LIST BY @ID WITHOUT READING THE FILE
+*
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #6096, 24 Jun 94, 05:02PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAN) at 16:09:30 on 03/06/1989.
+*
+*************************************************************************
+*
+
+      SYNTAX = 'Usage:  SORT.SAVE.LIST input.list [output.list]'
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      COMMAND.LINE = @SENTENCE
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF NUM.PARAMS < 2 OR NUM.PARAMS > 3 THEN
+         STOP SYNTAX
+      END
+      INPUT.LIST = PARAM.STR<2>
+      IF NUM.PARAMS = 3 THEN
+         OUTPUT.LIST = PARAM.STR<3>
+      END ELSE
+         OUTPUT.LIST = INPUT.LIST
+      END
+      CRT 'Remember that Unidata 3.3 has a SORT.LIST command...'
+
+      EXECUTE 'GET.LIST ':INPUT.LIST
+      READLIST INTERNAL.LIST ELSE
+         STOP 'List ':INPUT.LIST:' was empty.'
+      END
+      CONVERT @IM TO @FM IN INTERNAL.LIST
+      CALL SORT.DYNAMIC(INTERNAL.LIST,'F')
+      FORMLIST INTERNAL.LIST
+      EXECUTE 'SAVE.LIST ':OUTPUT.LIST
+      STOP
+   END

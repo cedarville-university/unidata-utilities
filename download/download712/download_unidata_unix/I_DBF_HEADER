@@ -1,0 +1,16 @@
+*
+*
+* Stamped: p1 rotmand, /usr/local/download, user #2041, 31 Mar 05, 08:13AM.
+* Version 7.12
+*
+*
+*
+*
+*
+*
+* HEADER INFO FOR dBASE IV 'DBF' FILE
+*
+
+      DBF.BUF.SIZE = 512
+      DBF.WORDS.TO.WRITE = DBF.BUF.SIZE / 2
+      DBF.DEFAULT.LENGTH.VALUE = 8

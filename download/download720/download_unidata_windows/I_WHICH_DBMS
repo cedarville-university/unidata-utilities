@@ -1,0 +1,24 @@
+*
+* Set which database system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_DBMS_UNIDATA
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*
+*
+*
+*
+*
+*
+*
+
+      EQU COMMENT.OUT.EXCEPT.FOR.INFORMATION LIT '*'
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIDATA LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIVERSE LIT '*'
+      DBMS.NAME = 'UNIDATA'

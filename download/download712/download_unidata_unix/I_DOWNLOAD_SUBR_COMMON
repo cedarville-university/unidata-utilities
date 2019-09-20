@@ -1,0 +1,31 @@
+*
+* Common for DOWNLOAD programs
+* 20/27/90
+* DWS
+* TITLE ----- I_DOWNLOAD.SUBR.COMMON
+*
+*
+* PURPOSE: VARIABLES PERTAINING TO "SUBR" FIELDS
+*
+*
+*************************************************************************
+* Stamped: p1 rotmand, /usr/local/download, user #2041, 31 Mar 05, 08:13AM.
+* Version 7.12
+*
+*
+*
+*
+*
+*
+*
+
+      COMMON /DL.SUBR/ NUM.USE.SUBRS,
+         USE.SUBR.CTR.LIST,
+         USE.SUBR.ARG.TYPE.LIST,
+         USE.SUBR.ARG.VALUE.LIST,
+         USE.SUBR.ARG.DICT.CTR.LIST,
+         NUM.SUBR.NAMES,
+         SUBR.NAME.LIST,
+         SUBR.NAMES(DLMAX.SUBR.NAMES),
+         SUBR.NUM.ARGS.LIST(DLMAX.SUBR.NAMES),
+         SUBR.ARG.VALUES(DLMAX.SUBR.ARGS)

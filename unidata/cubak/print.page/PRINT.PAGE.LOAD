@@ -1,0 +1,2203 @@
+      SUBROUTINE PRINT.PAGE.LOAD(WP.DIR,WP.FILE,INFO.FILE,FORM.NUM,ERRMSG)
+*
+* INFO/BASIC SUBROUTINE
+* 2/11/88
+* DWS
+* TITLE ----- PRINT.PAGE.LOAD
+*
+*
+* MODULE:  PRINT.PAGE
+* PURPOSE: LOAD PARAMETERS FROM FILE FOR PRINT.PAGE ROUTINES
+*
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+* Stamped: ue howders, /disk1/collive, user #22395, 05 Apr 00, 10:12AM.
+*  Convert CHAR(13) to "" as it reads each INPUT.LINE
+* Stamped: p2 rotmand, /disk1/collive, user #14054, 05 Apr 00, 07:42AM.
+*  Implement sleep delay for sending email to large groups (pause
+*  after every PP.MAIL.DELAY.INTERVAL records)
+*     Last updated by LIVE (SJOQUIST) at 13:34:37 on 07/22/1991.
+* add IGNORE.ERROR FMT or CONV field qualifier
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*     Last updated by LIVE (SJOQUIST) at 12:16:15 on 05/04/1989.
+*       Fix bug with combination of:
+*          predefined date fields/default conv code/special conv code
+*     Last updated by LIVE (SJOQUIST) at 09:05:28 on 02/07/1989.
+*     Last updated by LIVE (SJOQUIST) at 15:57:08 on 12/14/1988.
+* Update to 3.0
+*   PRIMARY.FILE clause (verify file name)
+*   PROMPT.VALUE
+*   EVALUATE
+*   FIELD definition clause not required
+*   other...
+*     Last updated by LIVE (ROTMAN) at 07:28:37 on 02/24/1988.
+*       Fix minor bug in expandable lines/skip null line
+*     Last updated by LIVE (SJOQUIST) at 10:13:54 on 02/16/1988.
+*       REV 2.2
+*       Allow expandable lines (for multi-value lists)
+*       Allow options top.of.form
+*        Allow inserting fields (instead of overlaying, default = overlay)
+*       Rearrange WP file format (put field definitions at top)
+*     Last updated by LIVE (SJOQUIST) at 14:42:39 on 02/12/1988.
+*        Allow multiple pages per run
+*     Last updated by LIVE (SJOQUIST) at 13:48:15 on 02/11/1988.
+*        Split into control program, Init sub, & Process sub
+*     Last updated by LIVE (SJOQUIST) at 09:40:01 on 01/14/1988.
+*
+*
+*************************************************************************
+*
+*  COPYRIGHT (C) 1989, ROTMAN & SJOQUIST
+*
+*      The information contained in this file is proprietary to
+*      ROTMAN & SJOQUIST and shall not be reproduced in part or
+*      in whole without their prior written authorization.
+*      This file may be modified for the internal use of this
+*      institution, but no part of this file nor any program or
+*      file derived from it may be distributed to any other
+*      individual or institution.
+*
+*************************************************************************
+*
+
+      $INSERT I_PP.OPERATORS.COMMON
+      $INSERT I_PP.FONTS.COMMON
+      $INSERT I_PRINT.PAGE.COMMON
+      $INSERT I_PP.DATA.COMMON
+
+
+
+*
+*
+* MAIN CONTROL
+*
+
+      ERRMSG = ''
+      IF FORM.NUM > MAX.FORMS THEN
+         ERRMSG = 'Form number ':FORM.NUM:', is higher than maximum of ':MAX.FORMS
+         RETURN
+      END
+      GOSUB SET.UP
+      GOSUB OPEN.FILES
+      IF ERRMSG THEN
+         RETURN
+      END
+      IF PP.HAVE.MAIL THEN
+         OPEN '','NETWORK.LOGINS' TO MAIL.F.NETWORK.LOGINS ELSE
+            ERRMSG<-1> = 'Can not open "NETWORK.LOGINS"'
+         END
+         GOSUB CHECK.MAIL.ID.FIELD
+      END
+      GOSUB LOAD.PAGE.PARAMETERS
+      IF ERRMSG = '' THEN
+         GOSUB FINISH.PROCESSING
+      END
+      RETURN
+
+
+
+
+*
+*
+* SET UP
+*
+SET.UP: 
+      DIM ITEMS(50)
+      DIM RC.SORT.INDEX(MAX.POSITIONS)
+      DIM RC.SORT.VALUE(MAX.POSITIONS)
+      DIM RC.SORT.FIELD(MAX.POSITIONS)
+      DIM RC.ROW(MAX.POSITIONS)
+      DIM RC.COLUMN(MAX.POSITIONS)
+      DIM EVALUATE.LINE.CTR(MAX.FIELDS), EVALUATE.PHRASE(MAX.FIELDS)
+      DIM EVALUATE.FILE.NUM(MAX.FIELDS)
+      MAT EVALUATE.LINE.CTR = ''
+      MAT EVALUATE.PHRASE = ''
+      MAT EVALUATE.FILE.NUM = ''
+      DIM EXPAND.LINES.USED(MAX.FIELDS)
+      MAT EXPAND.LINES.USED = FALSE
+      DIM SKIP.TEMP(MAX.FIELDS)
+      MAT SKIP.TEMP = FALSE
+      DIM PROMPT.VERIFY.FILE(MAX.FIELDS), F.VERIFY.FILE(MAX.FIELDS)
+      MAT PROMPT.VERIFY.FILE = ''
+      DIM SEC.FILE.MULTI.VALUE(MAX.FILES)
+      MAT SEC.FILE.MULTI.VALUE = FALSE
+*
+      PROMPT ''
+      FORM.FEED = @(-1)
+      DO.NEW.PAGE = FALSE
+      DO.FILL = FALSE
+      NEW.FILL.MARGINS = ''
+      LM.SPACES = ''
+      FILL.MODE.ON = FALSE
+      FIELD.NAME.LIST = ''
+      INFINITY = 999999
+
+
+*
+* INITIALLY USE PRIMARY FILE (WHETHER IT IS DECLARED OR NOT)
+*
+      DIM D.PP.FILE(MAX.FILES), PP.FILE.KEY.NAME(MAX.FILES)
+      FILE.NUM = 1
+*
+* SECTIONS WITHIN FILE
+*
+      SECTION.TYPE.LIST = 'DEFINITION'
+      SECTION.TYPE.LIST := @VM:'HEADING'
+      SECTION.TYPE.LIST := @VM:'FOOTING'
+      SECTION.TYPE.LIST := @VM:'BODY'
+      SECTION.TYPE.LIST := @VM:'INITIALIZATION'
+      SECTION.TYPE.LIST := @VM:'TERMINATION'
+
+*
+* KEYWORDS
+*
+      KEYWORD.LIST = 'FIELD'
+      KEYWORD.TYPE.LIST = '1'
+      KEYWORD.LIST := @VM:'NUM.VALUES'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'NUM.SUBVALUES'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'CONV'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'SPECIAL.CONV'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'FMT'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'IGNORE.ERROR'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'MAX.LENGTH'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'BY.EXP'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'DEFAULT.VALUE'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'INSERTING'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'EXPAND.LINES'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'EVALUATE'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'SUBROUTINE'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'SKIP.NULL.LINES'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'MULTI.VALUE'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'PROMPT'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'ARGS'
+      KEYWORD.TYPE.LIST := @VM:'2'
+      KEYWORD.LIST := @VM:'LINE.UP'
+      KEYWORD.TYPE.LIST := @VM:'3'
+      KEYWORD.LIST := @VM:'FORM.LENGTH'
+      KEYWORD.TYPE.LIST := @VM:'3'
+      KEYWORD.LIST := @VM:'PRINT.LINES.ON.FORM'
+      KEYWORD.TYPE.LIST := @VM:'3'
+      KEYWORD.LIST := @VM:'TOP.OF.FORM'
+      KEYWORD.TYPE.LIST := @VM:'3'
+      KEYWORD.LIST := @VM:'PRIMARY.FILE'
+      KEYWORD.TYPE.LIST := @VM:'3'
+      KEYWORD.LIST := @VM:'SECONDARY.FILE'
+      KEYWORD.TYPE.LIST := @VM:'3'
+*
+      IGNORE.ERROR.LIST = 'CONV'
+      IGNORE.ERROR.LIST := @FM:'SPECIAL.CONV'
+      IGNORE.ERROR.LIST := @FM:'FMT'
+*
+* SET TO NULL TO ELIMINATE COMPILER WARNING MESSAGES (USED IN SUBR CALL'S)
+*
+      ITEM.STRING = ''
+      ITEM.QUOTED = ''
+      NUM.ITEMS = ''
+      PHRASE.PARAMS = ''
+      PHRASE.QUOTED = ''
+      NUM.PHRASE.PARAMS = 0
+*1
+      RETURN
+
+*
+* OPEN FILES
+*
+OPEN.FILES: 
+      OPEN '','VOC' TO F.VOC ELSE
+         ERRMSG<-1> = 'Can not open VOC file.'
+      END
+
+      OPENSEQ WP.DIR,WP.FILE TO F.WP ELSE
+         ERRMSG<-1> = 'Can not open "':WP.FILE:'" in "':WP.DIR:'"'
+      END
+*
+* PRINT.PAGE.INIT INITIALIZES # OF FILES TO 1 (SO THE
+*   PRIMARY FILE DECLARATION IS OPTIONAL)
+*
+      PP.FILE.NAME(1,FORM.NUM) = INFO.FILE
+      OPEN '',INFO.FILE TO F.PP.FILE(1,FORM.NUM) ELSE
+         ERRMSG<-1> = 'Can not open "':INFO.FILE:'"'
+      END
+      OPEN 'DICT',INFO.FILE TO D.PP.FILE(1) ELSE
+         ERRMSG<-1> = 'Can not open "DICT" "':INFO.FILE:'"'
+      END
+*2
+      RETURN
+
+
+*
+*
+* CHECK MAIL.ID.FIELD & SET UP FOR IT
+*
+CHECK.MAIL.ID.FIELD: 
+      IF PP.HAVE.MAIL THEN
+         FILE.FIELD.NAME = MAIL.ID.FIELD
+         GOSUB LOAD.FIELD.NAME.ON.THE.FLY
+         MAIL.ID.FIELD.NUM = FIELD.NUM
+      END
+      RETURN
+
+*
+*
+* LOAD PAGE
+*   (FIELD DEFINITIONS ARE FIRST IN THE FILE, THEN THE PRINT MASK)
+*
+LOAD.PAGE.PARAMETERS: 
+*3
+      DONE = FALSE
+      SECTION.TYPE = 'DEFINITION'
+      CURRENT.FIELD = ''
+      LINE.CTR = 0
+      FMT.SP = SPACE(6)
+      LOOP
+         READSEQ INPUT.LINE FROM F.WP ELSE DONE = TRUE
+      UNTIL DONE
+         LINE.CTR += 1
+         FMT.LC = FMT(LINE.CTR,'4"0"R'):': '
+         CONVERT CHAR(13) TO '' IN INPUT.LINE
+         TEST.LINE = OCONV(TRIM(INPUT.LINE),'MCU')
+         IF TEST.LINE = '%END%' OR TEST.LINE = 'END' THEN
+            INPUT.LINE = '&BODY'
+         END
+         CHECK.LINE = INPUT.LINE[1,1]
+         IF CHECK.LINE = SECTION.DELIMITER THEN
+            NEW.SECTION.TYPE = OCONV(TRIM(INPUT.LINE[2,80]),'MCU')
+            LOCATE NEW.SECTION.TYPE IN SECTION.TYPE.LIST<1,1> SETTING POS THEN
+               GOSUB FINISH.OLD.SECTION
+               GOSUB START.NEW.SECTION
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"':NEW.SECTION.TYPE:'" is not a valid section type'
+            END
+         END ELSE
+            BEGIN CASE
+               CASE SECTION.TYPE = 'DEFINITION'
+                  FIELD.LINE = INPUT.LINE
+                  IF CHECK.LINE # COMMENT.CHARACTER AND FIELD.LINE THEN
+                     GOSUB LOAD.FIELD.LINE
+                  END
+               CASE SECTION.TYPE = 'INITIALIZATION'
+                  IF CHECK.LINE # COMMENT.CHARACTER THEN
+                     GOSUB LOAD.INITIALIZATION.LINE
+                  END
+               CASE SECTION.TYPE = 'TERMINATION'
+                  IF CHECK.LINE # COMMENT.CHARACTER THEN
+                     GOSUB LOAD.TERMINATION.LINE
+                  END
+
+*
+* HEADING, FOOTING, & BODY ARE ALL STORED IN SAME PRINT.MASK
+*
+               CASE 1
+                  IF CHECK.LINE = SPECIAL.COMMAND.DELIMITER THEN
+                     GOSUB PROCESS.SPECIAL.COMMAND
+                  END ELSE
+                     GOSUB LOAD.PAGE.LINE
+                  END
+            END CASE
+         END
+      REPEAT
+      RETURN
+
+
+*
+*
+* FINISH OLD SECTION
+*
+FINISH.OLD.SECTION: 
+      BEGIN CASE
+         CASE SECTION.TYPE = 'DEFINITION'
+            IF CURRENT.FIELD # '' THEN
+               GOSUB FINISH.FIELD.NAME
+            END
+            CURRENT.FIELD = ''
+            GOSUB VALIDATE.ALL.EVALUATE.PHRASES
+         CASE SECTION.TYPE = 'HEADING'
+            HEADING.END.LINE(FORM.NUM) = NUM.LINES(FORM.NUM)
+         CASE SECTION.TYPE = 'FOOTING'
+            FOOTING.END.LINE(FORM.NUM) = NUM.LINES(FORM.NUM)
+         CASE SECTION.TYPE = 'BODY'
+            BODY.END.LINE(FORM.NUM) = NUM.LINES(FORM.NUM)
+      END CASE
+      RETURN
+
+*
+*
+* START NEW SECTION
+*
+START.NEW.SECTION: 
+      BEGIN CASE
+         CASE NEW.SECTION.TYPE = 'DEFINITION'
+            NULL
+         CASE NEW.SECTION.TYPE = 'HEADING'
+            HEADING.BEGIN.LINE(FORM.NUM) = NUM.LINES(FORM.NUM) + 1
+         CASE NEW.SECTION.TYPE = 'FOOTING'
+            FOOTING.BEGIN.LINE(FORM.NUM) = NUM.LINES(FORM.NUM) + 1
+         CASE NEW.SECTION.TYPE = 'BODY'
+            BODY.BEGIN.LINE(FORM.NUM) = NUM.LINES(FORM.NUM) + 1
+      END CASE
+      SECTION.TYPE = NEW.SECTION.TYPE
+      RETURN
+
+
+*
+*
+* PROCESS.SPECIAL.COMMAND
+*
+PROCESS.SPECIAL.COMMAND: 
+      REST.OF.LINE = OCONV(TRIM(INPUT.LINE[2,80]),'MCU')
+      MATPARSE ITEMS FROM REST.OF.LINE, ' '
+      NUM.ITEMS = INMAT()
+      SPECIAL.COMMAND = ITEMS(1)
+      BEGIN CASE
+         CASE SPECIAL.COMMAND = 'NEW.PAGE'
+            DO.NEW.PAGE = TRUE
+         CASE SPECIAL.COMMAND = 'FILL'
+            GOSUB PROCESS.SC.FILL
+         CASE SPECIAL.COMMAND = 'ENDFILL'
+            GOSUB PROCESS.SC.ENDFILL
+         CASE SPECIAL.COMMAND = 'LEFTMARGIN'
+            GOSUB PROCESS.SC.LEFTMARGIN
+      END CASE
+      RETURN
+
+
+*
+*
+* PROCESS "$FILL leftmargin rightmargin" COMMAND
+*
+PROCESS.SC.FILL: 
+      TEMP.ERRMSG = FMT.LC:'The format for $FILL is "$FILL left.margin right.margin"'
+      IF NUM.ITEMS = 3 THEN
+         LEFT.MARGIN = ITEMS(2)
+         RIGHT.MARGIN = ITEMS(3)
+         IF NUM(LEFT.MARGIN) AND NUM(RIGHT.MARGIN) AND LEFT.MARGIN < RIGHT.MARGIN THEN
+            NEW.FILL.MARGINS = LEFT.MARGIN:@VM:RIGHT.MARGIN
+            DO.FILL = TRUE
+         END ELSE
+            ERRMSG<-1> = TEMP.ERRMSG
+         END
+      END ELSE
+         ERRMSG<-1> = TEMP.ERRMSG
+      END
+      RETURN
+
+
+*
+*
+* PROCESS "$ENDFILL"
+*
+PROCESS.SC.ENDFILL: 
+      IF FILL.MARGINS(LINE.NUM,FORM.NUM) = '' THEN
+         ERRMSG<-1> = FMT.LC:'$ENDFILL must follow a valid $FILL command'
+      END ELSE
+         IF NUM.ITEMS = 1 THEN
+            FILL.MODE.ON = FALSE
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'The format for $ENDFILL is "$ENDFILL left.margin right.margin"'
+         END
+      END
+      RETURN
+
+
+*
+*
+* PROCESS "$LEFTMARGIN"
+*
+PROCESS.SC.LEFTMARGIN: 
+      IF NUM.ITEMS = 2 THEN
+         LM.COUNT = ITEMS(2)
+         IF NUM(LM.COUNT) AND LM.COUNT >= 0 THEN
+            LM.SPACES = SPACE(LM.COUNT)
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'The format for $LEFTMARGIN is "$LEFTMARGIN left.margin"'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for $LEFTMARGIN is "$LEFTMARGIN left.margin"'
+      END
+      RETURN
+
+*
+* LOAD PAGE LINE
+*
+LOAD.PAGE.LINE: 
+      INPUT.LINE = LM.SPACES:INPUT.LINE
+      IF NOT(FILL.MODE.ON) THEN
+         NUM.LINES(FORM.NUM) += 1
+      END
+      LINE.NUM = NUM.LINES(FORM.NUM)
+      IF DO.NEW.PAGE THEN
+         NEW.PAGE(LINE.NUM,FORM.NUM) = TRUE
+         DO.NEW.PAGE = FALSE
+      END
+      IF DO.FILL THEN
+         FILL.MARGINS(LINE.NUM,FORM.NUM) = NEW.FILL.MARGINS
+         DO.FILL = FALSE
+         FILL.MODE.ON = TRUE
+      END
+      IF FILL.MODE.ON THEN
+         DUMMY.LINES(LINE.NUM,FORM.NUM) := ' ':INPUT.LINE
+      END ELSE
+         DUMMY.LINES(LINE.NUM,FORM.NUM) = INPUT.LINE
+      END
+      MATPARSE ITEMS FROM INPUT.LINE, FIELD.DELIMITER
+      NUM.ITEMS = INMAT()
+*
+*    PARSING BREAKS THIS LINE:
+*       "AMOUNT DUE   %AMT.DUE%        ON DATE %TODAYS.DATE%"
+*    INTO 5 ITEMS(), THE EVEN NUMBERED ITEMS ARE THE FIELDS/KEYWORDS
+*     CHECK FOR NULL FIELD (ALLOWS INSERTION OF FIELD.DELIMITER CHARACTER
+*          INTO TEXT LINE AS NORMAL CHARACTER, EG.  12%% WILL PRINT AS 12%)
+*   IF INSERTING, IGNORE SPACE WHERE FIELD NAME WAS, ELSE PUT IN SPACES
+*
+      IF FILL.MODE.ON THEN
+         MASK.LINES(LINE.NUM,FORM.NUM) := ' ':ITEMS(1)
+      END ELSE
+         MASK.LINES(LINE.NUM,FORM.NUM) = ITEMS(1)
+      END
+      FOR ITEM.NUM=2 TO NUM.ITEMS STEP 2
+         IF ITEMS(ITEM.NUM) THEN
+            CUR.COLUMN = LEN(MASK.LINES(LINE.NUM,FORM.NUM)) + 1
+*
+*    USE THE PRIMARY FILE AS THE DEFAULT
+*
+            FILE.NUM = 1
+            FILE.FIELD.NAME = ITEMS(ITEM.NUM)
+            GOSUB ADD.CURRENT.POSITION.TO.LIST
+            IF NOT(INSERTING(FIELD.NUM,FORM.NUM)) THEN
+               MASK.LINES(LINE.NUM,FORM.NUM) := SPACE(LEN(ITEMS(ITEM.NUM))+2)
+            END
+         END ELSE
+            MASK.LINES(LINE.NUM,FORM.NUM) := FIELD.DELIMITER
+         END
+         MASK.LINES(LINE.NUM,FORM.NUM) := ITEMS(ITEM.NUM+1)
+      NEXT ITEM.NUM
+      RETURN
+
+
+*
+* ADD CURRENT POSITION TO LIST FOR THIS FIELD
+*
+*   WE WILL SORT THE FIELDS BY ROW,ASCENDING BY COLUMN,DESCENDING
+*   TO DETERMINE TO PROCESSING ORDER (POSITION) FOR PAGE.PROCESS
+*   WE WANT TO GO RIGHT TO LEFT FOR EACH LINE TO ALLOW AN EASY
+*   FIELD INSERTION OPTION
+*
+* (SAME LOGIC AS CHECK.FOR.EPP.FIELD)
+*
+ADD.CURRENT.POSITION.TO.LIST: 
+*
+* IF NAME ENTERE xxx/yyy THEN ONLY CHECK FOR EXACT MATCH
+*
+      IF INDEX(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1) THEN
+         LOOKUP.FIELD = FILE.FIELD.NAME
+         GOSUB FIND.FIELD.IN.LIST
+*
+* OTHERWISE IF NO FILE NAME WAS ENTERED, CHECK FOR AN
+*  ENTRY OF JUST THE FIELD NAME, IF STILL NO MATCH, THEN
+*  TRY THE PRIMARY.FILE/fieldname
+*
+      END ELSE
+         LOOKUP.FIELD = FILE.FIELD.NAME
+         GOSUB FIND.FIELD.IN.LIST
+         IF NOT(FOUND.FIELD) THEN
+            LOOKUP.FIELD = PP.FILE.NAME(1,FORM.NUM):FILE.FIELD.DELIMITER:FILE.FIELD.NAME
+            GOSUB FIND.FIELD.IN.LIST
+         END
+      END
+      IF NOT(FOUND.FIELD) THEN
+         GOSUB LOAD.FIELD.NAME.ON.THE.FLY
+      END
+      IF AMBIGUOUS.FIELD.NAME THEN
+         ERRMSG<-1> = FMT.LC:'The field name "':FILE.FIELD.NAME:'" is ambiguous.  It could mean:'
+         NUM.SUB = COUNT(FIELD.NUM,@SM) + 1
+         FOR SUB.CTR=1 TO NUM.SUB
+            SUB.FIELD.NUM = FIELD.NUM<1,1,SUB.CTR>
+            ERRMSG<-1> = FMT.SP:'              "':PP.FILE.NAME(PP.FILE.NUM(SUB.FIELD.NUM,FORM.NUM),FORM.NUM):'" "':PP.FIELD(SUB.FIELD.NUM,FORM.NUM):'"'
+         NEXT SUB.CTR
+         FIELD.NUM = FIELD.NUM<1,1,1>
+      END ELSE
+         NUM.POSITIONS(FORM.NUM) += 1
+         POS = NUM.POSITIONS(FORM.NUM)
+         IF SKIP.TEMP(FIELD.NUM) THEN
+            SKIP.NULL.LINES(LINE.NUM,FORM.NUM)=TRUE
+         END
+         RC.ROW(POS) = LINE.NUM
+         RC.COLUMN(POS) = CUR.COLUMN
+*   SORT WORK ARRAYS
+         RC.SORT.VALUE(POS) = FMT(LINE.NUM,'3"0"R'):FMT(999-CUR.COLUMN,'3"0"R')
+         RC.SORT.FIELD(POS) = FIELD.NUM
+         RC.SORT.INDEX(POS) = NUM.POSITIONS(FORM.NUM)
+      END
+      RETURN
+
+
+*
+* LOAD FIELD NAME ON THE FLY
+*    (WITHIN LAYOUT SECTION, FOR FIELDS NOT DEFINED IN THE FIELD SECTION)
+*
+LOAD.FIELD.NAME.ON.THE.FLY: 
+      IF INDEX(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1) THEN
+         FILE.NAME = FIELD(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1,1)
+         FIELD.NAME = FIELD(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,2,1)
+         GOSUB FIND.FILE.IN.LIST
+         IF FOUND.FILE.NUM > NUM.FILES(FORM.NUM) THEN
+            FILE.NUM = 0
+            ERRMSG<-1> = FMT.LC:'The file name "':FILE.NAME:'" was not declared in the definition section'
+         END ELSE
+            FILE.NUM = FOUND.FILE.NUM
+         END
+      END ELSE
+         FILE.NAME = PP.FILE.NAME(1,FORM.NUM)
+         FIELD.NAME = FILE.FIELD.NAME
+      END
+      CHECK.FIELD.TYPE = ''
+      IF FIELD.NAME[1,1] = PREDEFINED.FIELD.CHARACTER THEN
+         CHECK.FIELD = FIELD.NAME[2,LEN(FIELD.NAME)-1]
+         LOCATE CHECK.FIELD IN PREDEFINED.FIELD.LIST<1,1> SETTING PREDEFINED.FIELD.POS THEN
+            CHECK.FIELD.TYPE = 'PRE'
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':FIELD.NAME:'" is not a valid predefined field'
+         END
+      END
+      IF FILE.NUM # 0 THEN
+         FILE.FIELD.NAME = FILE.NAME:FILE.FIELD.DELIMITER:FIELD.NAME
+         CURRENT.FIELD = FILE.FIELD.NAME
+         INFO.FIELD.NAME = FIELD.NAME
+         GOSUB ADD.FIELD.TO.LIST
+         GOSUB FINISH.FIELD.NAME
+*
+*  IF IT IS A MULTI-VALUED FIELD, THEN IT DEFAULTS TO EXPAND.LINE WITH
+*     NO LIMIT ON THE # OF VALUES (SEE SUBROUTINE "LOAD.EXPAND.LINES")
+*
+         IF MULTI.VALUE(FIELD.NUM,FORM.NUM) THEN
+            EXPAND.LINES(FIELD.NUM,FORM.NUM) = TRUE
+            NUM.VALUES(FIELD.NUM,FORM.NUM) = INFINITY
+            NUM.SUBVALUES(FIELD.NUM,FORM.NUM) = INFINITY
+         END
+      END
+      RETURN
+
+
+*
+* FIND FIELD
+*
+FIND.FIELD.IN.LIST: 
+      AMBIGUOUS.FIELD.NAME = FALSE
+      LOCATE LOOKUP.FIELD IN FIELD.NAME.LIST<1,1> BY 'AL' SETTING FIELD.POS THEN
+         FOUND.FIELD = TRUE
+         FIELD.NUM = FIELD.NAME.LIST<2,FIELD.POS>
+         IF COUNT(FIELD.NUM,@SM) > 0 THEN
+            AMBIGUOUS.FIELD.NAME = TRUE
+         END
+      END ELSE
+         FOUND.FIELD = FALSE
+         FIELD.NUM = 0
+      END
+      RETURN
+
+*
+* FIND FILE IN LIST
+*
+FIND.FILE.IN.LIST: 
+      FOUND.FILE.NUM = 1
+      LOOP
+      UNTIL FOUND.FILE.NUM > NUM.FILES(FORM.NUM) OR PP.FILE.NAME(FOUND.FILE.NUM,FORM.NUM) = FILE.NAME
+         FOUND.FILE.NUM += 1
+      REPEAT
+      RETURN
+
+
+*
+* LOAD INITIALIZATION LINE
+*
+LOAD.INITIALIZATION.LINE: 
+      VOC.ITEM = FIELD(INPUT.LINE,' ',1)
+      VOC.ITEM = OCONV(VOC.ITEM,'MCU')
+      IF VOC.ITEM = 'DATA' OR VOC.ITEM = '*' THEN
+         PP.INITIALIZATION<-1> = INPUT.LINE
+      END ELSE
+         READV VOC.ITEM.TYPE FROM F.VOC, VOC.ITEM, 1 THEN
+            VOC.ITEM.TYPE1 = OCONV(VOC.ITEM.TYPE[1,1],'MCU')
+            VOC.ITEM.TYPE2 = OCONV(VOC.ITEM.TYPE[1,2],'MCU')
+            IF VOC.ITEM.TYPE1 = 'V' OR VOC.ITEM.TYPE1 = 'S' OR VOC.ITEM.TYPE2 = 'PA' OR VOC.ITEM.TYPE1 = 'R' OR VOC.ITEM.TYPE1 = 'C' THEN
+               PP.INITIALIZATION<-1> = INPUT.LINE
+            END ELSE
+               ERRMSG<-1> = 'Item ':VOC.ITEM:' is not a verb, sentence, or paragraph.'
+            END
+         END ELSE
+            ERRMSG<-1> = 'Item ':VOC.ITEM:' in INITIALIZATION section not found on VOC file.'
+         END
+      END
+      RETURN
+
+
+*
+* LOAD TERMINATION LINE
+*
+LOAD.TERMINATION.LINE: 
+      VOC.ITEM = FIELD(INPUT.LINE,' ',1)
+      VOC.ITEM = OCONV(VOC.ITEM,'MCU')
+      IF VOC.ITEM = 'DATA' OR VOC.ITEM = '*' THEN
+         PP.TERMINATION<-1> = INPUT.LINE
+      END ELSE
+         READV VOC.ITEM.TYPE FROM F.VOC, VOC.ITEM, 1 THEN
+            VOC.ITEM.TYPE1 = OCONV(VOC.ITEM.TYPE[1,1],'MCU')
+            VOC.ITEM.TYPE2 = OCONV(VOC.ITEM.TYPE[1,2],'MCU')
+            IF VOC.ITEM.TYPE1 = 'V' OR VOC.ITEM.TYPE1 = 'S' OR VOC.ITEM.TYPE2 = 'PA' OR VOC.ITEM.TYPE1 = 'C' THEN
+               PP.TERMINATION<-1> = INPUT.LINE
+            END ELSE
+               ERRMSG<-1> = 'Item ':VOC.ITEM:' is not a verb, sentence, or paragraph.'
+            END
+         END ELSE
+            ERRMSG<-1> = 'Item ':VOC.ITEM:' in TERMINATION section not found on VOC file.'
+         END
+      END
+      RETURN
+
+
+
+
+*
+* LOAD FIELD LINE
+*
+LOAD.FIELD.LINE: 
+      CALL PP.PARSE.LINE(FIELD.LINE,ITEM.STRING,ITEM.QUOTED,NUM.ITEMS)
+      MATPARSE ITEMS FROM ITEM.STRING, @FM
+      KEYWORD = OCONV(ITEMS(1),'MCU')
+      VALID.KEYWORD = TRUE
+      LOCATE KEYWORD IN KEYWORD.LIST<1,1> SETTING KW.POS THEN
+         KEYWORD.TYPE = KEYWORD.TYPE.LIST<1,KW.POS>
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"':KEYWORD:'" not a valid field definition clause'
+         VALID.KEYWORD = FALSE
+         KEYWORD.TYPE = ''
+      END
+*
+* IF THE KEYWORD IS A TYPE 2 (FIELD MODIFIER)
+*   THEN IT NEEDS TO FOLLOW A FIELD CLAUSE
+*   ELSE FINISH PROCESSING THE CURRENT FIELD (IF ANY)
+*
+      IF KEYWORD.TYPE = 2 THEN
+         IF CURRENT.FIELD = '' THEN
+            GOSUB NEED.A.FIELD.FIRST
+            VALID.KEYWORD = FALSE
+         END
+      END ELSE
+         IF CURRENT.FIELD # '' THEN
+            GOSUB FINISH.FIELD.NAME
+         END
+         CURRENT.FIELD = ''
+      END
+      IF VALID.KEYWORD THEN
+         BEGIN CASE
+            CASE KEYWORD = 'FIELD'
+               GOSUB LOAD.FIELD.NAME
+            CASE KEYWORD = 'NUM.VALUES'
+               GOSUB LOAD.NUM.VALUES
+            CASE KEYWORD = 'NUM.SUBVALUES'
+               GOSUB LOAD.NUM.SUBVALUES
+            CASE KEYWORD = 'CONV'
+               GOSUB LOAD.CONV
+            CASE KEYWORD = 'ARGS'
+               GOSUB LOAD.ARGS
+            CASE KEYWORD = 'SPECIAL.CONV'
+               GOSUB LOAD.SPECIAL.CONV
+            CASE KEYWORD = 'FMT'
+               GOSUB LOAD.FMT
+            CASE KEYWORD = 'IGNORE.ERROR'
+               GOSUB LOAD.IGNORE.ERROR
+            CASE KEYWORD = 'MAX.LENGTH'
+               GOSUB LOAD.MAX.LENGTH
+            CASE KEYWORD = 'BY.EXP'
+               GOSUB LOAD.BY.EXP
+            CASE KEYWORD = 'DEFAULT.VALUE'
+               GOSUB LOAD.DEFAULT.VALUE
+            CASE KEYWORD = 'INSERTING'
+               GOSUB LOAD.INSERTING
+            CASE KEYWORD = 'EXPAND.LINES'
+               GOSUB LOAD.EXPAND.LINES
+            CASE KEYWORD = 'MULTI.VALUE'
+               GOSUB LOAD.MULTI.VALUE
+            CASE KEYWORD = 'SKIP.NULL.LINES'
+               GOSUB LOAD.SKIP.NULL.LINES
+            CASE KEYWORD = 'EVALUATE'
+               GOSUB LOAD.EVALUATE
+            CASE KEYWORD = 'SUBROUTINE'
+               GOSUB LOAD.SUBROUTINE
+            CASE KEYWORD = 'PROMPT'
+               GOSUB LOAD.PROMPT
+            CASE KEYWORD = 'LINE.UP'
+               GOSUB LOAD.LINE.UP
+            CASE KEYWORD = 'FORM.LENGTH'
+               GOSUB LOAD.FORM.LENGTH
+            CASE KEYWORD = 'PRINT.LINES.ON.FORM'
+               GOSUB LOAD.PRINT.LINES.ON.FORM
+            CASE KEYWORD = 'TOP.OF.FORM'
+               GOSUB LOAD.TOP.OF.FORM
+            CASE KEYWORD = 'PRIMARY.FILE'
+               GOSUB LOAD.PRIMARY.FILE
+            CASE KEYWORD = 'SECONDARY.FILE'
+               GOSUB LOAD.SECONDARY.FILE
+         END CASE
+      END
+      RETURN
+
+
+*
+* NEED A FIELD DEFINITION BEFORE THESE KEYWORDS
+*
+NEED.A.FIELD.FIRST: 
+      ERRMSG<-1> = FMT.LC:'"':INPUT.LINE:'" must follow a "FIELD" clause'
+      RETURN
+
+
+*
+* LOAD FIELD NAME
+*   (PREDEFINED FIELDS, SEE "LOAD.FIELD.NAME.ON.THE.FLY" FOR FIELDS NOT DEFINED
+*    IN THE FIELD SECTION, JUST USED IN THE LAYOUT SECTION)
+*
+LOAD.FIELD.NAME: 
+      ITEM.OKAY = TRUE
+      IF NUM.ITEMS < 2 OR NUM.ITEMS > 3 THEN
+         ITEM.OKAY = FALSE
+      END
+      IF INDEX(ITEMS(2),FILE.FIELD.DELIMITER,1) THEN
+         ITEM.OKAY = FALSE
+      END
+      IF INDEX(ITEMS(3),FILE.FIELD.DELIMITER,1) THEN
+         ITEM.OKAY = FALSE
+      END
+      IF NOT(ITEM.OKAY) THEN
+         ERRMSG<-1> = FMT.LC:'The format for the FIELD clause is "FIELD wp.field [dictionary.name]"'
+      END ELSE
+         FIELD.NAME = ITEMS(2)
+         IF NUM.ITEMS = 2 THEN
+            INFO.FIELD.NAME = FIELD.NAME
+         END ELSE
+            INFO.FIELD.NAME = ITEMS(3)
+         END
+         CHECK.FIELD.TYPE = ''
+         IF INFO.FIELD.NAME[1,1] = PREDEFINED.FIELD.CHARACTER THEN
+            CHECK.FIELD = INFO.FIELD.NAME[2,LEN(INFO.FIELD.NAME)-1]
+            LOCATE CHECK.FIELD IN PREDEFINED.FIELD.LIST<1,1> SETTING PREDEFINED.FIELD.POS THEN
+               CHECK.FIELD.TYPE = 'PRE'
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"':INFO.FIELD.NAME:'" is not a valid predefined field'
+            END
+         END
+         FILE.NAME = PP.FILE.NAME(FILE.NUM,FORM.NUM)
+         FILE.FIELD.NAME = FILE.NAME:FILE.FIELD.DELIMITER:FIELD.NAME
+         IF CHECK.FIELD.TYPE = 'PRE' THEN
+            LOOKUP.FIELD = FIELD.NAME
+         END ELSE
+            LOOKUP.FIELD = FILE.FIELD.NAME
+         END
+         GOSUB FIND.FIELD.IN.LIST
+         IF FOUND.FIELD THEN
+            ERRMSG<-1> = FMT.LC:'Field "':FIELD.NAME:'" for file "':FILE.NAME:'" has already been defined'
+         END ELSE
+            GOSUB ADD.FIELD.TO.LIST
+            CURRENT.FIELD = FIELD.NAME
+         END
+      END
+      RETURN
+
+
+*
+* ADD FIELD TO LIST
+*
+ADD.FIELD.TO.LIST: 
+      NUM.FIELDS(FORM.NUM) += 1
+      FIELD.NUM = NUM.FIELDS(FORM.NUM)
+      PP.FIELD(FIELD.NUM,FORM.NUM) = FIELD.NAME
+      PP.FILE.NUM(FIELD.NUM,FORM.NUM) = FILE.NUM
+*
+* DO NOT PUT THE FILENAME/FIELDNAME ITEM IN THE FIELD.NAME.LIST FOR
+*  PREDEFINED FIELDS (THEY ARE DEFINED NO MATTER WHAT FILE IT IS)
+*
+      IF CHECK.FIELD.TYPE = 'PRE' THEN
+         FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'PRE'
+         DICT.NAME(FIELD.NUM,FORM.NUM) = CHECK.FIELD
+         FMT.CODE(FIELD.NUM,FORM.NUM) = PREDEFINED.FIELD.FMT<1,PREDEFINED.FIELD.POS>
+      END ELSE
+         LOCATE FILE.FIELD.NAME IN FIELD.NAME.LIST<1,1> BY 'AL' SETTING FIELD.POS ELSE
+            INS FILE.FIELD.NAME BEFORE FIELD.NAME.LIST<1,FIELD.POS>
+            INS FIELD.NUM BEFORE FIELD.NAME.LIST<2,FIELD.POS>
+         END
+         READV SM.FLAG FROM D.PP.FILE(FILE.NUM), FIELD.NAME, 6 THEN
+            IF SM.FLAG = 'M' THEN
+               MULTI.VALUE(FIELD.NUM,FORM.NUM) = TRUE
+            END
+         END
+      END
+      LOCATE FIELD.NAME IN FIELD.NAME.LIST<1,1> BY 'AL' SETTING TEMP.POS THEN
+         FIELD.NAME.LIST<2,TEMP.POS,-1> = FIELD.NUM
+      END ELSE
+         INS FIELD.NAME BEFORE FIELD.NAME.LIST<1,TEMP.POS>
+         INS FIELD.NUM BEFORE FIELD.NAME.LIST<2,TEMP.POS>
+      END
+      CONV.CODE.USED = FALSE
+      FMT.CODE.USED = FALSE
+      RETURN
+
+*
+*
+* FINISH FIELD
+*  (IF NOT A 'PROMPT' OR 'EVALUATE' FIELD, THEN LOAD DICTIONARY)
+*
+FINISH.FIELD.NAME: 
+      IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = '' THEN
+         GOSUB READ.DICT
+      END
+      IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'I' OR FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'D' THEN
+         IF SEC.FILE.MULTI.VALUE(FILE.NUM) THEN
+            MULTI.VALUE(FIELD.NUM,FORM.NUM) = TRUE
+         END
+      END
+      IF CHECK.FIELD.TYPE = 'PRE' THEN
+         IF SPECIAL.CONV.CODE(FIELD.NUM,FORM.NUM) = '' AND CONV.CODE(FIELD.NUM,FORM.NUM) = '' THEN
+            LOCATE DICT.NAME(FIELD.NUM,FORM.NUM) IN PREDEFINED.FIELD.LIST<1,1> SETTING PREDEFINED.FIELD.POS THEN
+               CONV.CODE(FIELD.NUM,FORM.NUM) = PREDEFINED.FIELD.CONV<1,PREDEFINED.FIELD.POS>
+            END
+         END
+      END
+      RETURN
+
+
+*
+* READ DICT
+*
+READ.DICT: 
+*
+*  ONLY DATA ITEMS & I-DESCS ARE ALLOWED
+*   CHECK IF THE I-DESCS NEEDS TO BE COMPILED
+*
+      READ DICT.REC(FIELD.NUM,FORM.NUM) FROM D.PP.FILE(FILE.NUM), INFO.FIELD.NAME THEN
+         DICT.NAME(FIELD.NUM,FORM.NUM) = INFO.FIELD.NAME
+         DICT.TYPE = DICT.REC(FIELD.NUM,FORM.NUM)<1>[1,1]
+         BEGIN CASE
+            CASE DICT.TYPE = 'D'
+               FIELD.TYPE(FIELD.NUM,FORM.NUM) = DICT.TYPE
+            CASE DICT.TYPE = 'I'
+               FIELD.TYPE(FIELD.NUM,FORM.NUM) = DICT.TYPE
+*PRIME*               IF DICT.REC(FIELD.NUM,FORM.NUM)<17> = '' THEN
+               IF DICT.REC(FIELD.NUM,FORM.NUM)<8> = '' THEN
+                  COMMAND = 'CD ':PP.FILE.NAME(FILE.NUM,FORM.NUM):' ':DICT.NAME(FIELD.NUM,FORM.NUM)
+                  EXECUTE COMMAND
+               END
+            CASE 1
+               ERRMSG<-1> = FMT.LC:'"':DICT.NAME(FIELD.NUM,FORM.NUM):'" is type "':DICT.TYPE:'", only "D" & "I" allowed'
+         END CASE
+         IF DICT.REC(FIELD.NUM,FORM.NUM)<6> = 'M' THEN
+            MULTI.VALUE(FIELD.NUM,FORM.NUM) = TRUE
+         END
+         IF NOT(CONV.CODE.USED) THEN
+            CONV.CODE(FIELD.NUM,FORM.NUM) = DICT.REC(FIELD.NUM,FORM.NUM)<3>
+         END
+         IF NOT(FMT.CODE.USED) THEN
+            FMT.CODE(FIELD.NUM,FORM.NUM) = DICT.REC(FIELD.NUM,FORM.NUM)<5>
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"':INFO.FIELD.NAME:'" was not found in "DICT" "':PP.FILE.NAME(FILE.NUM,FORM.NUM):'"'
+      END
+      RETURN
+
+
+*
+*
+* VALIDATE ALL EVALUATE.PHRASES
+*
+VALIDATE.ALL.EVALUATE.PHRASES: 
+      NUM.FIELDS.TO.CHECK = NUM.FIELDS(FORM.NUM)
+      FOR EPP.FIELD.NUM=1 TO NUM.FIELDS.TO.CHECK
+         IF FIELD.TYPE(EPP.FIELD.NUM,FORM.NUM) = 'E' THEN
+            FMT.LC = FMT(EVALUATE.LINE.CTR(EPP.FIELD.NUM),'4"0"R'):': '
+            FILE.NUM = EVALUATE.FILE.NUM(EPP.FIELD.NUM)
+            GOSUB CHECK.EVALUATE.PHRASE
+         END
+      NEXT FIELD.NUM
+      RETURN
+
+
+*
+*
+* CHECK EVALUATE PHRASE
+*
+CHECK.EVALUATE.PHRASE: 
+      CALL PP.PARSE.OPER(EVALUATE.PHRASE(EPP.FIELD.NUM),PHRASE.PARAMS,PHRASE.QUOTED,NUM.PHRASE.PARAMS,FORM.NUM)
+      GOSUB CONVERT.PHRASE.TO.POSTFIX
+      POSTFIX.PHRASE(EPP.FIELD.NUM,FORM.NUM) = POSTFIX.STRING
+      RETURN
+
+
+*
+* LOAD NUM.VALUES
+*
+LOAD.NUM.VALUES: 
+      IF NUM.ITEMS < 2 OR NUM.ITEMS > 3 THEN
+         ERRMSG<-1> = FMT.LC:'The format for the NUM.VALUES clause is "NUM.VALUES #values [LAST.VALUES]"'
+      END ELSE
+         IF NUM(ITEMS(2)) THEN
+            NUM.VALUES(FIELD.NUM,FORM.NUM) = ITEMS(2)
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in NUM.VALUES clause'
+         END
+         IF NUM.ITEMS = 3 THEN
+            IF ITEMS(3) = 'LAST.VALUES' THEN
+               USE.LAST.VALUES(FIELD.NUM,FORM.NUM) = TRUE
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'Found "':ITEMS(3):'" when expecting "LAST.VALUES"'
+            END
+         END
+      END
+      RETURN
+
+
+*
+* LOAD NUM.SUBVALUES
+*
+LOAD.NUM.SUBVALUES: 
+      IF NUM.ITEMS = 2 THEN
+         IF NUM(ITEMS(2)) THEN
+            NUM.SUBVALUES(FIELD.NUM,FORM.NUM) = ITEMS(2)
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in NUM.SUBVALUES clause'
+         END
+
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the NUM.SUBVALUES clause is "NUM.SUBVALUES #subvalues"'
+      END
+      RETURN
+
+
+*
+* LOAD CONV
+*
+LOAD.CONV: 
+      IF CONV.CODE.USED THEN
+         ERRMSG<-1> = FMT.LC:'A conversion code or special conversion code was already specifed for "':PP.FIELD(FIELD.NUM,FORM.NUM):'"'
+         RETURN
+      END
+      IF NUM.ITEMS = 2 THEN
+         JUNK = OCONV('0',ITEMS(2))
+         IF STATUS() THEN
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" is not a valid conversion code'
+         END ELSE
+            CONV.CODE(FIELD.NUM,FORM.NUM) = ITEMS(2)
+            CONV.CODE.USED = TRUE
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the CONV clause is "CONV conv.code"'
+      END
+      RETURN
+
+
+*
+* LOAD ARGS
+*
+LOAD.ARGS: 
+      CRT 'NUM.ITEMS ':NUM.ITEMS
+      CRT 'ITEMS(1) ':ITEMS(1)
+      CRT 'ITEMS(2) ':ITEMS(2)
+      IF NUM.ITEMS GT 1 THEN
+         FOR WHICH.ITEMS = 2 TO NUM.ITEMS
+            FIELD.ARGS(FIELD.NUM,FORM.NUM)<1,WHICH.ITEMS-1> = ITEMS(WHICH.ITEMS)
+         NEXT WHICH.ITEMS
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the ARGS clause is "ARGS arguments"'
+      END
+      RETURN
+
+
+*
+* LOAD SPECIAL CONV
+*
+LOAD.SPECIAL.CONV: 
+      IF CONV.CODE.USED THEN
+         ERRMSG<-1> = FMT.LC:'A conversion code or special conversion code was already specifed for "':PP.FIELD(FIELD.NUM,FORM.NUM):'"'
+         RETURN
+      END
+      IF NUM.ITEMS = 2 THEN
+         CHECK.CODE = OCONV(ITEMS(2),'MCU')
+         LOCATE CHECK.CODE IN SPECIAL.CONV.CODE.LIST<1,1> SETTING POS THEN
+            SPECIAL.CONV.CODE(FIELD.NUM,FORM.NUM) = CHECK.CODE
+            CONV.CODE.USED = TRUE
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" is not a valid special conversion code'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the SPECIAL.CONV clause is "SPECIAL.CONV conv.code"'
+      END
+      RETURN
+
+
+*
+* LOAD FMT
+*
+LOAD.FMT: 
+      IF NUM.ITEMS = 2 THEN
+         JUNK = FMT('',ITEMS(2))
+         IF STATUS() THEN
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" is not a valid format code'
+         END ELSE
+            FMT.CODE(FIELD.NUM,FORM.NUM) = ITEMS(2)
+            FMT.CODE.USED = TRUE
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the FMT clause is "FMT fmt.code"'
+      END
+      RETURN
+
+
+*
+* LOAD IGNORE.ERROR
+*
+LOAD.IGNORE.ERROR: 
+      IF NUM.ITEMS = 2 THEN
+         LOCATE ITEMS(2) IN IGNORE.ERROR.LIST<1> SETTING IGNORE.ERROR.POS THEN
+            IGNORE.ERROR(FIELD.NUM,FORM.NUM) = ITEMS(2)
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" is not a valid error condition to be ignored'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the IGNORE.ERROR clause is "IGNORE.ERROR error.condition"'
+      END
+      RETURN
+
+
+*
+* LOAD MAX.LENGTH
+*
+LOAD.MAX.LENGTH: 
+      IF NUM.ITEMS = 2 THEN
+         IF NUM(ITEMS(2)) THEN
+            IF ITEMS(2) > 0 THEN
+               MAX.LENGTH(FIELD.NUM,FORM.NUM) = ITEMS(2)
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"MAX.LENGTH" must be greater than 0'
+            END
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in MAX.LENGTH clause'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the MAX.LENGTH clause is "MAX.LENGTH length"'
+      END
+      RETURN
+
+
+*
+* LOAD DEFAULT.VALUE
+*
+LOAD.DEFAULT.VALUE: 
+      IF NUM.ITEMS = 2 THEN
+         DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = ITEMS(2)
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the DEFAULT.VALUE clause is "DEFAULT.VALUE value"'
+      END
+      RETURN
+
+*
+* LOAD EXPAND.LINES
+*   EXPAND.LINES USED NUM.VALUES FOR IT'S MAXIMUM (DEFAULTS TO NO MAX)
+*
+LOAD.EXPAND.LINES: 
+      IF NUM.ITEMS > 2 THEN
+         ERRMSG<-1> = FMT.LC:'The format for the EXPAND.LINES clause is "EXPAND.LINES [ON/OFF]"'
+         ERRMSG<-1> = FMT.SP:'    Use "NUM.VALUES" to set a maximum expansion'
+      END ELSE
+         IF NUM.ITEMS = 1 THEN
+            EXPAND.LINES(FIELD.NUM,FORM.NUM) = TRUE
+            EXPAND.LINES.USED(FIELD.NUM) = TRUE
+         END ELSE
+            BEGIN CASE
+               CASE ITEMS(2) = 'ON'
+                  EXPAND.LINES(FIELD.NUM,FORM.NUM) = TRUE
+                  EXPAND.LINES.USED(FIELD.NUM) = TRUE
+               CASE ITEMS(2) = 'OFF'
+                  EXPAND.LINES(FIELD.NUM,FORM.NUM) = FALSE
+                  EXPAND.LINES.USED(FIELD.NUM) = TRUE
+               CASE 1
+                  ERRMSG<-1> = FMT.LC:'Found "':ITEMS(2):'" when expecting "ON" or "OFF"'
+                  IF NUM(ITEMS(2)) THEN
+                     ERRMSG<-1> = FMT.SP:'    Use "NUM.VALUES" to set a maximum expansion'
+                  END
+            END CASE
+         END
+*
+*  IF NUM.VALUES = 0 (INITIAL VALUE), THEN SET MAX TO HIGH # (INFINITY)
+*
+         IF EXPAND.LINES(FIELD.NUM,FORM.NUM) THEN
+            IF NUM.VALUES(FIELD.NUM,FORM.NUM) = 0 THEN
+               NUM.VALUES(FIELD.NUM,FORM.NUM) = INFINITY
+            END
+            IF NUM.SUBVALUES(FIELD.NUM,FORM.NUM) = 0 THEN
+               NUM.SUBVALUES(FIELD.NUM,FORM.NUM) = INFINITY
+            END
+*DLR**
+*DLR**   WHEN USING EXPAND.LINES, SKIP.NULL.LINES IS SET TO TRUE
+*DLR**   WE DON'T KNOW THE LINE NUMBER YET, SO WE SET A TEMPORARY FLAG
+*DLR**
+*DLR*            SKIP.TEMP(FIELD.NUM)=TRUE
+         END
+      END
+      RETURN
+
+
+*
+*
+* LOAD EVALUATE
+*
+LOAD.EVALUATE: 
+      POS = INDEX(INPUT.LINE,KEYWORD,1) + LEN(KEYWORD)
+      EVALUATE.PHRASE(FIELD.NUM) = TRIMB(TRIMF(INPUT.LINE[POS,32000]))
+      IF EVALUATE.PHRASE(FIELD.NUM) THEN
+         FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'E'
+         EVALUATE.LINE.CTR(FIELD.NUM) = LINE.CTR
+         EVALUATE.FILE.NUM(FIELD.NUM) = FILE.NUM
+*
+* CHECK ALL EVALUATE PHRASES AT END OF DEFINITION SECTION
+*  (TO MAKE SURE ALL PP FIELDS HAVE BEEN DEFINED BEFORE
+*   CONVERTING TO POSTFIX)
+*
+*         GOSUB CHECK.EVALUATE.PHRASE
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the EVALUATE clause is "EVALUATE evaluate.phrase"'
+      END
+      RETURN
+
+
+*
+*
+* LOAD SUBROUTINE
+*
+LOAD.SUBROUTINE: 
+      POS = INDEX(INPUT.LINE,KEYWORD,1) + LEN(KEYWORD)
+      SUBR.NAME = TRIM(INPUT.LINE[POS,32000])
+      IF SUBR.NAME THEN
+         READV SUBR.CATALOG.NAME FROM F.VOC, SUBR.NAME, 2 THEN
+*PRIME*            SUBR.EXISTS = FALSE
+*PRIME*            CALL !EXIST(SUBR.CATALOG.NAME,SUBR.EXISTS)
+            SUBR.EXISTS = @TRUE
+            IF SUBR.EXISTS THEN
+               FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'S'
+               PP.SUBR.NAMES(FIELD.NUM,FORM.NUM) = SUBR.NAME
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'Subroutine ':SUBR.CATALOG.NAME:' does not exist in the catalog space.'
+            END
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'Subroutine ':SUBR.NAME:' does not exist on the VOC file.'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the SUBROUTINE clause is "SUBROUTINE evaluate.phrase"'
+      END
+      RETURN
+
+
+*
+*
+* LOAD PROMPT
+*
+LOAD.PROMPT: 
+      IF NUM.ITEMS > 5 THEN
+         ERRMSG<-1> = FMT.LC:'The format for the PROMPT clause is "PROMPT [prompt.text [input.mask]] [VERIFY.FILE file.name]"'
+         RETURN
+      END
+      FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'P'
+      LOCATE 'VERIFY.FILE' IN ITEM.STRING<1> SETTING VERIFY.POS THEN
+         VERIFY.FILE.NAME = ITEMS(VERIFY.POS+1)
+         NUM.OTHER = VERIFY.POS - 1
+      END ELSE
+         VERIFY.FILE.NAME = ''
+         NUM.OTHER = NUM.ITEMS
+      END
+      IF NUM.OTHER > 1 THEN
+         PROMPT.TEXT(FIELD.NUM,FORM.NUM) = ITEMS(2)
+      END ELSE
+         PROMPT.TEXT(FIELD.NUM,FORM.NUM) = CURRENT.FIELD:': '
+      END
+      IF NUM.OTHER = 3 THEN
+         INPUT.MASK(FIELD.NUM,FORM.NUM) = ITEMS(3)
+      END
+*
+      IF VERIFY.FILE.NAME THEN
+         OPEN '',VERIFY.FILE.NAME TO F.TEST THEN
+            PROMPT.VERIFY.FILE(FIELD.NUM) = VERIFY.FILE.NAME
+            F.VERIFY.FILE(FIELD.NUM) = F.TEST
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'Can not open "':VERIFY.FILE.NAME:'"'
+         END
+      END
+      RETURN
+
+
+*
+*
+* LOAD MULTI.VALUE
+*
+LOAD.MULTI.VALUE: 
+      IF NUM.ITEMS = 1 THEN
+         MULTI.VALUE(FIELD.NUM,FORM.NUM) = TRUE
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"MULTI.VALUE" does not take any arguments'
+      END
+      RETURN
+
+*
+*
+* LOAD SKIP.NULL.LINES
+*
+LOAD.SKIP.NULL.LINES: 
+      IF NUM.ITEMS = 1 THEN
+         SKIP.TEMP(FIELD.NUM) = TRUE
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"SKIP.NULL.LINES" does not take any arguments'
+      END
+      RETURN
+
+*
+* LOAD LINE.UP
+*
+LOAD.LINE.UP: 
+      IF NUM.ITEMS = 2 THEN
+         IF NUM(ITEMS(2)) THEN
+            IF ITEMS(2) > 0 THEN
+               NUM.LINE.UP(FORM.NUM) = ITEMS(2)
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"LINE.UP" must be greater than 0'
+            END
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in LINE.UP clause'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the LINE.UP clause is "LINE.UP #forms"'
+      END
+      RETURN
+
+*
+* LOAD FORM.LENGTH
+*
+LOAD.FORM.LENGTH: 
+      IF NUM.ITEMS = 2 THEN
+         IF NUM(ITEMS(2)) THEN
+            IF ITEMS(2) > 0 THEN
+               FORM.LENGTH(FORM.NUM) = ITEMS(2)
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"FORM.LENGTH" must be greater than 0'
+            END
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in FORM.LENGTH clause'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the FORM.LENGTH clause is "FORM.LENGTH #lines.per.form"'
+      END
+      RETURN
+
+*
+* LOAD PRINT.LINES.ON.FORM
+*
+LOAD.PRINT.LINES.ON.FORM: 
+      IF NUM.ITEMS = 2 THEN
+         IF NUM(ITEMS(2)) THEN
+            IF ITEMS(2) > 0 THEN
+               PRINT.LINES.ON.FORM(FORM.NUM) = ITEMS(2)
+            END ELSE
+               ERRMSG<-1> = FMT.LC:'"PRINT.LINES.ON.FORM" must be greater than 0'
+            END
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" must be numeric in PRINT.LINES.ON.FORM clause'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the PRINT.LINES.ON.FORM clause is "PRINT.LINES.ON.FORM #lines"'
+      END
+      RETURN
+
+*
+* LOAD BY.EXP
+*
+LOAD.BY.EXP: 
+      IF NUM.ITEMS = 1 THEN
+         IF MULTI.VALUE(FIELD.NUM,FORM.NUM) THEN
+            BY.EXP(FIELD.NUM,FORM.NUM) = TRUE
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"BY.EXP" is only valid for multivalued fields'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"BY.EXP" does not take any arguments'
+      END
+      RETURN
+
+*
+* LOAD INSERTING
+*
+LOAD.INSERTING: 
+      IF NUM.ITEMS = 1 THEN
+         INSERTING(FIELD.NUM,FORM.NUM) = TRUE
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'"INSERTING" does not take any arguments'
+      END
+      RETURN
+
+
+*
+* LOAD TOP.OF.FORM
+*
+LOAD.TOP.OF.FORM: 
+      IF NUM.ITEMS = 2 THEN
+         IF ITEMS(2) = 'FORM.FEED' OR ITEMS(2) = 'BLANKS' OR ITEMS(2) = 'NONE' THEN
+            TOP.OF.FORM(FORM.NUM) = ITEMS(2)
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':ITEMS(2):'" is not a valid top.of.form code'
+            ERRMSG<-1> = FMT.SP:'  the valid codes are "FORM.FEED", "BLANKS", "NONE"'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the TOP.OF.FORM clause is "TOP.OF.FORM top.of.form.code"'
+         ERRMSG<-1> = FMT.SP:'  where the code is "FORM.FEED", "BLANKS", "NONE"'
+      END
+      RETURN
+
+
+*
+* CHECK FILE NAME
+*
+LOAD.PRIMARY.FILE: 
+      IF NUM.ITEMS = 2 THEN
+         IF OCONV(INFO.FILE,'MCU') # OCONV(ITEMS(2),'MCU') THEN
+            ERRMSG<-1> = FMT.LC:'The file being used by PRINT.PAGE is not the file this document needs'
+            ERRMSG<-1> = FMT.SP:'  File used..: "':INFO.FILE:'"'
+            ERRMSG<-1> = FMT.SP:'  Document...: "':WP.DIR:'" "':WP.FILE:'"'
+            ERRMSG<-1> = FMT.SP:'  File needed: "':ITEMS(2):'"'
+         END
+      END ELSE
+         ERRMSG<-1> = FMT.LC:'The format for the PRIMARY.FILE clause is "PRIMARY.FILE Info.file.name"'
+         ERRMSG<-1> = FMT.SP:'  where Info.file.name is used to verify that the file'
+         ERRMSG<-1> = FMT.SP:'  being used by PRINT.PAGE is the same one the document needs'
+      END
+      RETURN
+
+
+*
+*
+* CHECK SECONDARY FILE
+*
+LOAD.SECONDARY.FILE: 
+      IF NUM.ITEMS < 2 OR NUM.ITEMS > 3 THEN
+         ERRMSG<-1> = FMT.LC:'The format for the SECONDARY.FILE clause is "SECONDARY.FILE File.name Key.name"'
+         ERRMSG<-1> = FMT.SP:'  where File.name is the name of an Information file'
+         ERRMSG<-1> = FMT.SP:'  and key.name is the name of the field from the primary file or defined'
+         ERRMSG<-1> = FMT.SP:'  by Print.page that is the key to this file.'
+         ERRMSG<-1> = FMT.SP:'  There can be multiple secondary files.'
+      END ELSE
+         NUM.FILES(FORM.NUM) += 1
+         FILE.NUM = NUM.FILES(FORM.NUM)
+         NEW.FILE = ITEMS(2)
+         PP.FILE.NAME(FILE.NUM,FORM.NUM) = NEW.FILE
+         OPEN '',NEW.FILE TO F.PP.FILE(FILE.NUM,FORM.NUM) ELSE
+            ERRMSG<-1> = FMT.LC:'Can not open "':NEW.FILE:'"'
+         END
+         OPEN 'DICT',NEW.FILE TO D.PP.FILE(FILE.NUM) ELSE
+            ERRMSG<-1> = FMT.LC:'Can not open "DICT" "':NEW.FILE:'"'
+         END
+* KEYS WILL BE CHECKED AFTER ALL FIELDS HAVE BEEN LOADED
+         IF NUM.ITEMS = 2 THEN
+            FIELD.NAME = '@ID'
+         END ELSE
+            FIELD.NAME = ITEMS(3)
+         END
+         PP.FILE.KEY.NAME(FILE.NUM) = FIELD.NAME
+      END
+      RETURN
+
+
+
+*
+* SORT ROW.COL POSITIONS
+*
+SORT.ROW.COL.POSITIONS: 
+      CALL PP.SORT.INDEX(MAT RC.SORT.VALUE,MAT RC.SORT.INDEX,NUM.POSITIONS(FORM.NUM),'A')
+      FOR I=1 TO NUM.POSITIONS(FORM.NUM)
+         ROW.NUM(I,FORM.NUM) = RC.ROW(RC.SORT.INDEX(I))
+         COLUMN.NUM(I,FORM.NUM) = RC.COLUMN(RC.SORT.INDEX(I))
+         RC.FIELD.NUM(I,FORM.NUM) = RC.SORT.FIELD(RC.SORT.INDEX(I))
+      NEXT I
+      RETURN
+
+
+*
+* CHECK FOR MISSING FIELDS
+*  ALL TYPE 'D' (DATA DESC) & 'I' (I-DESC) NEED A DICTIONARY RECORD LOADED
+*
+CHECK.FOR.MISSING.FIELDS: 
+      FOR I=1 TO NUM.FIELDS(FORM.NUM)
+         IF DICT.NAME(I,FORM.NUM) = '' THEN
+            IF FIELD.TYPE(I,FORM.NUM) = 'I' OR FIELD.TYPE(I,FORM.NUM) = 'D' THEN
+               ERRMSG<-1> = 'No FIELD definition clause for "':PP.FIELD(I,FORM.NUM):'"'
+            END
+         END
+      NEXT I
+      RETURN
+
+
+
+*
+* CROSS CHECK PARAMETERS FOR COMPATIBLITY
+*
+CROSS.CHECK.PARAMS: 
+      IF TOP.OF.FORM(FORM.NUM) = '' THEN
+         IF FORM.LENGTH(FORM.NUM) = 66 THEN
+            TOP.OF.FORM(FORM.NUM) = 'FORM.FEED'
+         END ELSE
+            TOP.OF.FORM(FORM.NUM) = 'BLANKS'
+         END
+      END
+*
+      IF PRINT.LINES.ON.FORM(FORM.NUM) = 0 THEN
+         IF FORM.LENGTH(FORM.NUM) > 6 THEN
+            PRINT.LINES.ON.FORM(FORM.NUM) = FORM.LENGTH(FORM.NUM) - 6
+         END ELSE
+            PRINT.LINES.ON.FORM(FORM.NUM) = FORM.LENGTH(FORM.NUM)
+         END
+      END ELSE
+         IF PRINT.LINES.ON.FORM(FORM.NUM) > FORM.LENGTH(FORM.NUM) THEN
+            ERRMSG<-1> = 'PRINT.LINES.ON.FORM of "':PRINT.LINES.ON.FORM(FORM.NUM):'", is greater than the FORM.LENGTH of "':FORM.LENGTH(FORM.NUM):'"'
+         END
+      END
+*
+* Check for mutually exclusive items for each field
+*
+      FOR I=1 TO NUM.FIELDS(FORM.NUM)
+         IF PROMPT.TEXT(I,FORM.NUM) AND POSTFIX.PHRASE(I,FORM.NUM) THEN
+            ERRMSG<-1> = 'There are conflicting clauses on field: "':PP.FIELD(I,FORM.NUM):'"'
+            ERRMSG<-1> = '   "PROMPT" and "EVALUATE" are mutually exclusive'
+         END
+         IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'PRE' AND DICT.NAME(FIELD.NUM,FORM.NUM) = 'PAGE.COUNT' AND (CONV.CODE(FIELD.NUM,FORM.NUM) OR SPECIAL.CONV.CODE(FIELD.NUM,FORM.NUM)) THEN
+            ERRMSG<-1> = 'Conversion code not allowed for "':PP.FIELD(FIELD.NUM,FORM.NUM):'", PAGE.COUNT field'
+         END
+      NEXT I
+      RETURN
+
+
+
+
+*
+*
+* FINISH PROCESSING AFTER EVERYTHING IS LOADED
+*
+FINISH.PROCESSING: 
+      GOSUB FINISH.OLD.SECTION
+      GOSUB SORT.ROW.COL.POSITIONS
+      GOSUB CHECK.FOR.MISSING.FIELDS
+      GOSUB CROSS.CHECK.PARAMS
+      GOSUB LOAD.SECONDARY.FILE.KEYS
+      IF NUM.FILES(FORM.NUM) > 1 THEN
+         GOSUB CHECK.MULTI.VALUE.KEYS
+      END
+      IF ERRMSG = '' THEN
+         GOSUB PROCESS.PROMPTS
+      END
+      GOSUB LOAD.STATIC.PREDEFINED.FIELDS
+      GOSUB CHECK.FOR.CIRCULAR.EVALUATES
+      GOSUB FINISH.DEFAULTS
+      RETURN
+
+
+*
+*
+* LOAD STATIC PREDEFINED.FIELDS
+*
+LOAD.STATIC.PREDEFINED.FIELDS: 
+      FOR FIELD.NUM=1 TO NUM.FIELDS(FORM.NUM)
+         IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'PRE' THEN
+            X.DICT.NAME = DICT.NAME(FIELD.NUM,FORM.NUM)
+            BEGIN CASE
+               CASE X.DICT.NAME = '@DATE'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @DATE
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@DAY'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @DAY
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@LOGNAME'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @LOGNAME
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@MONTH'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @MONTH
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@PATH'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @PATH
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@TIME'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @TIME
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@USERNO'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @USERNO
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@WHO'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @WHO
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = '@YEAR'
+                  DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = @YEAR
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE X.DICT.NAME = 'FONT'
+                  X.FONT.ARGS = FIELD.ARGS(FIELD.NUM,FORM.NUM)
+                  X.FONT = OCONV(X.FONT.ARGS<1,1>,'MCU')
+                  X.PITCH = OCONV(X.FONT.ARGS<1,2>,'MCU')
+                  IF X.FONT = '' THEN
+                     X.FONT = 'COURIER'
+                  END
+                  IF X.PITCH = '' OR NOT(NUM(X.PITCH)) THEN
+                     X.PITCH = 10
+                  END
+                  LOCATE X.FONT IN PPFONTS.NAME<1,1> SETTING FONT.POS THEN
+                     X.VALUE = PPFONTS.START<1,FONT.POS>:X.PITCH:PPFONTS.FINISH<1,FONT.POS>
+                     DEFAULT.VALUE(FIELD.NUM,FORM.NUM) = X.VALUE
+                  END ELSE
+                     ERRMSG<-1> = 'Unknown font: ':X.FONT
+                  END
+                  FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'STATIC'
+               CASE 1
+                  NULL
+            END CASE
+         END
+      NEXT FIELD.NUM
+      RETURN
+
+
+
+*
+*
+* LOAD.SECONDARY.FILE.KEYS
+*  (ALSO MAKE SURE THE KEY IS NOT AN EVALUATE FIELD THAT DEPENDS ON THIS FILE)
+*
+LOAD.SECONDARY.FILE.KEYS: 
+      FOR FILE.NUM=2 TO NUM.FILES(FORM.NUM)
+         FILE.FIELD.NAME = PP.FILE.NAME(1,FORM.NUM):FILE.FIELD.DELIMITER:PP.FILE.KEY.NAME(FILE.NUM)
+         LOOKUP.FIELD = FILE.FIELD.NAME
+         GOSUB FIND.FIELD.IN.LIST
+         IF NOT(FOUND.FIELD) THEN
+            GOSUB LOAD.FIELD.NAME.ON.THE.FLY
+         END ELSE
+            PP.KEY.FIELD.NUM(FILE.NUM,FORM.NUM) = FIELD.NUM
+            IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'E' THEN
+               TEMP.PHRASE = POSTFIX.PHRASE(FIELD.NUM,FORM.NUM)
+               NUM.ITEMS = COUNT(TEMP.PHRASE,@FM) + 1
+               FOR ITEM.CTR=1 TO NUM.ITEMS
+*
+* IF THE KEY FIELD IS AN EVALUATE FIELD, THEN ALL FIELDS IN THE PHRASE MUST BE
+*     FROM THE PRIMARY.FILE
+*
+                  ITEM = TEMP.PHRASE<ITEM.CTR>
+*
+* VALUE 2 IN A FIELD ITEM IS EITHER THE FILE NUMBER (FOR DICT FIELDS)
+*                                   OR IS NULL
+*
+                  IF ITEM<1,1> = 'F' AND ITEM<1,2> > 1 THEN
+                     ERRMSG<-1> = 'The key for the secondary file "':PP.FILE.NAME(FILE.NUM,FORM.NUM):'",'
+                     ERRMSG<-1> = '    the PRINT.PAGE field "':PP.FIELD(FIELD.NUM,FORM.NUM):'", is an EVALUATE field'
+                     ERRMSG<-1> = '    that depends on fields from a file other than the primary file'
+                  END
+               NEXT ITEM.CTR
+            END
+         END
+         SEC.FILE.MULTI.VALUE(FILE.NUM) = MULTI.VALUE(FIELD.NUM,FORM.NUM)
+      NEXT FILE.NUM
+      RETURN
+
+
+*
+*
+* IF THE KEY LIST TO A SECONDARY FILE IS MULTI.VALUE, THEN
+*   SET THE FIELDS TO MULTI.VALUE AS WELL
+*
+CHECK.MULTI.VALUE.KEYS: 
+      FOR FIELD.NUM=1 TO NUM.FIELDS(FORM.NUM)
+         IF SEC.FILE.MULTI.VALUE(PP.FILE.NUM(FIELD.NUM,FORM.NUM)) THEN
+            MULTI.VALUE(FIELD.NUM,FORM.NUM) = TRUE
+         END
+      NEXT FIELD.NUM
+      RETURN
+
+
+*
+*
+* CHECK FOR CIRCULAR EVALUATE FIELDS
+*
+CHECK.FOR.CIRCULAR.EVALUATES: 
+      DIM EPP.FIELD.USED(MAX.FIELDS)
+      FOR FIELD.NUM=1 TO NUM.FIELDS(FORM.NUM)
+         IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'E' THEN
+            MAT EPP.FIELD.USED = ''
+            LEVEL = 1
+            CHECK.EPP.FIELD.NUM = ''
+            CHECK.EPP.ITEM.CTR = ''
+            CHECK.EPP.NUM.ITEMS = ''
+            CHECK.EPP.FIELD.NUM<LEVEL> = FIELD.NUM
+            CIRCULAR.FIELD.NUM = ''
+            GOSUB CHECK.CIRCULAR.LEVEL
+            IF CIRCULAR.FIELD.NUM THEN
+               FMT.LC = FMT(EVALUATE.LINE.CTR(FIELD.NUM),'4"0"R'):': '
+               ERRMSG<-1> = 'The EVALUATE field "':PP.FIELD(FIELD.NUM,FORM.NUM):'" contains a circular reference via the field "':PP.FIELD(CIRCULAR.FIELD.NUM,FORM.NUM):'"'
+            END
+         END
+      NEXT FIELD.NUM
+      RETURN
+
+
+*
+*
+* CHECK CIRCULAR.LEVEL
+*
+CHECK.CIRCULAR.LEVEL: 
+      TEMP.FIELD.NUM = CHECK.EPP.FIELD.NUM<LEVEL>
+      IF EPP.FIELD.USED(TEMP.FIELD.NUM) THEN
+         CIRCULAR.FIELD.NUM = CHECK.EPP.FIELD.NUM<LEVEL-1>
+         RETURN
+      END
+      EPP.FIELD.USED(TEMP.FIELD.NUM) = 1
+      CHECK.EPP.NUM.ITEMS<LEVEL> = COUNT(POSTFIX.PHRASE(TEMP.FIELD.NUM,FORM.NUM),@FM) + 1
+      ITEM.CTR = 0
+      LOOP
+         ITEM.CTR += 1
+      UNTIL ITEM.CTR > CHECK.EPP.NUM.ITEMS<LEVEL> OR CIRCULAR.FIELD.NUM
+         ITEM = POSTFIX.PHRASE(CHECK.EPP.FIELD.NUM<LEVEL>,FORM.NUM)<ITEM.CTR>
+         IF ITEM<1,1> = 'F' THEN
+            TEMP.FIELD.NUM = ITEM<1,3>
+            IF FIELD.TYPE(TEMP.FIELD.NUM,FORM.NUM) = 'E' THEN
+               CHECK.EPP.ITEM.CTR<LEVEL> = ITEM.CTR
+               LEVEL += 1
+               CHECK.EPP.FIELD.NUM<LEVEL> = TEMP.FIELD.NUM
+               GOSUB CHECK.CIRCULAR.LEVEL
+               LEVEL -= 1
+               ITEM.CTR = CHECK.EPP.ITEM.CTR<LEVEL>
+            END
+         END
+      REPEAT
+      RETURN
+
+
+*
+*
+* FINISH SETTING UP ANY DEFAULT VALUES THAT CAN NOT BE DETERMINED
+*   UNTIL THE END
+*
+FINISH.DEFAULTS: 
+* NUM.VALUES & EXPAND.LINES
+      FOR FIELD.CTR=1 TO NUM.FIELDS(FORM.NUM)
+         IF NOT(EXPAND.LINES.USED(FIELD.CTR)) AND MULTI.VALUE(FIELD.CTR,FORM.NUM) THEN
+            EXPAND.LINES(FIELD.CTR,FORM.NUM) = TRUE
+            IF NUM.VALUES(FIELD.CTR,FORM.NUM) = 0 THEN
+               NUM.VALUES(FIELD.CTR,FORM.NUM) = INFINITY
+            END
+            IF NUM.SUBVALUES(FIELD.CTR,FORM.NUM) = 0 THEN
+               NUM.SUBVALUES(FIELD.CTR,FORM.NUM) = INFINITY
+            END
+         END
+         IF NUM.VALUES(FIELD.CTR,FORM.NUM) = 0 THEN
+            NUM.VALUES(FIELD.CTR,FORM.NUM) = 1
+         END
+         IF NUM.SUBVALUES(FIELD.CTR,FORM.NUM) = 0 THEN
+            NUM.SUBVALUES(FIELD.CTR,FORM.NUM) = 1
+         END
+      NEXT FIELD.CTR
+      RETURN
+
+
+
+
+
+*
+*
+* PROCESS PROMPTS
+*
+PROCESS.PROMPTS: 
+      PROMPTED.YET = FALSE
+      FOR FIELD.NUM=1 TO NUM.FIELDS(FORM.NUM)
+         IF PROMPT.TEXT(FIELD.NUM,FORM.NUM) THEN
+            IF NOT(PROMPTED.YET) THEN
+*               CRT CLEAR.SCREEN
+               CRT
+               CRT 'PRINT.PAGE ':INFO.FILE:' ':WP.DIR:' ':WP.FILE
+               CRT
+               PROMPTED.YET = TRUE
+            END
+            DISP.PROMPT = PROMPT.TEXT(FIELD.NUM,FORM.NUM)
+            DISP.COL = LEN(DISP.PROMPT)
+            DISP.MASK = @(DISP.COL)
+            IF INPUT.MASK(FIELD.NUM,FORM.NUM) OR MAX.LENGTH(FIELD.NUM,FORM.NUM) THEN
+               IF INPUT.MASK(FIELD.NUM,FORM.NUM) THEN
+                  DISP.MASK := INPUT.MASK(FIELD.NUM,FORM.NUM)
+               END ELSE
+                  DISP.MASK := STR('#',MAX.LENGTH(FIELD.NUM,FORM.NUM))
+               END
+               DISP.MASK := @(DISP.COL)
+            END
+            DONE.PROMPT = FALSE
+            NUM.PR.VAL = 0
+            LOOP
+            UNTIL DONE.PROMPT
+               GOSUB GET.PROMPT.ANS
+               DISP.PROMPT = ''
+               NUM.PR.VAL += 1
+               PROMPT.VALUE(FIELD.NUM,FORM.NUM)<1,NUM.PR.VAL> = ANS
+               BEGIN CASE
+                  CASE NOT(MULTI.VALUE(FIELD.NUM,FORM.NUM))
+                     DONE.PROMPT = TRUE
+                  CASE EXPAND.LINES(FIELD.NUM,FORM.NUM)
+                     IF ANS = '' THEN
+                        DONE.PROMPT = TRUE
+                     END
+                  CASE NUM.PR.VAL >= NUM.VALUES(FIELD.NUM,FORM.NUM)
+                     DONE.PROMPT = TRUE
+               END CASE
+            REPEAT
+         END
+      NEXT FIELD.NUM
+      BPIOCP
+      RETURN
+
+
+*
+*
+* GET PROMPT ANS
+*
+GET.PROMPT.ANS: 
+      LOOP
+         VALID.ANS = TRUE
+         CRT DISP.PROMPT:DISP.MASK:
+         INPUT ANS
+         IF ANS THEN
+            IF CONV.CODE(FIELD.NUM,FORM.NUM) THEN
+               ANS = ICONV(ANS,CONV.CODE(FIELD.NUM,FORM.NUM))
+               IF STATUS() THEN
+                  VALID.ANS = FALSE
+                  CRT 'Invalid response, it must match the conv code "':CONV.CODE(FIELD.NUM,FORM.NUM):'"'
+               END
+            END
+            IF MAX.LENGTH(FIELD.NUM,FORM.NUM) THEN
+               IF LEN(ANS) > MAX.LENGTH(FIELD.NUM,FORM.NUM) THEN
+                  VALID.ANS = FALSE
+                  CRT 'Invalid response, it is longer than the maximum length of ':MAX.LENGTH(FIELD.NUM,FORM.NUM)
+               END
+            END
+            IF PROMPT.VERIFY.FILE(FIELD.NUM) THEN
+               READV TEST FROM F.VERIFY.FILE(FIELD.NUM), ANS, 0 ELSE
+                  VALID.ANS = FALSE
+                  CRT 'Invalid response, it does not exist on the file: "':PROMPT.VERIFY.FILE(FIELD.NUM):'"'
+               END
+            END
+         END
+      UNTIL VALID.ANS
+      REPEAT
+      RETURN
+
+
+
+*
+*
+*******************************************
+*  CONVERT EVALUATE PHRASE SUBROUTINES
+*******************************************
+*
+
+*
+*
+* CONVERT PHRASE TO POSTIFX
+*
+CONVERT.PHRASE.TO.POSTFIX: 
+      GOSUB SET.UP.EVALUATE.PHRASE
+      GOSUB CONVERT.WITH.TO.INFIX
+      GOSUB PROCESS.EVALUATE.PHRASE
+      IF EPP.ERRMSG THEN
+         NUM.ERRORS = COUNT(EPP.ERRMSG,@FM) + 1
+         IF NUM.ERRORS > 1 THEN
+            ERRMSG<-1> = FMT.LC:'The phrase to evaluate has syntax errors in it'
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'The phrase to evaluate has a syntax error in it'
+         END
+         ERRMSG<-1> = FMT.SP:'  Phrase = "':EVALUATE.PHRASE(FIELD.NUM):'"'
+         FOR ERR.CTR=1 TO NUM.ERRORS
+            ERRMSG<-1> = FMT.SP:'  ':EPP.ERRMSG<ERR.CTR>
+         NEXT ERR.CTR
+      END ELSE
+         GOSUB VERIFY.POSTFIX
+      END
+      RETURN
+
+
+*
+*
+* SET UP PHRASE TO POSTFIX
+*
+SET.UP.EVALUATE.PHRASE: 
+      EPP.ERRMSG = ''
+      DIM OPSTK(999)
+      LAST.CONV.CODE = ''
+      LAST.EPP.SYMBOL.TYPE = ''
+      LAST.OP.VALUE = 0
+      PAREN.LEVEL = 0
+      NUM.OPSTK = 0
+      CHECK.FOR.UNARY.OP = 1
+      NUM.EPP.SYMBOLS = 0
+      POSTFIX.STRING = ''
+      RETURN
+
+
+
+*
+*
+* WITH PHRASE TO INFIX NOTATION
+*
+CONVERT.WITH.TO.INFIX: 
+      INFIX.STRING = PHRASE.PARAMS
+      INFIX.QUOTED = PHRASE.QUOTED
+      FOUND.WITH = 0
+      WITH.POS = 0
+      DONE.WITH = 0
+      LOOP
+         LOCATE 'WITH' IN INFIX.STRING<WITH.POS+1> SETTING WITH.POS ELSE
+            DONE.WITH = 1
+         END
+      UNTIL DONE.WITH
+*
+* THE QUOTED FLAGS ESTABLISHED IN 'PARSE.OPERATORS' NEED TO BE
+*   ADJUSTED WHENEVER INFIX.STRING IS CHANGED
+*  (ADDITIONAL FIELDS ARE INSERTED INTO INFIX.STRING, SO ADDITONAL FLAGS NEED TO
+*     BE INSERTED INTO INFIX.QUOTED)
+*
+         IF NOT(INFIX.QUOTED<WITH.POS>) THEN
+            IF NOT(FOUND.WITH) THEN
+               INFIX.STRING<WITH.POS> = '('
+            END ELSE
+               PREV.WORD = INFIX.STRING<WITH.POS-1>
+               PREV.QUOTED = INFIX.QUOTED<WITH.POS-1>
+               IF NOT(PREV.QUOTED) THEN
+                  IF PREV.WORD = 'OR' OR PREV.WORD = 'AND' THEN
+                     INFIX.STRING<WITH.POS-1> = ')':@TM:PREV.WORD
+                     INFIX.QUOTED<WITH.POS-1> = @TM
+                     INFIX.STRING<WITH.POS> = '('
+                  END ELSE
+                     INFIX.STRING<WITH.POS> = ')':@TM:'AND':@TM:'('
+                     INFIX.QUOTED<WITH.POS> = @TM:@TM
+                  END
+               END
+            END
+            FOUND.WITH = 1
+         END
+      REPEAT
+      IF FOUND.WITH THEN
+         INFIX.STRING := @TM:')'
+         INFIX.QUOTED := @TM
+         CONVERT @TM TO @FM IN INFIX.STRING
+         CONVERT @TM TO @FM IN INFIX.QUOTED
+      END
+      RETURN
+
+
+*
+*
+* CONVERT PHRASE TO POSTFIX
+*
+PROCESS.EVALUATE.PHRASE: 
+      LOOP
+         REMOVE EPP.SYMBOL FROM INFIX.STRING SETTING DELIM
+         REMOVE EPP.SYMBOL.IS.QUOTED FROM INFIX.QUOTED SETTING DUMMY
+         NUM.EPP.SYMBOLS += 1
+         IF EPP.SYMBOL.IS.QUOTED THEN
+            GOSUB PROCESS.EPP.LITERAL
+         END ELSE
+*
+* SPECIAL CASES (UNARY -/+, WITH)
+*
+            IF CHECK.FOR.UNARY.OP THEN
+               IF EPP.SYMBOL = '-' OR EPP.SYMBOL = '+' THEN
+                  EPP.SYMBOL = 'U':EPP.SYMBOL
+               END
+            END
+            CHECK.FOR.UNARY.OP = 0
+*
+            LOCATE EPP.SYMBOL IN OPS<1> BY 'AL' SETTING OP.POS ELSE
+               OP.POS = 0
+            END
+            IF OP.POS THEN
+               GOSUB PROCESS.EPP.OPERATOR
+            END ELSE
+               GOSUB PROCESS.EPP.FIELD.OR.LITERAL
+            END
+         END
+*
+*   CHECK IF PAREN'S HAVE GONE OUT OF BALANCE (TOO MANY RIGHTS PARENS
+*      AT THIS POINT IN THE PHRASE
+*
+         IF PAREN.LEVEL < 0 THEN
+            EPP.ERRMSG<-1> = 'Unbalance Parenthesis, Too many left ")"'
+         END
+      UNTIL DELIM = 0
+      REPEAT
+*
+* PAREN LEVEL SHOULD BE BACK TO ZERO (# RIGHT ")" = # LEFT "(")
+*
+      IF PAREN.LEVEL < 0 THEN
+         EPP.ERRMSG<-1> = 'Unbalance Parenthesis, Too many left ")"'
+      END ELSE
+         IF PAREN.LEVEL > 0 THEN
+            EPP.ERRMSG<-1> = 'Unbalance Parenthesis, Too many right "("'
+         END
+      END
+      FOR I=NUM.OPSTK TO 1 STEP -1
+         POSTFIX.STRING := @FM:'O':@VM:OP.VALUE(OPSTK(I))
+         LAST.EPP.SYMBOL.TYPE = 'O'
+      NEXT I
+      POSTFIX.STRING = POSTFIX.STRING[2,32000]
+      RETURN
+
+
+*
+*
+* PROCESS.EPP OPEARTOR
+*
+PROCESS.EPP.OPERATOR: 
+      LAST.OP.VALUE = OP.VALUE(OP.POS)
+      LOOP
+         FIRST.OP.HIGHER = 0
+         IF NUM.OPSTK > 0 THEN
+            OP.POS1 = OPSTK(NUM.OPSTK)
+            OP.POS2 = OP.POS
+            GOSUB CHECK.OP.PREC
+         END
+      UNTIL NOT(NUM.OPSTK > 0 AND FIRST.OP.HIGHER)
+         OPERATOR.VALUE = OP.VALUE(OPSTK(NUM.OPSTK))
+         POSTFIX.STRING := @FM:'O':@VM:OPERATOR.VALUE
+         LAST.EPP.SYMBOL.TYPE = 'O'
+         NUM.OPSTK -= 1
+      REPEAT
+*  (ASSUMES BALANCED PAREN'S HAVE BEEN ENTERED)
+*   REMOVES LEFT PAREN WHEN RIGHT ONE IS FOUND
+      IF EPP.SYMBOL # ')' THEN
+         NUM.OPSTK += 1
+         OPSTK(NUM.OPSTK) = OP.POS
+      END ELSE
+         NUM.OPSTK -= 1
+      END
+*
+* CHECK PAREN LEVEL (SHOULD ALWAYS BE >= 0, AND WHEN IT IS ALL FINISHED
+*   SHOULD BE 0 AGAIN)
+*
+      IF EPP.SYMBOL = '(' THEN
+         PAREN.LEVEL += 1
+      END
+      IF EPP.SYMBOL = ')' THEN
+         PAREN.LEVEL -= 1
+      END
+*
+      IF EPP.SYMBOL # ')' THEN
+         CHECK.FOR.UNARY.OP = 1
+      END
+      RETURN
+
+CHECK.OP.PREC: 
+      IF OPS<OP.POS1> = '(' OR OPS<OP.POS2> = '(' THEN
+         FIRST.OP.HIGHER = 0
+      END ELSE
+         FIRST.OP.HIGHER = (OP.PREC(OP.POS1) < OP.PREC(OP.POS2))
+      END
+      RETURN
+
+
+
+*
+*
+* DETERMINE IF EPP.SYMBOL IS A FIELD OR A LITERAL
+*
+PROCESS.EPP.FIELD.OR.LITERAL: 
+      FILE.FIELD.NAME = EPP.SYMBOL
+      GOSUB CHECK.FOR.EPP.FIELD
+      IF IS.AN.EPP.FIELD THEN
+         GOSUB PROCESS.EPP.FIELD
+      END ELSE
+         GOSUB PROCESS.EPP.LITERAL
+      END
+      RETURN
+
+
+*
+*
+* CHECK FOR EPP.FIELD (SAME LOGIC AS ADD.CURRENT.POSITION.TO.LIST)
+*
+CHECK.FOR.EPP.FIELD: 
+*
+* IF NAME ENTERE xxx/yyy THEN ONLY CHECK FOR EXACT MATCH
+*
+      IF INDEX(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1) THEN
+         LOOKUP.FIELD = FILE.FIELD.NAME
+         GOSUB FIND.FIELD.IN.LIST
+*
+* OTHERWISE IF NO FILE NAME WAS ENTERED, CHECK FOR AN
+*  ENTRY OF JUST THE FIELD NAME, IF STILL NO MATCH, THEN
+*  TRY THE current.file/fieldname
+*
+      END ELSE
+         LOOKUP.FIELD = FILE.FIELD.NAME
+         GOSUB FIND.FIELD.IN.LIST
+         IF NOT(FOUND.FIELD) THEN
+            LOOKUP.FIELD = PP.FILE.NAME(EVALUATE.FILE.NUM(EPP.FIELD.NUM),FORM.NUM):FILE.FIELD.DELIMITER:FILE.FIELD.NAME
+            GOSUB FIND.FIELD.IN.LIST
+         END
+      END
+      IS.AN.EPP.FIELD = 1
+      IF NOT(FOUND.FIELD) THEN
+         GOSUB LOAD.EPP.FIELD.NAME.ON.THE.FLY
+      END
+      IF AMBIGUOUS.FIELD.NAME THEN
+         ERRMSG<-1> = FMT.LC:'The field name "':FILE.FIELD.NAME:'" is ambiguous.  It could mean:'
+         NUM.SUB = COUNT(FIELD.NUM,@SM) + 1
+         FOR SUB.CTR=1 TO NUM.SUB
+            SUB.FIELD.NUM = FIELD.NUM<1,1,SUB.CTR>
+            ERRMSG<-1> = FMT.SP:'              "':PP.FILE.NAME(PP.FILE.NUM(SUB.FIELD.NUM,FORM.NUM),FORM.NUM):'" "':PP.FIELD(SUB.FIELD.NUM,FORM.NUM):'"'
+         NEXT SUB.CTR
+         FIELD.NUM = FIELD.NUM<1,1,1>
+      END
+      RETURN
+
+*
+* LOAD EPP.FIELD NAME ON THE FLY (SAME LOGIC AS LOAD.FIELD.NAME.ON.THE.FLY)
+*  (WITHIN EVALUATE PHRASE, FOR FIELDS NOT DEFINED IN FIELD SECTION)
+*
+LOAD.EPP.FIELD.NAME.ON.THE.FLY: 
+      IF INDEX(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1) THEN
+         FILE.NAME = FIELD(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,1,1)
+         FIELD.NAME = FIELD(FILE.FIELD.NAME,FILE.FIELD.DELIMITER,2,1)
+         GOSUB FIND.FILE.IN.LIST
+         IF FOUND.FILE.NUM > NUM.FILES(FORM.NUM) THEN
+            FILE.NUM = 0
+            ERRMSG<-1> = FMT.LC:'The file name "':FILE.NAME:'" was not declared in the definition section'
+         END ELSE
+            FILE.NUM = FOUND.FILE.NUM
+         END
+      END ELSE
+         FILE.NAME = PP.FILE.NAME(EVALUATE.FILE.NUM(EPP.FIELD.NUM),FORM.NUM)
+         FIELD.NAME = FILE.FIELD.NAME
+      END
+      CHECK.FIELD.TYPE = ''
+      IF FIELD.NAME[1,1] = PREDEFINED.FIELD.CHARACTER THEN
+         CHECK.FIELD = FIELD.NAME[2,LEN(FIELD.NAME)-1]
+         LOCATE CHECK.FIELD IN PREDEFINED.FIELD.LIST<1,1> SETTING PREDEFINED.FIELD.POS THEN
+            CHECK.FIELD.TYPE = 'PRE'
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'"':FIELD.NAME:'" is not a valid predefined field'
+         END
+      END
+      IF FILE.NUM # 0 THEN
+         FILE.FIELD.NAME = FILE.NAME:FILE.FIELD.DELIMITER:FIELD.NAME
+         CURRENT.FIELD = FILE.FIELD.NAME
+         INFO.FIELD.NAME = FIELD.NAME
+         IF CHECK.FIELD.TYPE # 'PRE' THEN
+            READV TEST FROM D.PP.FILE(FILE.NUM), INFO.FIELD.NAME, 1 ELSE
+               IS.AN.EPP.FIELD = 0
+            END
+         END
+         IF IS.AN.EPP.FIELD THEN
+            GOSUB ADD.FIELD.TO.LIST
+            GOSUB FINISH.FIELD.NAME
+*
+*  IF IT IS A MULTI-VALUED FIELD, THEN IT DEFAULTS TO EXPAND.LINE WITH
+*     NO LIMIT ON THE # OF VALUES (SEE SUBROUTINE "LOAD.EXPAND.LINES")
+*
+            IF MULTI.VALUE(FIELD.NUM,FORM.NUM) THEN
+               EXPAND.LINES(FIELD.NUM,FORM.NUM) = TRUE
+               NUM.VALUES(FIELD.NUM,FORM.NUM) = INFINITY
+               NUM.SUBVALUES(FIELD.NUM,FORM.NUM) = INFINITY
+            END
+         END
+      END
+      RETURN
+
+
+
+*
+*
+* PROCESS.EPP.FIELD
+*
+PROCESS.EPP.FIELD: 
+      IF FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'D' OR FIELD.TYPE(FIELD.NUM,FORM.NUM) = 'I' THEN
+         USE.FILE.NUM = FILE.NUM
+      END ELSE
+         USE.FILE.NUM = ''
+      END
+      POSTFIX.STRING := @FM:'F':@VM:USE.FILE.NUM:@VM:FIELD.NUM
+      LAST.EPP.SYMBOL.TYPE = 'F'
+      LAST.CONV.CODE = CONV.CODE(FIELD.NUM,FORM.NUM)
+      RETURN
+
+
+*
+*
+* PROCESS.EPP.LITERAL
+*
+PROCESS.EPP.LITERAL: 
+*
+* LITERAL VALUE
+*  ALLOW MULTIPLE LITERALS IN A ROW FOLLOWING AN COMPARISON OPERATION
+*    (OP.TYPE = 2)
+*   (EG.  WITH MAJOR = 'BUSAD''EDUC' ...)
+* STORE AS SUCCESSIVE VALUES
+*
+      IF LAST.CONV.CODE AND NOT(OP.CANCEL.CONV(LAST.OP.VALUE)) THEN
+         LITERAL.VALUE = ICONV(EPP.SYMBOL,LAST.CONV.CODE)
+      END ELSE
+         LITERAL.VALUE = EPP.SYMBOL
+      END
+      IF LAST.EPP.SYMBOL.TYPE = 'L' AND OP.TYPE(LAST.OP.VALUE) = '3' THEN
+         POSTFIX.STRING := @VM:LITERAL.VALUE
+      END ELSE
+         POSTFIX.STRING := @FM:'':@VM:LITERAL.VALUE
+      END
+      LAST.EPP.SYMBOL.TYPE = 'L'
+      RETURN
+
+
+
+*
+*
+* VERIFY POSTFIX STRING
+*
+VERIFY.POSTFIX: 
+      RESULT = ''
+      RETURN.ERRMSG = ''
+      MAT DATA.ARRAY = ''
+      RETURN.ERRMSG = ''
+      CALL PP.EVAL.POST(RESULT,POSTFIX.STRING,RETURN.ERRMSG)
+      IF RETURN.ERRMSG THEN
+         NUM.ERRORS = COUNT(RETURN.ERRMSG,@FM) + (RETURN.ERRMSG # '')
+         IF NUM.ERRORS > 1 THEN
+            ERRMSG<-1> = FMT.LC:'The phrase to evaluate has syntax errors in it'
+         END ELSE
+            ERRMSG<-1> = FMT.LC:'The phrase to evaluate has a syntax error in it'
+         END
+         ERRMSG<-1> = FMT.SP:'  Phrase = "':EVALUATE.PHRASE(EPP.FIELD.NUM):'"'
+         FOR ERR.CTR=1 TO NUM.ERRORS
+            ERRMSG<-1> = FMT.SP:RETURN.ERRMSG<ERR.CTR>
+         NEXT ERR.CTR
+      END
+      RETURN
+
+
+
+   END

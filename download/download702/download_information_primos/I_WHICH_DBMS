@@ -1,0 +1,24 @@
+*
+* Set which database system this program is running on
+* 10/04/91
+* DWS
+* TITLE ----- I_WHICH_DBMS_INFORMATION
+*
+*
+*
+*
+*************************************************************************
+* Stamped: p5 rotmand, /usr/local/collive, user #1208, 26 Sep 03, 08:18AM.
+* Version 7.02
+*
+*
+*
+*
+*
+*
+*
+
+      EQU COMMENT.OUT.EXCEPT.FOR.INFORMATION LIT ''
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIDATA LIT *'
+      EQU COMMENT.OUT.EXCEPT.FOR.UNIVERSE LIT '*'
+      DBMS.NAME = 'INFORMATION'

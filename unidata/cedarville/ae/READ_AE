@@ -1,0 +1,59 @@
+      SUBROUTINE READ_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 08/14/2000
+* DLR
+* TITLE ----- READ_AE
+*
+*
+* MODULE :
+* PURPOSE: EASY METHOD FOR INSERTING READ STATEMENTS INTO SOURCE
+*
+* Stamped: p5 rotmand, /datatel/live/collive, user #4732, 14 Aug 00, 07:55AM.
+*
+*************************************************************************
+*
+
+* Usage:
+* $READ FILE.NAME
+*   inserts lines:  READ.filename:
+*                      READ R.filename FROM F.filename, KV.filename THEN
+*                         X.HAVE.filename = @TRUE
+*                      END ELSE
+*                         R.filename = ''
+*                         X.HAVE.filename = @FALSE
+*                      END
+*                      GOSUB PARSE.filename
+*                      RETURN
+*                   PARSE.filename:
+*                      V.FIELDONE = R.filename<FIELDONE>
+*                      RETURN
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      XL.FILE.NAME = FIELD(X$C,' ',1,99)
+      NUM.XL.FILE.NAME = DCOUNT(XL.FILE.NAME,' ')
+      FOR WHICH.XL.FILE.NAME = 2 TO NUM.XL.FILE.NAME
+         X.FILE.NAME = FIELD(XL.FILE.NAME,' ',WHICH.XL.FILE.NAME,1)
+         X$CC<-1> = 'I READ.':X.FILE.NAME:':'
+         X$CC<-1> = 'I    READ R.':X.FILE.NAME:' FROM F.':X.FILE.NAME:', KV.':X.FILE.NAME:' THEN'
+         X$CC<-1> = 'I       X.HAVE.':X.FILE.NAME:' = @TRUE'
+         X$CC<-1> = 'I    END ELSE'
+         X$CC<-1> = "I       R.":X.FILE.NAME:" = ''"
+         X$CC<-1> = 'I       X.HAVE.':X.FILE.NAME:' = @FALSE'
+         X$CC<-1> = 'I    END'
+         X$CC<-1> = 'I    GOSUB PARSE.':X.FILE.NAME
+         X$CC<-1> = 'I    RETURN'
+         X$CC<-1> = 'I   '
+         X$CC<-1> = 'I   '
+         X$CC<-1> = 'I PARSE.':X.FILE.NAME:':'
+         X$CC<-1> = 'I    V.FIELDONE = R.':X.FILE.NAME:'<FIELDONE>'
+         X$CC<-1> = 'I   RETURN'
+         X$CC<-1> = 'I   '
+         X$CC<-1> = 'I   '
+      NEXT WHICH.XL.FILE.NAME
+      RETURN
+
+
+   END

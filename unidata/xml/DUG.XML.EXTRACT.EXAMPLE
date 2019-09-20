@@ -1,0 +1,58 @@
+      X.XML = ''
+      X.XML<-1> = '<population>'
+      X.XML<-1> = '   <someone>'
+      X.XML<-1> = '     <lname>Washington</lname>'
+      X.XML<-1> = '     <fname>George</fname>'
+      X.XML<-1> = '     <midname>Asa</midname>'
+      X.XML<-1> = '     <courses>'
+      X.XML<-1> = '        <course>'
+      X.XML<-1> = '           <cnum>MATH-101</cnum>'
+      X.XML<-1> = '           <ctitle>Calculus I</ctitle>'
+      X.XML<-1> = '           <cgrade>A+</cgrade>'
+      X.XML<-1> = '        </course>'
+      X.XML<-1> = '        <course>'
+      X.XML<-1> = '           <cnum>HIST-300</cnum>'
+      X.XML<-1> = '           <ctitle>History of Civilization</ctitle>'
+      X.XML<-1> = '           <cgrade>B</cgrade>'
+      X.XML<-1> = '        </course>'
+      X.XML<-1> = '     </courses>'
+      X.XML<-1> = '   </someone>'
+      X.XML<-1> = '   <someone>'
+      X.XML<-1> = '     <lname>Lincoln</lname>'
+      X.XML<-1> = '     <fname>Susan</fname>'
+      X.XML<-1> = '     <midname></midname>'
+      X.XML<-1> = '     <courses>'
+      X.XML<-1> = '        <course>'
+      X.XML<-1> = '           <cnum>PSY-101</cnum>'
+      X.XML<-1> = '           <ctitle>General Pysch I</ctitle>'
+      X.XML<-1> = '           <cgrade>A-</cgrade>'
+      X.XML<-1> = '        </course>'
+      X.XML<-1> = '     </courses>'
+      X.XML<-1> = '   </someone>'
+      X.XML<-1> = '</population>'
+*DLR*      CRT 'X.XML ':X.XML
+      X.EXT = ''
+      X.EXT<-1> = '<?xml version="1.0"?>'
+      X.EXT<-1> = '<U2xml-extraction xmlns:U2xml="http://www.ibm.com/U2-xml">'
+      X.EXT<-1> = '<U2xml:file_extraction start="/population/someone" dictionary="DUMMY"/>'
+      X.EXT<-1> = '<U2xml:field_extraction field="ONE" path="lname/text()" />'
+      X.EXT<-1> = '<U2xml:field_extraction field="TWO" path="fname/text()" />'
+      X.EXT<-1> = '<U2xml:field_extraction field="THREE" path="midname/text()" />'
+      X.EXT<-1> = '<U2xml:field_extraction field="COURSES" path="courses/course,cnum/text()" />'
+      X.EXT<-1> = '<U2xml:field_extraction field="COURSES" path="courses/course,ctitle/text()" />'
+      X.EXT<-1> = '<U2xml:field_extraction field="COURSES" path="courses/course,cgrade/text()" />'
+      X.EXT<-1> = '</U2xml-extraction>'
+*DLR*      CRT 'X.EXT ':X.EXT
+      X.DEBUG = @FALSE
+      X.RETURN.STATUS = ''
+      CALL UNIDATA.PARSE.XML(XL.RETURN.VALUE,X.RETURN.STATUS,X.XML,X.EXT,X.DEBUG)
+      IF X.RETURN.STATUS THEN
+         CRT 'SOMETHING WENT WRONG IN THE UNIDATA.PARSE.XML ROUTINE ':X.RETURN.STATUS
+         STOP
+      END
+      NUM.XL.RETURN.VALUE = DCOUNT(XL.RETURN.VALUE,@FM)
+      FOR WHICH.XL.RETURN.VALUE = 1 TO NUM.XL.RETURN.VALUE
+         X.RETURN.VALUE = XL.RETURN.VALUE<WHICH.XL.RETURN.VALUE>
+         CRT FMT(WHICH.XL.RETURN.VALUE,'3"0"R'):': ':X.RETURN.VALUE
+      NEXT WHICH.XL.RETURN.VALUE
+   END

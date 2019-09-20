@@ -1,0 +1,23 @@
+      SUBROUTINE BL_AE(MAT X$COMS)
+*
+* INFO/BASIC SUBROUTINE
+* 05/09/97
+* DLR (DAVE ROTMAN)/SJH
+* TITLE ----- BL_AE
+*
+*
+* MODULE :
+* PURPOSE:  LOCATE PREVIOUS OCCURRENCE OF A STRING
+*
+* Stamped: pb rotmand, /disk1/collive, user #21450, 09 May 97, 03:55PM.
+* Stamped: pty/ttysf howders, /disk1/collive, user #10743, 09 May 97, 02:40PM.
+*
+*************************************************************************
+*
+
+      $INSERT I_AE_XCOMS FROM AE_XCOMS
+
+      COMMAND.TO.PASS = '$L -1 ':FIELD(X$C,' ',2,99)
+      CALL L_SUB_AE(MAT X$COMS,COMMAND.TO.PASS)
+      RETURN
+   END

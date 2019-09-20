@@ -1,0 +1,110 @@
+      SUBROUTINE C26.TRANS(RETURN.VALUE,FILE.NAME,REC.KEY.LIST,FIELD.TO.RETURN)
+*
+* INFO/BASIC SUBROUTINE
+* 03/10/94
+* DLR
+* TITLE ----- C26.TRANS
+*
+*
+* PURPOSE: SIMULATE THE 'TRANS' FUNCTION, BUT ALLOW FOR A VARIABLE
+*          FILE.NAME
+*
+*     Last updated by LIVE (ROTMAND) at 08:59:54 on 03/10/1994.
+*
+*************************************************************************
+
+
+      COMMON /C26TRN/ C26TRN.PREV.FILE.NAME,
+         C26TRN.PREV.REC.KEY.LIST,
+         C26TRN.PREV.FIELD.TO.RETURN,
+         C26TRN.F.FILE.NAME,
+         C26TRN.D.FILE.NAME,
+         C26TRN.PREV.DICT.REC,
+         C26TRN.SPARE5,
+         C26TRN.SPARE4,
+         C26TRN.SPARE3,
+         C26TRN.SPARE2,
+         C26TRN.SPARE1
+
+      IF FILE.NAME = '' THEN
+         RETURN
+      END
+      IF REC.KEY.LIST = '' THEN
+         RETURN
+      END
+      IF FIELD.TO.RETURN = '' THEN
+         RETURN
+      END
+
+      IF FILE.NAME # C26TRN.PREV.FILE.NAME THEN
+         GOSUB OPEN.FILES
+         C26TRN.PREV.FILE.NAME = FILE.NAME
+      END
+      IF FIELD.TO.RETURN # C26TRN.PREV.FIELD.TO.RETURN THEN
+         GOSUB READ.DICT
+         C26TRN.PREV.FIELD.TO.RETURN = FIELD.TO.RETURN
+      END
+      RETURN.VALUE = ''
+      COUNT.KEY.LIST = COUNT(REC.KEY.LIST,@VM) + 1
+      FOR WHICH.KEY = 1 TO COUNT.KEY.LIST
+         REC.KEY = REC.KEY.LIST<1,WHICH.KEY>
+         READ DATA.REC FROM C26TRN.F.FILE.NAME, REC.KEY THEN
+            BEGIN CASE
+               CASE FIELD.TO.RETURN = '@ID'
+                  RETURN.VALUE<1,WHICH.KEY> = REC.KEY
+               CASE FIELD.TO.RETURN = '@RECORD'
+                  RETURN.VALUE<1,WHICH.KEY> = DATA.REC
+               CASE C26TRN.PREV.DICT.REC<1>[1,1] = 'D'
+                  FIELD.NUM = C26TRN.PREV.DICT.REC<2>
+                  IF FIELD.NUM = 0 THEN
+                     RETURN.VALUE<1,WHICH.KEY> = REC.KEY
+                  END ELSE
+                     RETURN.VALUE<1,WHICH.KEY> = DATA.REC<FIELD.NUM>
+                  END
+               CASE 1
+                  SAVE.AT.RECORD = @RECORD
+                  SAVE.AT.ID = @ID
+                  @RECORD = DATA.REC
+                  @ID = REC.KEY
+                  RETURN.VALUE<1,WHICH.KEY> = ITYPE(C26TRN.PREV.DICT.REC)
+                  @RECORD = SAVE.AT.RECORD
+                  @ID = SAVE.AT.ID
+            END CASE
+         END ELSE
+            RETURN.VALUE<1,WHICH.KEY> = ''
+         END
+      NEXT WHICH.KEY
+*DLR*CALL LINE.22('RETURNING ':RETURN.VALUE:' FOR LIST ':REC.KEY.LIST)
+      RETURN
+
+
+
+
+OPEN.FILES:
+      OPEN '',FILE.NAME TO C26TRN.F.FILE.NAME ELSE
+         CRT 'Unable to open ':FILE.NAME
+         STOP
+      END
+      OPEN 'DICT',FILE.NAME TO C26TRN.D.FILE.NAME ELSE
+         CRT 'Unable to open DICT ':FILE.NAME
+         STOP
+      END
+      RETURN
+
+READ.DICT:
+      IF FIELD.TO.RETURN = '@RECORD' OR FIELD.TO.RETURN = '@ID' THEN
+         RETURN
+      END
+      READ TEMP.DICT.REC FROM C26TRN.D.FILE.NAME, FIELD.TO.RETURN ELSE
+         CRT 'Unable to read ':FIELD.TO.RETURN:' from DICT ':FILE.NAME:'.'
+         STOP
+      END
+      DICT.TYPE = TEMP.DICT.REC<1>[1,1]
+      IF DICT.TYPE # 'D' AND DICT.TYPE # 'I' THEN
+         CRT 'Dictionary type must be D or I, not ':DICT.TYPE:' (':FIELD.TO.RETURN:').'
+         STOP
+      END
+      C26TRN.PREV.DICT.REC = TEMP.DICT.REC
+      RETURN
+
+   END

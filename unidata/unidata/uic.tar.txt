@@ -1,0 +1,20 @@
+UIC - UniData Internet Connection
+
+uic.tar.Z is a compressed tar file containing programs which enable
+you to link your World Wide Web forms to the UniData database. 
+
+This will let you use UniData via the CGI-BIN interface to do such
+things as provide a search engine, visitors log, etc.
+
+These tools include a sample form and its associated programs as well
+as general purpose utility programs to parse the query, provide
+a standard error message and enable either the GET or POST methods 
+from forms
+
+Load this file onto your Unix server and type the following commands:
+
+   uncompress uic.tar.Z
+   tar xvf uic.tar
+
+Then read the readme.txt file for information about the contents of
+the tape archive. 

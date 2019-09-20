@@ -1,0 +1,135 @@
+*
+* INFO/BASIC PROGRAM
+* 11/22/89
+* DLR
+* TITLE ----- PARA.IF
+*
+*
+* MODULE :
+* PURPOSE: GENERAL-PURPOSE PROGRAM TO SIMULATE USER-DEFINABLE
+*          VARIABLES IN 'IF' STATEMENTS
+*
+* Stamped: pty/ttyp2 sjoquist, /disk1/coltest, user #628, 23 Jun 94, 02:55PM.
+* Updated for HP/UX
+*     Last updated by LIVE (ROTMAN) at 13:38:44 on 08/01/1992.
+* Use our standard PARSE.LINE logic.
+*     Last updated by LIVE (ROTMAN) at 12:43:53 on 12/18/1990.
+* Include 'USER.TYPE' logic.
+*     Last updated by LIVE (ROTMAN) at 12:43:44 on 12/13/1989.
+* Include 'WORK.DAY' logic.
+*     Last updated by LIVE (ROTMAN) at 16:43:16 on 11/22/1989.
+* Include 'DAY.OF.WEEK' logic.
+*
+*************************************************************************
+*
+
+
+
+      TOTAL.COMMAND.LINE = @SENTENCE
+      GOSUB PARSE.TOTAL.COMMAND.LINE
+      BEGIN CASE
+         CASE CONDITION.TO.CHECK = 'DAY.OF.WEEK'
+            GOSUB CHECK.DAY.OF.WEEK
+         CASE CONDITION.TO.CHECK = 'USER.TYPE'
+            GOSUB CHECK.USER.TYPE
+         CASE CONDITION.TO.CHECK = 'WORK.DAY'
+            GOSUB CHECK.WORK.DAY
+         CASE CONDITION.TO.CHECK = 'REMOTE'
+            GOSUB CHECK.REMOTE
+         CASE 1
+            NEW.COMMAND.LINE = 'DISPLAY "':CONDITION.TO.CHECK:'" is not a recognized option for "PARA.IF."'
+            VALUE.TO.CHECK = 'BAD'
+            IF.VALUE = 'BAD'
+      END CASE
+      IF VALUE.TO.CHECK = IF.VALUE THEN
+         EXECUTE NEW.COMMAND.LINE
+      END
+      STOP
+
+*
+*
+* WE GO TO A LOT OF BOTHER TO ALLOW FOR MULTIPLE SPACES AND LOWER CASE LETTERS
+* ON THE COMMAND LINE
+*
+PARSE.TOTAL.COMMAND.LINE: 
+      TEMP.COMMAND.LINE = TRIM(TOTAL.COMMAND.LINE)
+
+      NUM.PARAMS = 0
+      PARAM.QUOTED = ''
+      PARAM.STR = ''
+      CALL PARSE.LINE(TEMP.COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+
+      CONDITION.TO.CHECK = OCONV(PARAM.STR<2>,'MCU')
+      VALUE.TO.CHECK     = OCONV(PARAM.STR<3>,'MCU')
+      NEW.COMMAND.LINE   = FIELD(PARAM.STR,@FM,4,9999)
+      CONVERT @FM TO ' ' IN NEW.COMMAND.LINE
+
+
+      RETURN
+
+
+
+*
+*
+*
+CHECK.DAY.OF.WEEK: 
+      DAY.NUMBER = MOD(DATE(),7)
+      BEGIN CASE
+         CASE DAY.NUMBER = 0
+            IF.VALUE = 'SUNDAY'
+         CASE DAY.NUMBER = 1
+            IF.VALUE = 'MONDAY'
+         CASE DAY.NUMBER = 2
+            IF.VALUE = 'TUESDAY'
+         CASE DAY.NUMBER = 3
+            IF.VALUE = 'WEDNESDAY'
+         CASE DAY.NUMBER = 4
+            IF.VALUE = 'THURSDAY'
+         CASE DAY.NUMBER = 5
+            IF.VALUE = 'FRIDAY'
+         CASE DAY.NUMBER = 6
+            IF.VALUE = 'SATURDAY'
+         CASE 1
+            IF.VALUE = ''
+      END CASE
+      RETURN
+
+
+CHECK.USER.TYPE: 
+      USER.TYPE.VALUE = ''
+      ADMIN.FLAG = ''
+      BEGIN CASE
+         CASE @USER.TYPE = 0
+            IF.VALUE = 'TERMINAL'
+         CASE @USER.TYPE > 0
+            IF.VALUE = 'PHANTOM'
+         CASE 1
+            IF.VALUE = ''
+      END CASE
+      RETURN
+
+
+
+CHECK.REMOTE: 
+      PCPERFORM 'pwd' CAPTURING PWD.OUTPUT
+      COUNT.SLASH = COUNT(PWD.OUTPUT,'/')
+      IF.VALUE = FIELD(PWD.OUTPUT<1>,'/',COUNT.SLASH+1,1)
+      IF.VALUE = OCONV(IF.VALUE,'MCU')
+      RETURN
+
+
+*
+*
+*
+CHECK.WORK.DAY: 
+      DATE.TO.CHECK = DATE()
+      RETURN.STRING = ''
+      CALL WORK.DAY(RETURN.STRING,DATE.TO.CHECK)
+      IF RETURN.STRING THEN
+         IF.VALUE = 'TRUE'
+      END ELSE
+         IF.VALUE = 'FALSE'
+      END
+      RETURN
+
+   END

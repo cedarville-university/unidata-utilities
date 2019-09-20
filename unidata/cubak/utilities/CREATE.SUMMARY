@@ -1,0 +1,632 @@
+*
+* INFO/BASIC PROGRAM
+* 01/19/87
+* DF
+* TITLE------- CREATE.SUMMARY
+* 8.0
+*
+* THIS PROGRAM CREATES A SUMMARY FILE BASED ON A SOURCE FILE.
+* SELECT LIST MUST BE ACTIVE.
+* P
+*     Last updated by LIVE (ROTMAND) at 08:53:08 on 04/05/1993.
+* Revised logic for OVERWRITING and APPEND.MULTIVALUES options.
+* If OVERWRITING is true, default:
+*     REPLACE.MULTIVALUES   false
+*     APPEND.MULTIVALUES    true
+* If OVERWRITING is false, default:
+*     REPLACE.MULTIVALUES   false
+*     APPEND.MULTIVALUES    false
+*     Last updated by LIVE (SJOQUIST) at 15:09:52 on 12/06/1990.
+* Added "-APPEND.MULTIVALUES"
+*     Last updated by LIVE (SJOQUIST) at 15:09:52 on 07/27/1989.
+* Added -OVERWRITING (DEFAULT) AND -NO.OVERWRITING
+*     Last updated by LIVE (ROTMAN) at 09:59:52 on 01/10/1989.
+* TOTAL RE-WRITE TO MAKE PROGRAM EASIER TO UNDERSTAND AND
+* HANDLE I-DESCRIPTOR KEYS BETTER (SOME WERE NOT WORKING AT ALL,
+* OTHERS WERE GENERATING GARBAGE KEYS IN THE DESTINATION FILE)
+* Last updated by SOURCE (DONYA).
+* Last updated at 08:02:27 on 07/20/1987 for Task Request ALL*794.
+*
+**********************************************************************
+*
+* FROM                    : THE SOURCE FILE NAME COMES AFTER THIS (OPTIONAL)
+* TO                      : THE DEST FILE NAME COMES AFTER THIS (OPTIONAL)
+* -KEY                    : THE KEY TO THE DEST RECORDS (OPTIONAL)
+* -DICT                   : DICTIONARY ITEMS TO BE CREATED
+* -INC                    : FIELDS TO BE INCREMENTED (OPTIONAL)
+* -CLEARING               : CLEAR THE DEST FILE FIRST (OPTIONAL)
+* -OVERWRITING            : OVERWRITE EXISTING FIELDS (DEFAULT)
+* -NO.OVERWRITING         : DO NOT OVERWRITE OR APPEND EXISTING FIELDS
+* -REPLACE.MULTIVALUES    : TOTAL REPLACEMENT OF MULTIVALUED FIELDS
+* -APPEND.MULTIVALUES     : MULTIVALUED-FIELDS ARE APPENDED
+
+
+      TEMP = @(0,0)
+      CLEAR.SCREEN = @(-1)
+      CLEAR.EOS = @(-3)
+      CLEAR.EOL = @(-4)
+      COMMAND.LINE = @SENTENCE
+      PROMPT ""
+
+
+      IF INDEX(COMMAND.LINE,"-HELP",1) THEN
+         IF INDEX(COMMAND.LINE,"-SPOOL",1) THEN
+            PRINTER ON
+         END
+         GOSUB PRINT.HELP
+         STOP
+      END
+
+
+      OPEN "","FILE.DESCS" TO F.FILE.DESCS ELSE
+         CALL C26.FATAL.ERROR("NO.FILE","FILE.DESCS")
+      END
+
+
+
+****************
+* MAIN PROGRAM *
+****************
+
+      PARAM.STR = ''
+      PARAM.QU = ''
+      NUM.PARAMS = 0
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QU,NUM.PARAMS)
+      IF NUM.PARAMS < 3 THEN
+         GOSUB PRINT.HELP
+         STOP
+      END
+      DIM SOURCE.DICT.RECS(NUM.PARAMS)
+      DIM DEST.DICT.RECS(NUM.PARAMS)
+      DIM SOURCE.DICT.NAMES(NUM.PARAMS)
+      DIM DEST.DICT.NAMES(NUM.PARAMS)
+      MAT SOURCE.DICT.RECS = ""
+      MAT DEST.DICT.RECS = ""
+      MAT SOURCE.DICT.NAMES = ""
+      MAT DEST.DICT.NAMES = ""
+      LOCATE "CREATE.SUMMARY" IN PARAM.STR<1> SETTING POS ELSE
+         STOP "Unrecognizable command."
+      END
+      PARAM.STR = FIELD(PARAM.STR,@FM,POS+1,NUM.PARAMS)
+      GOSUB OPEN.SOURCE.FILE
+      GOSUB OPEN.DEST.FILE
+      GOSUB CHECK.CLEAR.INC
+      GOSUB CHECK.OVERWRITING
+      GOSUB CHECK.APPEND.MULTIVALUES
+      GOSUB CHECK.REPLACE.MULTIVALUES
+      GOSUB CHECK.KEY
+      GOSUB BUILD.DEST.DICT.ITEMS
+      GOSUB PROCESS.SELECT.LIST
+      STOP
+
+
+
+***************************
+*  S U B R O U T I N E S  *
+***************************
+
+***************************************************************************
+*
+***************************************************************************
+OPEN.SOURCE.FILE: 
+      LOCATE 'FROM' IN PARAM.STR<1> SETTING POS ELSE
+         POS = 0
+      END
+      IF POS THEN
+         SOURCE.FILE = PARAM.STR<2>
+         NUM.PARAMS -= 2
+         PARAM.STR = FIELD(PARAM.STR,@FM,3,NUM.PARAMS)
+      END ELSE
+         SOURCE.FILE = PARAM.STR<1>
+         NUM.PARAMS -= 1
+         PARAM.STR = FIELD(PARAM.STR,@FM,2,NUM.PARAMS)
+      END
+
+      OPEN "",SOURCE.FILE TO F.SOURCE.FILE ELSE
+         CALL C26.FATAL.ERROR('NO.FILE',SOURCE.FILE)
+      END
+      OPEN "DICT",SOURCE.FILE TO D.SOURCE.FILE ELSE
+         CALL C26.FATAL.ERROR('NO.FILE','DICT ':SOURCE.FILE)
+      END
+      RETURN
+
+
+
+
+***************************************************************************
+*
+***************************************************************************
+OPEN.DEST.FILE: 
+      LOCATE 'TO' IN PARAM.STR<1> SETTING POS ELSE
+         POS = 0
+      END
+      IF POS THEN
+         DEST.FILE = PARAM.STR<2>
+         NUM.PARAMS -= 2
+         PARAM.STR = FIELD(PARAM.STR,@FM,3,NUM.PARAMS)
+      END ELSE
+         DEST.FILE = PARAM.STR<1>
+         NUM.PARAMS -= 1
+         PARAM.STR = FIELD(PARAM.STR,@FM,2,NUM.PARAMS)
+      END
+
+      DEST.DICT.EXIST = 1
+      OPEN "",DEST.FILE TO F.DEST.FILE ELSE
+         CALL C26.FATAL.ERROR('NO.FILE',DEST.FILE)
+      END
+      OPEN "DICT",DEST.FILE TO D.DEST.FILE ELSE
+         DEST.DICT.EXIST = 0
+      END
+      EXIST.IN.SOURCE = 1
+      READV TEST FROM F.FILE.DESCS, DEST.FILE, 0 ELSE
+         EXIST.IN.SOURCE = 0
+      END
+*DLR*      IF EXIST.IN.SOURCE THEN
+*DLR*         STOP "The file '":DEST.FILE:"' is a SOURCE file and cannot be used."
+*DLR*      END
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+CHECK.CLEAR.INC: 
+      LOCATE '-CLEARING' IN PARAM.STR<1> SETTING CLEAR.POS ELSE
+         CLEAR.POS = 0
+      END
+      IF CLEAR.POS THEN
+         CLEARFILE F.DEST.FILE
+         PARAM.STR = DELETE(PARAM.STR,CLEAR.POS,0,0)
+         NUM.PARAMS -= 1
+      END
+*
+      LOCATE "-INC" IN PARAM.STR<1> SETTING INC.POS ELSE
+         INC.POS = 0
+      END
+      IF INC.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,INC.POS,0,0)
+      END
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+CHECK.OVERWRITING: 
+      LOCATE '-OVERWRITING' IN PARAM.STR<1> SETTING OVERWRITING.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,OVERWRITING.POS,0,0)
+      END ELSE
+         OVERWRITING.POS = 0
+      END
+      LOCATE '-NO.OVERWRITING' IN PARAM.STR<1> SETTING NO.OVERWRITING.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,NO.OVERWRITING.POS,0,0)
+      END ELSE
+         NO.OVERWRITING.POS = 0
+      END
+      BEGIN CASE
+         CASE OVERWRITING.POS AND NO.OVERWRITING.POS
+            STOP '"-OVERWRITING" AND "-NO.OVERWRITING" ARE MUTUALLY EXCLUSIVE'
+         CASE OVERWRITING.POS
+            OVERWRITE.FIELDS = 1
+         CASE NO.OVERWRITING.POS
+            OVERWRITE.FIELDS = 0
+         CASE 1                         ;* DEFAULT
+            OVERWRITE.FIELDS = 1
+      END CASE
+      IF OVERWRITE.FIELDS THEN
+         APPEND.MULTIVALUES = 1
+         REPLACE.MULTIVALUES = 0
+      END ELSE
+         APPEND.MULTIVALUES = 0
+         REPLACE.MULTIVALUES = 0
+      END
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+CHECK.APPEND.MULTIVALUES: 
+      LOCATE '-APPEND.MULTIVALUES' IN PARAM.STR<1> SETTING APPEND.MULTIVALUES.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,APPEND.MULTIVALUES.POS,0,0)
+      END ELSE
+         APPEND.MULTIVALUES.POS = 0
+      END
+      LOCATE '-NO.APPEND.MULTIVALUES' IN PARAM.STR<1> SETTING NO.APPEND.MULTIVALUES.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,NO.APPEND.MULTIVALUES.POS,0,0)
+      END ELSE
+         NO.APPEND.MULTIVALUES.POS = 0
+      END
+      BEGIN CASE
+         CASE APPEND.MULTIVALUES.POS AND NO.APPEND.MULTIVALUES.POS
+            STOP '"-APPEND.MULTIVALUES" AND "-NO.APPEND.MULTIVALUES" ARE MUTUALLY EXCLUSIVE'
+         CASE APPEND.MULTIVALUES.POS
+            APPEND.MULTIVALUES = 1
+         CASE NO.APPEND.MULTIVALUES.POS
+            APPEND.MULTIVALUES = 0
+         CASE 1                         ;* DEFAULT
+            NULL
+      END CASE
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+CHECK.REPLACE.MULTIVALUES: 
+      LOCATE '-REPLACE.MULTIVALUES' IN PARAM.STR<1> SETTING REPLACE.MULTIVALUES.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,REPLACE.MULTIVALUES.POS,0,0)
+      END ELSE
+         REPLACE.MULTIVALUES.POS = 0
+      END
+      LOCATE '-NO.REPLACE.MULTIVALUES' IN PARAM.STR<1> SETTING NO.REPLACE.MULTIVALUES.POS THEN
+         PARAM.STR = DELETE(PARAM.STR,NO.REPLACE.MULTIVALUES.POS,0,0)
+      END ELSE
+         NO.REPLACE.MULTIVALUES.POS = 0
+      END
+      BEGIN CASE
+         CASE REPLACE.MULTIVALUES.POS AND NO.REPLACE.MULTIVALUES.POS
+            STOP '"-REPLACE.MULTIVALUES" AND "-NO.REPLACE.MULTIVALUES" ARE MUTUALLY EXCLUSIVE'
+         CASE REPLACE.MULTIVALUES.POS
+            REPLACE.MULTIVALUES = 1
+         CASE NO.REPLACE.MULTIVALUES.POS
+            REPLACE.MULTIVALUES = 0
+         CASE 1                         ;* DEFAULT
+            NULL
+      END CASE
+      RETURN
+
+
+
+
+***************************************************************************
+*
+***************************************************************************
+CHECK.KEY: 
+      LITERAL.KEY = 0
+      LOCATE "-KEY" IN PARAM.STR<1> SETTING KEY.POS ELSE
+         KEY.TYPE = 'D'
+         KEY.LOC = 0
+         RETURN
+      END
+
+      KEY.NAME = PARAM.STR<KEY.POS+1>
+      CONVERT '"' TO "'" IN KEY.NAME
+      READ KEY.DICT.REC FROM D.SOURCE.FILE, KEY.NAME ELSE
+         IF KEY.NAME[1,1] = "'" THEN
+            LITERAL.KEY = 1
+            KEY.DICT.REC = ""
+            LITERAL.KEY.VALUE = KEY.NAME
+            CONVERT "'" TO "" IN LITERAL.KEY.VALUE
+            IF LITERAL.KEY.VALUE = '' THEN
+               STOP "Literal key must not be null."
+            END
+            RETURN
+         END ELSE
+            STOP "The key '":KEY.NAME:"' does not exist in '":SOURCE.FILE:"'"
+         END
+      END
+      IF NOT(LITERAL.KEY) THEN
+         IF KEY.DICT.REC<1>[1,1] = 'D' THEN
+            KEY.LOC = KEY.DICT.REC<2>
+            KEY.TYPE = 'D'
+            IF NOT(KEY.LOC) OR NOT(NUM(KEY.LOC)) THEN
+               STOP "The key '":KEY.NAME:"' has an invalid location '":KEY.LOC:".'"
+            END
+         END ELSE
+            IF KEY.DICT.REC<1>[1,1] # 'I' THEN
+               STOP "The key '":KEY.NAME:"' is not type D or I."
+            END
+            KEY.TYPE = 'I'
+         END
+      END
+
+      PARAM.STR = DELETE(PARAM.STR,KEY.POS,0,0)
+      PARAM.STR = DELETE(PARAM.STR,KEY.POS,0,0)
+      NUM.PARAMS -= 2
+
+
+
+***************************************************************************
+* MAKE SURE THAT THE DATA FIELDS EXIST IN THE DEST FILE
+***************************************************************************
+BUILD.DEST.DICT.ITEMS: 
+
+* GET RID OF THE OPTIONAL KEYWORD '-DICT'
+      DICT.KEY = 1
+      LOCATE "-DICT" IN PARAM.STR<1> SETTING D.I.POS ELSE
+         DICT.KEY = 0
+      END
+      NUM.FIELDS = COUNT(PARAM.STR,@FM) + (PARAM.STR # "")
+      IF DICT.KEY THEN
+         PARAM.STR = DELETE(PARAM.STR,D.I.POS,0,0)
+         NUM.FIELDS -= 1
+      END
+
+* CHECK THE LAST DATA FIELD IN USE ON THE DEST FILE
+      READV LAST.LOC FROM D.DEST.FILE, "LAST.DICT.LOC", 2 ELSE
+         LAST.LOC = 0
+      END
+
+      NUM.DICT.RECS = 0
+      DICT.ITEMS = PARAM.STR
+      DATA.ITEMS = ""
+
+* ELIMINATE DUPLICATES IN OUR REMAINING TOKENS
+      FOR WHICH.TOKEN = 1 TO NUM.FIELDS
+         DATA.ITEM = PARAM.STR<WHICH.TOKEN>
+         LOCATE DATA.ITEM IN DATA.ITEMS<1> SETTING POS ELSE
+            DATA.ITEMS<-1> = DATA.ITEM
+         END
+      NEXT WHICH.TOKEN
+
+* NOW RESET THE COMMAND LINE
+      PARAM.STR = DATA.ITEMS
+      DICT.ITEMS = PARAM.STR
+      NUM.FIELDS = COUNT(PARAM.STR,@FM) + (PARAM.STR # "")
+      FOR WHICH.TOKEN = 1 TO NUM.FIELDS
+         DICT.NAME = PARAM.STR<WHICH.TOKEN>
+         SOURCE.DICT.NAME = FIELD(DICT.NAME,',',1,1)
+         DEST.DICT.NAME = FIELD(DICT.NAME,',',2,1)
+         IF DEST.DICT.NAME = '' THEN
+            DEST.DICT.NAME = SOURCE.DICT.NAME
+         END
+         READ SOURCE.DICT.REC FROM D.SOURCE.FILE, SOURCE.DICT.NAME ELSE
+            STOP SOURCE.DICT.NAME:" does not exist in the file ":SOURCE.FILE
+         END
+         SOURCE.TYPE = SOURCE.DICT.REC<1>[1,1]
+         LOCATION = SOURCE.DICT.REC<2>
+         IF SOURCE.TYPE = "D" OR SOURCE.TYPE = "I" THEN
+            NULL
+         END ELSE
+            STOP "The dict item '":SOURCE.DICT.NAME:"' has an unrecognizable type."
+         END
+         ON.DEST = 1
+         READ DEST.DICT.REC FROM D.DEST.FILE, DEST.DICT.NAME ELSE
+            ON.DEST = 0
+         END
+         IF ON.DEST THEN
+            DEST.TYPE = DEST.DICT.REC<1>[1,1]
+            IF DEST.TYPE # "D" THEN
+               STOP "The dict item '":DEST.DICT.NAME:"' in '":DEST.FILE:"' is not a data item."
+            END
+         END ELSE
+            DEST.DICT.REC<1> = "D"
+            LAST.LOC += 1
+            DEST.DICT.REC<2> = LAST.LOC
+            DEST.DICT.REC<3> = SOURCE.DICT.REC<3>
+            DEST.DICT.REC<4> = SOURCE.DICT.REC<4>
+            DEST.DICT.REC<5> = SOURCE.DICT.REC<5>
+            DEST.DICT.REC<6> = SOURCE.DICT.REC<6>
+            DEST.DICT.REC<7> = SOURCE.DICT.REC<7>
+         END
+         NUM.DICT.RECS += 1
+         SOURCE.DICT.RECS(NUM.DICT.RECS) = SOURCE.DICT.REC
+         DEST.DICT.RECS(NUM.DICT.RECS) = DEST.DICT.REC
+         SOURCE.DICT.NAMES(NUM.DICT.RECS) = SOURCE.DICT.NAME
+         DEST.DICT.NAMES(NUM.DICT.RECS) = DEST.DICT.NAME
+      NEXT WHICH.TOKEN
+      GOSUB CHECK.SECURITY
+
+      DEST.DICT.REC<1> = "X"
+      DEST.DICT.REC<2> = LAST.LOC
+      DEST.DICT.REC<5> = "6R"
+      DEST.DICT.REC<6> = "S"
+      WRITE DEST.DICT.REC ON D.DEST.FILE, "LAST.DICT.LOC"
+      FOR WHICH.TOKEN = 1 TO NUM.DICT.RECS
+         WRITE DEST.DICT.RECS(WHICH.TOKEN) ON D.DEST.FILE, DEST.DICT.NAMES(WHICH.TOKEN)
+      NEXT WHICH.TOKEN
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PROCESS.SELECT.LIST: 
+      REC.COUNT = 0
+      EOF = 0
+      LOOP
+         READNEXT SOURCE.KEY ELSE
+            IF REC.COUNT = 0 THEN
+               STOP "There must be an active SELECT list to create data records"
+            END
+            EOF = 1
+         END
+      UNTIL EOF DO
+         REC.COUNT += 1
+         IF MOD(REC.COUNT,10) = 0 THEN
+            CRT '*':
+            IF MOD(REC.COUNT,500) = 0 THEN
+               CRT ' ':REC.COUNT
+            END
+         END
+         GOSUB PROCESS.DATA.RECORD
+      REPEAT
+      CRT
+      IF REC.COUNT = 1 THEN
+         CRT 'One record processed.'
+      END ELSE
+         CRT REC.COUNT:' records processed.'
+      END
+      RETURN
+
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PROCESS.DATA.RECORD: 
+      READ SOURCE.REC FROM F.SOURCE.FILE, SOURCE.KEY ELSE
+         SOURCE.REC = ""
+      END
+
+      DEST.KEY.LIST = ""
+      IF LITERAL.KEY THEN
+         DEST.KEY.LIST = LITERAL.KEY.VALUE
+      END ELSE
+         BEGIN CASE
+            CASE KEY.TYPE = "I"
+               @ID = SOURCE.KEY
+               @RECORD = SOURCE.REC
+               DEST.KEY.LIST = ITYPE(KEY.DICT.REC)
+            CASE KEY.LOC = 0
+               DEST.KEY.LIST = SOURCE.KEY
+            CASE 1
+               DEST.KEY.LIST = SOURCE.REC<KEY.LOC>
+         END CASE
+         IF DEST.KEY.LIST = '' THEN
+            CRT 'Skipping record ':SOURCE.KEY:' (generated null summary key).'
+            RETURN
+         END
+      END
+
+      CONVERT @FM:@SM TO @VM:@VM IN DEST.KEY.LIST
+      NUM.DEST.KEYS = DCOUNT(DEST.KEY.LIST,@VM)
+      FOR DEST.KEY.CTR=1 TO NUM.DEST.KEYS
+         DEST.KEY = DEST.KEY.LIST<1,DEST.KEY.CTR>
+         READU DEST.REC FROM F.DEST.FILE, DEST.KEY ELSE
+            DEST.REC = ""
+         END
+
+         FOR WHICH.DICT.REC = 1 TO NUM.DICT.RECS
+            TYPE = SOURCE.DICT.RECS(WHICH.DICT.REC)<1>[1,1]
+            SOURCE.FIELD = SOURCE.DICT.RECS(WHICH.DICT.REC)<2>
+            DEST.FIELD = DEST.DICT.RECS(WHICH.DICT.REC)<2>
+            DEST.SM = DEST.DICT.RECS(WHICH.DICT.REC)<6>
+            BEGIN CASE
+               CASE TYPE = "I"
+                  @ID = SOURCE.KEY
+                  @RECORD = SOURCE.REC
+                  DATA = ITYPE(SOURCE.DICT.RECS(WHICH.DICT.REC))
+               CASE TYPE = "D"
+                  DATA = SOURCE.REC<SOURCE.FIELD>
+               CASE 1
+                  STOP "The dict item '":SOURCE.DICT.NAMES(WHICH.DICT.REC):"' has an unrecognizable type."
+            END CASE
+            BEGIN CASE
+               CASE INC.POS
+                  IF NUM(DEST.REC<DEST.FIELD>) THEN
+                     IF NUM(DATA) THEN
+                        DEST.REC<DEST.FIELD> = DEST.REC<DEST.FIELD> + DATA
+                     END
+                  END
+               CASE DEST.REC<DEST.FIELD> = ''
+                  DEST.REC<DEST.FIELD> = DATA
+               CASE DEST.SM = 'M'
+                  IF APPEND.MULTIVALUES THEN
+                     DEST.REC<DEST.FIELD,-1> = DATA
+                  END ELSE
+                     IF REPLACE.MULTIVALUES THEN
+                        DEST.REC<DEST.FIELD> = DATA
+                     END
+                  END
+               CASE OVERWRITE.FIELDS
+                  DEST.REC<DEST.FIELD> = DATA
+            END CASE
+         NEXT WHICH.DICT.REC
+         WRITE DEST.REC ON F.DEST.FILE, DEST.KEY
+      NEXT DEST.KEY.CTR
+      RETURN
+
+
+
+CHECK.SECURITY: 
+      USER.NAME = @LOGNAME
+      ACCESS.MODE = 'WRITE'
+      FIELD.LIST = DEST.DICT.NAMES(1)
+      FOR WHICH.TOKEN = 2 TO NUM.DICT.RECS
+         FIELD.LIST<1,WHICH.TOKEN> = DEST.DICT.NAMES(WHICH.TOKEN)
+      NEXT WHICH.TOKEN
+      ACCESS.OK = ''
+      CALL CC.FILE.SECURITY(ACCESS.OK,USER.NAME,DEST.FILE,FIELD.LIST,ACCESS.MODE)
+* REPORT ALL EXECUTIONS OF CREATE.SUMMARY
+* HALT EXECUTION IF USER DOES NOT HAVE WRITE ACCESS
+      WANT.RETURN = 'YES'
+      SECURITY.ACTION = 'SUCCESS'
+      FOR I = 1 TO NUM.DICT.RECS OR SECURITY.ACTION # 'SUCCESS'
+         IF NOT(ACCESS.OK<1,I>) THEN
+            WANT.RETURN = 'NO'
+            SECURITY.ACTION = 'FAILURE ON FILE ':DEST.FILE
+         END
+      NEXT I
+      CALL CC.REPORT.SECURITY('CREATE.SUMMARY',SECURITY.ACTION,COMMAND.LINE,WANT.RETURN)
+      RETURN
+
+
+
+***************************************************************************
+*
+***************************************************************************
+PRINT.HELP: 
+      PRINT CLEAR.SCREEN
+      PRINT
+      PRINT "CREATE.SUMMARY (FROM) Old.File (TO) New.File -KEY key.name -DICT dict.item(s) -INC -CLEARING"
+      PRINT
+      PRINT "   -KEY the key to the records.  It should exist in the Old file (optional)."
+      PRINT "   -DICT dictionary item(s) to be updated.  They have to exist in the old"
+      PRINT "         file already (mandatory).  The keyword '-DICT' is optional."
+      PRINT "   -INC increments all numeric fields."
+      PRINT "   -CLEARING clears the data portion of the New file first (optional)."
+      PRINT "   -OVERWRITING overwrites existing information in the New file"
+
+      PRINT "   -REPLACE.MULTIVALUES"
+      PRINT "   -APPEND.MULTIVALUES"
+      PRINT "   -HELP   (Displays this help message.)"
+      PRINT "   -SPOOL  (If present with the -HELP option prints this help message.)"
+      PRINT
+      PRINT "Note on defaults:"
+      PRINT "  If OVERWRITING is true, defaults are"
+      PRINT "      REPLACE.MULTIVALUES   false"
+      PRINT "      APPEND.MULTIVALUES    true"
+      PRINT "  If OVERWRITING is false, defaults are:"
+      PRINT "      REPLACE.MULTIVALUES   false"
+      PRINT "      APPEND.MULTIVALUES    false"
+      PRINT
+      PRINT
+      PRINT "Examples:"
+      PRINT
+      PRINT "    CREATE.SUMMARY FROM PEOPLE TO DEST.PEOPLE -DICT LAST FIRST MIDDLE"
+      PRINT "This sentence creates three dictionary items (LAST, FIRST & MIDDLE) in the"
+      PRINT "DEST.PEOPLE file and since a key is not specified the key will be the ID.NO."
+      PRINT
+      PRINT '    CREATE.SUMMARY FROM PEOPLE TO DEST.PEOPLE -KEY "DEST.KEY" -DICT LAST FIRST MIDDLE'
+      PRINT "This sentence will create three dictionary items (LAST, FIRST & MIDDLE) in the"
+      PRINT "DEST.PEOPLE file and the key to this record will be DEST.KEY."
+      PRINT
+      PRINT "    CREATE.SUMMARY FROM PEOPLE TO DEST.PEOPLE -CLEARING -DICT LAST FIRST MIDDLE"
+      PRINT "This sentence creates three dictionary items (LAST, FIRST & MIDDLE) in"
+      PRINT "the DEST.PEOPLE file and clears the file first and then builds new records."
+      PRINT
+      PRINT "    CREATE.SUMMARY AR.BILLINGS S.AR.BILLINGS -INC -DICT TOTAL.CREDITS TOTAL.COURSES"
+      PRINT "This sentence will increment the TOTAL.CREDITS and TOTAL.COURSES fields"
+      PRINT "in the S.AR.BILLINGS file."
+      PRINT
+      PRINT
+      PRINT "NOTES:"
+      PRINT "   1. Unlike the Datatel version of CREATE.SUMMARY, this version does NOT"
+      PRINT "      check to make sure that you are not using a SOURCE file."
+      PRINT
+      PRINT "   2. If the dictionary items you specify do not exist in the New.File"
+      PRINT "      dictionary, they will be created based on LAST.DICT.LOC."
+      PRINT
+      PRINT "   3. If the -KEY keyword is a literal it has to be enclosed in quotation marks;"
+      PRINT "      otherwise, it has to exist in the Old.File and should not be enclosed in"
+      PRINT "      quotation marks."
+      PRINT
+      PRINT "   4.  Keep in mind that when you use the -INC keyword all the numeric fields"
+      PRINT "       specified in your sentence will be incremented."
+      PRINT
+      RETURN
+
+
+
+
+
+*
+   END

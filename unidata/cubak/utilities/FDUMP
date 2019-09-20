@@ -1,0 +1,223 @@
+*
+* INFO/BASIC PROGRAM
+* 5/17/89
+* DWS
+* TITLE ----- FDUMP
+*
+*
+* PURPOSE: FILE DUMP (INTERACTIVE)
+*
+* Stamped: pty/ttyrc rotmand, /disk1/collive, user #21252, 17 Aug 95, 02:21PM.
+* Make the Hex command a toggle.
+*     Last updated by LIVE (SJOQUIST) at 12:18:39 on 05/17/1989.
+*
+*************************************************************************
+*
+
+      GOSUB SET.UP
+      LOOP
+         GOSUB GET.COMMAND
+      UNTIL COMMAND = 'END' OR COMMAND = 'Q'
+         BEGIN CASE
+*
+* CHANGE RECORD SIZE
+*
+            CASE COMMAND[1,1] = 'R'
+               TEMP = COMMAND[2,99]
+               IF NUM(TEMP) AND TEMP <= MAX.SIZE AND TEMP > 0 THEN
+                  RECORD.SIZE = TEMP
+                  IF RECORD.SIZE > 256 THEN
+                     SCREEN.POS = @FALSE
+                     PROMPT.ROW = ''
+                     PROMPT.COL = ''
+                  END ELSE
+                     SCREEN.POS = @TRUE
+                     PROMPT.ROW = 22
+                     PROMPT.COL = 0
+                  END
+               END
+               COMMAND = REC.NUM
+               GOSUB DISPLAY.RECORDS
+*
+* CHANGE RECORD OFFSET
+*
+            CASE COMMAND[1,1] = 'O'
+               TEMP = COMMAND[2,99]
+               IF NUM(TEMP) AND TEMP >= 0 THEN
+                  RECORD.OFFSET = TEMP
+                  BUFFER.OFFSET = INT((RECORD.OFFSET + 1)/2)
+                  RECORD.OFFSET = BUFFER.OFFSET * 2
+               END
+               COMMAND = REC.NUM
+               GOSUB DISPLAY.RECORDS
+*
+* TURN HEX DISPLAY ON/OFF
+*
+            CASE COMMAND[1,1] = 'H'
+HEX.DISPLAY = NOT(HEX.DISPLAY)
+*DLR*               TEMP = OCONV(TRIM(COMMAND[2,99]),'MCU')
+*DLR*               BEGIN CASE
+*DLR*                  CASE TEMP = 'ON' OR TEMP = ''
+*DLR*                     HEX.DISPLAY = 1
+*DLR*                  CASE TEMP = 'OFF'
+*DLR*                     HEX.DISPLAY = 0
+*DLR*               END CASE
+               COMMAND = REC.NUM
+               GOSUB DISPLAY.RECORDS
+            CASE NUM(COMMAND)
+               GOSUB DISPLAY.RECORDS
+         END CASE
+      REPEAT
+      GOSUB TERMINATE
+      STOP
+
+
+*
+*
+* SET UP
+*
+SET.UP: 
+      CRT @(-1)
+      PROMPT ''
+      FILE.NAME = FIELD(TRIM(@SENTENCE),' ',2,1)
+      IF FILE.NAME = '' THEN
+         END.PARAM = 2
+         PROMPT.COL = 5
+         PROMPT.ROW = 3
+         CALL PROMPT.ANS(FILE.NAME,'File name',PROMPT.COL,PROMPT.ROW,'','',END.PARAM)
+      END
+      LEN.FILE.NAME = LEN(TRIM(FILE.NAME))
+      BEG.RECORD = FIELD(TRIM(@SENTENCE),' ',5,1)
+      FUNIT = 0
+      TYPE = 0
+      ERR.CODE = 0
+      OSOPEN FILE.NAME TO FUNIT ELSE
+         OPEN.STATUS = STATUS()
+         MSG = 'OSOPEN for ':FILE.NAME:' failed with status ':OPEN.STATUS:'.'
+         CALL LINE.22(MSG)
+         STOP
+      END
+      MAX.SIZE = 512
+      BUFFER = ''
+      RECORD.SIZE = 256
+      SCREEN.POS = @TRUE
+      PROMPT.ROW = 22
+      PROMPT.COL = 0
+      REC.NUM = 0
+      RECORD.OFFSET = 0
+      BUFFER.OFFSET = 0
+      NUM.COLS = 16
+      HEX.DISPLAY = 1
+      NUM.WORDS = 0
+      ERR.CODE = 0
+      IF BEG.RECORD > 0 AND NUM(BEG.RECORD) THEN
+         PREV.REC.NUM = BEG.RECORD - 1
+      END ELSE
+         PREV.REC.NUM = 0
+      END
+      COMMAND = ''
+      GOSUB DISPLAY.RECORDS
+      RETURN
+
+
+*
+*
+* GET COMMAND
+*
+GET.COMMAND: 
+      PROMPT.MSG = 'Record #, (R)ecord size, (H)ex display ON/OFF, (O)ffset record'
+      END.PARAM = 1
+      COMMAND = ''
+      CALL PROMPT.ANS(COMMAND,PROMPT.MSG,PROMPT.COL,PROMPT.ROW,'','',END.PARAM)
+      COMMAND = OCONV(COMMAND,'MCU')
+      RETURN
+
+
+*
+*
+*
+* DISPLAY RECORDS
+*
+DISPLAY.RECORDS: 
+      IF COMMAND = '' THEN
+         REC.NUM = PREV.REC.NUM + 1
+      END ELSE
+         REC.NUM = COMMAND
+      END
+      ERR = @FALSE
+      BYTE.OFFSET = (REC.NUM-1)*RECORD.SIZE + BUFFER.OFFSET
+      OSBREAD BUFFER FROM FUNIT AT BYTE.OFFSET LENGTH RECORD.SIZE ON ERROR ERR = @TRUE
+      IF ERR THEN
+         CRT
+         CRT
+         CRT FILE.NAME
+         CRT 'RECORD ':FMT(REC.NUM,'6R'):'    RECORD SIZE: ':FMT(RECORD.SIZE,'4R'):'   RECORD OFFSET: ':FMT(RECORD.OFFSET,'5R')
+         CRT
+         CRT 'ERROR CODE = ':ERR.CODE
+         RETURN
+      END
+      GOSUB DISPLAY.BUFFER
+      PREV.REC.NUM = REC.NUM
+      RETURN
+
+
+*
+*
+* TERMINATE
+*
+TERMINATE: 
+      OSCLOSE FUNIT
+      RETURN
+
+*
+*
+* DISPLAY BUFFER
+*
+DISPLAY.BUFFER: 
+      IF SCREEN.POS THEN
+         CRT @(-1):
+      END
+      CRT FILE.NAME
+      CRT 'RECORD ':FMT(REC.NUM,'6R'):'    RECORD SIZE: ':FMT(RECORD.SIZE,'4R'):'   RECORD OFFSET: ':FMT(RECORD.OFFSET,'5R')
+      CRT
+      IF HEX.DISPLAY THEN
+         NUM.COLS = 16
+         FMT.B = '40L'
+      END ELSE
+         NUM.COLS = 64
+         FMT.B = '0L'
+      END
+      NUM.ROWS = INT((RECORD.SIZE - 1) / NUM.COLS) + 1
+      CH.POS = 0
+      FOR ROW=1 TO NUM.ROWS
+         PRTLIN.A = FMT(CH.POS+1,'5R'):': '
+         PRTLIN.B = ''
+         PRTLIN.C = ': '
+         FOR COL=1 TO NUM.COLS UNTIL CH.POS >= RECORD.SIZE
+            CH.POS += 1
+            CH = BUFFER[CH.POS,1]
+            CH.VALUE = SEQ(CH)
+            TEMP.VALUE = CH.VALUE
+            IF TEMP.VALUE > 127 THEN
+               TEMP.VALUE = TEMP.VALUE - 128
+            END
+            IF TEMP.VALUE > 31 AND TEMP.VALUE < 126 THEN
+               DISPLAY.CH = CH
+            END ELSE
+               DISPLAY.CH = '.'
+            END
+            PRTLIN.C := DISPLAY.CH
+            IF HEX.DISPLAY THEN
+               HEXCH =''
+               CALL DEC.TO.HEX(HEXCH,CH.VALUE)
+               PRTLIN.B := FMT(HEXCH,'2"0"R')
+               IF MOD(COL,2) = 0 THEN
+                  PRTLIN.B := ' '
+               END
+            END
+         NEXT COL
+         PRTLIN = PRTLIN.A:FMT(PRTLIN.B,FMT.B):PRTLIN.C
+         CRT PRTLIN
+      NEXT ROW
+      RETURN
+   END

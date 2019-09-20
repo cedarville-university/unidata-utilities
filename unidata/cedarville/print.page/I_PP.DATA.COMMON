@@ -1,0 +1,26 @@
+*
+* Common statement for the Print.Page module
+*
+* Stamped: pts_4 rotmand, /datatel/coll18/live/apphome, user #27508, 08 Dec 14, 08:55AM.
+*  Version 5.2
+*  Allow field name for mail subject
+* Stamped: pts_3 rotmand, /datatel/coll18/live/apphome, user #21570, 31 Jan 12, 05:22PM.
+*  Version 5.1
+*  Allow numeric field numbers in addition to field names.
+* Stamped: pts_82 rotmand, /datatel/live/collive, user #29971, 19 Mar 07, 04:42PM.
+*  Version 5.0
+*  Add ATTACH.FILE option.
+* Stamped: qc rotmand, /datatel/live/collive, user #8284, 18 Dec 00, 09:20AM.
+*  Version 4.0
+*  Add FONT predefined field.
+*     Last updated by LIVE (ROTMAN) at 09:36:40 on 09/11/1989.
+* Allow SUBROUTINE field type.
+* Add &INITIALIZATION and &TERMINATION sections to definition file.
+* Shorten subroutine names for customers with long account names.
+*
+*     Last updated by LIVE (SJOQUIST) at 15:59:08 on 04/17/89
+*
+*************************************************************************
+*
+
+COMMON/PP.DATA/ DATA.ARRAY(MAX.FIELDS)

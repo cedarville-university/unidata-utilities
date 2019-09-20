@@ -1,0 +1,34 @@
+      SUBROUTINE FLIP.8TH.BIT(RETURN.VALUE, ORIGINAL.VALUE)
+*
+* INFO/BASIC SUBROUTINE
+* 3/14/91
+* DWS
+* TITLE ----- FLIB.8TH.BIT
+*
+*
+* PURPOSE: GO THROUGH A STRING & FLIP THE 8TH BIT
+*         (USED INITIALLY FOR DOWNLOAD PROGRAM TO CREATE
+*          A FULL WORDPERFECT FILE THAT CAN BE DOWNLOADED USING
+*          PRIME-KERMIT WITH 8TH BIT PREFIXING TO PRESERVE
+*          THE NECESSARY HEADER INFO)
+*
+*     Last updated by LIVE (SJOQUIST) at 09:31:37 on 03/14/1991.
+*
+*************************************************************************
+*
+
+      LEN.ORIGINAL = LEN(ORIGINAL.VALUE)
+      RETURN.VALUE = ''
+      FOR CTR=1 TO LEN.ORIGINAL
+         CH = ORIGINAL.VALUE[CTR,1]
+         BYTE = SEQ(CH)
+         IF BYTE < 128 THEN
+            BYTE += 128
+         END ELSE
+            BYTE -= 128
+         END
+         RETURN.VALUE := CHAR(BYTE)
+      NEXT CTR
+      RETURN
+
+   END

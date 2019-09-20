@@ -1,0 +1,1033 @@
+*
+* INFO/BASIC PROGRAM
+* 9/4/91
+* DLR
+* TITLE ----- HISTOGRAM
+*
+*
+* PRODUCE HISTOGRAMS FROM INFORMATION FILES
+* OPTIONALLY PRODUCE SELECT LIST FOR EACH CELL LOCATION
+*
+* Stamped: p1 rotmand, /datatel/live/collive, user #20509, 05 Sep 00, 01:32PM.
+*  Allow HTML output (directed to a file)
+* Stamped: w6 rotmand, /disk1/collive, user #29723, 12 Feb 99, 11:59AM.
+*   Remove support for FORM.NAME (rely on the user issuing an
+*      appropriate SETPTR command)
+* Stamped: pty/ttyp7 rotmand, /disk1/collive, user #29366, 07 Mar 95, 01:45PM.
+* Allow BY.EXP select list.
+* Stamped: pty/ttyp6 sjoquist, /disk1/collive, user #6096, 24 Jun 94, 04:47PM.
+* Updated for HP-UX
+*     Last updated by LIVE (ROTMAN) at 10:54:51 on 10/30/1991.
+* Added REQUIRE.SELECT option.
+*     Last updated by LIVE (ROTMAN) at 12:50:49 on 10/09/1991.
+* Add PCT option.
+*     Last updated by LIVE (ROTMAN) at 16:23:55 on 09/04/1991.
+* Based on CROSS.TAB program.
+*
+*************************************************************************
+
+
+      COMMAND.LINE = @SENTENCE
+      GOSUB SET.UP.DEFAULTS
+      GOSUB LOAD.PARAMETERS
+      IK$SLACTIVE = 1
+      FROM.UNIT = 0
+      SELECT.IS.ACTIVE = SELECTINFO(FROM.UNIT,IK$SLACTIVE)
+      IF REQUIRE.SELECT AND NOT(SELECT.IS.ACTIVE) THEN
+         ERRMSG<-1> = 'No select list active.  Processing terminated.'
+         NUM.ERRORS += 1
+      END
+      IF NUM.ERRORS > 0 THEN
+         GOSUB PRINT.ERRORS
+         STOP
+      END
+
+      GOSUB OPEN.FILES
+      GOSUB SETUP.TABLES
+
+      IF HAVE.LPTR THEN
+         NO.PAUSE = @(0,0)
+      END
+      NUM.SRC.KEYS = 0
+      NUM.SRC.RECS = 0
+      NOT.COUNTED  = 0
+      DONE = 0
+      IF NOT(REQUIRE.SELECT) AND NOT(SELECT.IS.ACTIVE) THEN
+         SELECT F.SRC
+      END
+
+      LOOP
+         READNEXT SRC.KEY ELSE DONE = 1
+      UNTIL DONE
+         NUM.SRC.KEYS += 1
+         IF MOD(NUM.SRC.KEYS,20) = 0 THEN
+            CRT '*':
+            IF MOD(NUM.SRC.KEYS,1000) = 0 THEN
+               CRT ' ':NUM.SRC.KEYS
+            END
+         END
+         GOSUB READ.RECORD
+         IF ON.FILE THEN
+            GOSUB TALLY.RECORD
+         END
+      REPEAT
+
+      CRT
+      IF START.INTERVAL = '' THEN
+         GOSUB SORT.RESULTS
+      END
+      BEGIN CASE
+         CASE HAVE.LPTR
+            PRINTER ON
+         CASE HAVE.OUTPUT.FILE
+            R.OUTPUT.FILE = ''
+         CASE 1
+            GOSUB GET.TERMINAL.WIDTH
+            PRINT.WIDTH = TERMINAL.WIDTH
+      END CASE
+      IF OUTPUT.FORMAT = 'HTML' THEN
+         GOSUB PRINT.HTML.RESULTS
+      END ELSE
+         GOSUB PRINT.TEXT.RESULTS
+      END
+      IF HAVE.LPTR THEN
+         PRINTER OFF
+      END
+      IF HAVE.OUTPUT.FILE THEN
+         WRITE R.OUTPUT.FILE ON F.OUTPUT.DIR.NAME, OUTPUT.RECORD.NAME
+         NUM.LINES = DCOUNT(R.OUTPUT.FILE,@FM)
+         CRT NUM.LINES:' LINES WRITTEN TO ':OUTPUT.DIR.NAME:' ':OUTPUT.RECORD.NAME
+      END
+      IF MAKE.SELECT THEN
+         GOSUB FORM.SELECT.LISTS
+      END
+      STOP
+
+
+SET.UP.DEFAULTS: 
+      MAX.ARRAY.SIZE = 16382
+      DIM PARAM(20)
+      DIM SELECT.LISTS(1)               ;* DIM CHANGED LATER IF NEEDED
+      DIM CROSS.COUNTS(1)
+      DEFAULT.DIM1 = 250
+      DEFAULT.LEFT.COL.WIDTH = 10
+      DEFAULT.RIGHT.COL.WIDTH = 10
+      DEFAULT.PRINT.WIDTH = 132
+      DEFAULT.PREFIX            = 'HIST.'
+      DEFAULT.START.INTERVAL = ''
+      DEFAULT.FORMAT = 'TEXT'
+
+      MAX.LEFT.FIELD = DEFAULT.DIM1
+      LEFT.COL.WIDTH = DEFAULT.LEFT.COL.WIDTH
+      RIGHT.COL.WIDTH = DEFAULT.RIGHT.COL.WIDTH
+      PRINT.WIDTH = DEFAULT.PRINT.WIDTH
+      START.INTERVAL = DEFAULT.START.INTERVAL
+      INTERVAL.WIDTH = START.INTERVAL
+      OUTPUT.FORMAT = DEFAULT.FORMAT
+      HAVE.OUTPUT.FILE = @FALSE
+      RETURN
+
+
+READ.RECORD: 
+      ACTUAL.KEY = FIELD(SRC.KEY,@VM,1,1)
+      READ SRC.REC FROM F.SRC, ACTUAL.KEY THEN
+         ON.FILE = @TRUE
+         NUM.SRC.RECS += 1
+      END ELSE
+         ON.FILE = @FALSE
+         CRT
+         CRT 'WARNING...........RECORD NOT ON FILE: ':ACTUAL.KEY
+      END
+      RETURN
+
+
+TALLY.RECORD: 
+      IF LEFT.FIELD.TYPE = 'D' THEN
+         IF LEFT.FIELD.LOC = 0 THEN
+            LEFT.FIELD.VALUE.LIST = SRC.KEY
+         END ELSE
+            LEFT.FIELD.VALUE.LIST = SRC.REC<LEFT.FIELD.LOC>
+         END
+      END ELSE
+         @RECORD = SRC.REC
+         @ID = SRC.KEY
+         LEFT.FIELD.VALUE.LIST = ITYPE(LEFT.FIELD.DICT.REC)
+      END
+      IF COUNT(SRC.KEY,@VM) > 0 THEN
+         WHICH.VALUE = FIELD(SRC.KEY,@VM,2,1)
+         IF NOT(NUM(WHICH.VALUE)) THEN
+            WHICH.VALUE = 1
+         END
+         WHICH.SUB.VALUE = FIELD(SRC.KEY,@VM,3,1)
+         IF NOT(NUM(WHICH.SUB.VALUE)) THEN
+            WHICH.SUB.VALUE = 1
+         END
+         LEFT.FIELD.VALUE.LIST = LEFT.FIELD.VALUE.LIST<1,WHICH.VALUE,WHICH.SUB.VALUE>
+      END
+
+      COUNT.LEFT.FIELD = COUNT(LEFT.FIELD.VALUE.LIST,@VM)+1
+
+      FOR WHICH.LEFT.FIELD = 1 TO COUNT.LEFT.FIELD
+         LEFT.FIELD.VALUE = LEFT.FIELD.VALUE.LIST<1,WHICH.LEFT.FIELD>
+         BEGIN CASE
+            CASE LEFT.FIELD.VALUE = ''
+               IF RANGE1.LOW = '' THEN
+                  I = 1
+               END ELSE
+                  I = 0
+               END
+            CASE START.INTERVAL # ''
+               IF NUM(LEFT.FIELD.VALUE) THEN
+                  I = INT((LEFT.FIELD.VALUE - START.INTERVAL)/INTERVAL.WIDTH) + 2
+                  IF I > MAX.LEFT.FIELD THEN
+                     IF HAVE.LPTR THEN
+                        PRINT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED ON RECORD ':SRC.KEY
+                        PRINT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+                     END
+                     CRT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED ON RECORD ':SRC.KEY
+                     CRT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+                     I = 0
+                  END
+                  IF I > NUM.LEFT.FIELD THEN
+                     NUM.LEFT.FIELD = I
+                  END
+               END ELSE
+                  CRT
+                  CRT SRC.KEY:' NON-NUMERIC VALUE IGNORED: ':LEFT.FIELD.VALUE
+                  I = 0
+               END
+            CASE 1
+               LOCATE LEFT.FIELD.VALUE IN LEFT.FIELD.LIST<1,1> SETTING I ELSE I = 0
+               IF I = 0 AND RANGE1.LOW = '' THEN
+                  NUM.LEFT.FIELD += 1
+                  IF NUM.LEFT.FIELD >= MAX.LEFT.FIELD THEN
+                     IF HAVE.LPTR THEN
+                        PRINT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED ON RECORD ':SRC.KEY
+                        PRINT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+                     END
+                     CRT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED ON RECORD ':SRC.KEY
+                     CRT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+                     EXECUTE 'CLEARSELECT'
+                     STOP
+                  END
+                  LEFT.FIELD.LIST<1,NUM.LEFT.FIELD> = LEFT.FIELD.VALUE
+                  I = NUM.LEFT.FIELD
+               END
+         END CASE
+         IF I <= 0 THEN
+            NOT.COUNTED += 1
+         END ELSE
+            CROSS.COUNTS(I) += 1
+            IF MAKE.SELECT THEN
+               SELECT.LISTS(I) = SELECT.LISTS(I):@FM:SRC.KEY
+            END
+         END
+      NEXT WHICH.LEFT.FIELD
+      RETURN
+
+
+***************************************************************************
+* BUILD INITIAL VALUES FOR CODE TABLES
+* SINCE WE MAY TALLY SOME NULL VALUES, WE FORCE THE FIRST ENTRY IN EACH
+* TABLE TO BE A NULL
+***************************************************************************
+SETUP.TABLES: 
+      MAX.LEFT.FIELD.COUNT = ''
+      LEFT.FIELD.LIST = ''
+      NUM.LEFT.FIELD = 1
+      IF CODE.FILE1 # '' THEN
+         GOSUB BUILD.FROM.CODE.FILE1
+      END
+      IF RANGE1.LOW # '' THEN
+         GOSUB BUILD.FROM.RANGE1
+      END
+      IF MAKE.SELECT THEN
+         DIM SELECT.LISTS(MAX.LEFT.FIELD)
+         MAT SELECT.LISTS = ''
+      END
+      RETURN
+
+
+BUILD.FROM.CODE.FILE1: 
+      LIST.NUMBER.TO.USE = ''
+      CALL GET.UNUSED.SELECT.LIST(LIST.NUMBER.TO.USE)
+      IF LIST.NUMBER.TO.USE < 0 THEN
+         CRT 'Warning...unable to pre-load code file.  All select lists are in use.'
+         RETURN
+      END
+      SELECT F.CODE.FILE1 TO LIST.NUMBER.TO.USE
+      DONE = 0
+      LOOP
+         READNEXT LEFT.FIELD.ID FROM LIST.NUMBER.TO.USE ELSE DONE = 1
+      UNTIL DONE
+         NUM.LEFT.FIELD += 1
+         IF NUM.LEFT.FIELD >= MAX.LEFT.FIELD THEN
+            IF HAVE.LPTR THEN
+               PRINT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED FOR ':LEFT.FIELD
+               PRINT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+            END
+            CRT 'MAXIMUM SUBSCRIPT SIZE EXCEEDED FOR ':LEFT.FIELD
+            CRT '   ATTEMPTING TO STORE VALUE ':LEFT.FIELD.VALUE
+            STOP
+         END
+         LOCATE LEFT.FIELD.ID IN LEFT.FIELD.LIST<1,1> BY "AL" SETTING POS ELSE
+            INS LEFT.FIELD.ID BEFORE LEFT.FIELD.LIST<1,POS>
+         END
+      REPEAT
+      RETURN
+
+
+BUILD.FROM.RANGE1: 
+      NUM.LEFT.FIELD = 0
+      FOR WHICH.LEFT.FIELD = RANGE1.LOW TO RANGE1.HIGH STEP INTERVAL.WIDTH
+         NUM.LEFT.FIELD += 1
+         LEFT.FIELD.LIST<1,NUM.LEFT.FIELD> = WHICH.LEFT.FIELD
+      NEXT WHICH.LEFT.FIELD
+      RETURN
+
+
+SORT.RESULTS: 
+
+      DIM LEFT.FIELD.ARRAY(NUM.LEFT.FIELD)
+      DIM LEFT.FIELD.INDEX(NUM.LEFT.FIELD)
+      FOR I = 1 TO NUM.LEFT.FIELD
+         LEFT.FIELD.INDEX(I) = I
+      NEXT I
+      MATPARSE LEFT.FIELD.ARRAY FROM LEFT.FIELD.LIST,@VM
+      CALL SORT.INDEX(MAT LEFT.FIELD.ARRAY,MAT LEFT.FIELD.INDEX,NUM.LEFT.FIELD,'A')
+      RETURN
+
+
+PRINT.TEXT.RESULTS: 
+      IF TITLE.TEXT = '' THEN
+         IF NOT(HAVE.OUTPUT.FILE) THEN
+            HEADING " "
+         END
+         PRINT.LINE = 'HISTOGRAM OF "':LEFT.FIELD:'" FOR FILE ':SRC.FILENAME
+         GOSUB PRINT.PRINT.LINE
+         IF RANGE1.LOW # '' THEN
+            PRINT.LINE = 'USING VALUE RANGE:  ':RANGE1.LOW:'-':RANGE1.HIGH
+            GOSUB PRINT.PRINT.LINE
+         END
+         IF START.INTERVAL # '' THEN
+            PRINT.LINE = 'USING STARTING POINT ':START.INTERVAL:' AND WIDTH ':INTERVAL.WIDTH
+            GOSUB PRINT.PRINT.LINE
+         END
+         PRINT.LINE = OCONV(DATE(),"D2/"):' ':OCONV(TIME(),"MTHS")
+         GOSUB PRINT.PRINT.LINE
+         PRINT.LINE = ' '
+         GOSUB PRINT.PRINT.LINE
+         PRINT.LINE = ' '
+         GOSUB PRINT.PRINT.LINE
+      END ELSE
+         IF HAVE.OUTPUT.FILE THEN
+            PRINT.LINE = TITLE.TEXT
+            GOSUB PRINT.PRINT.LINE
+         END ELSE
+            HEADING TITLE.TEXT
+         END
+      END
+
+      TOT.COUNTS = 0
+      FOR I = 1 TO NUM.LEFT.FIELD
+         TOT.COUNTS += CROSS.COUNTS(I)
+         IF CROSS.COUNTS(I) > MAX.LEFT.FIELD.COUNT THEN
+            MAX.LEFT.FIELD.COUNT = CROSS.COUNTS(I)
+         END
+      NEXT I
+      SPACES.FOR.STARS = PRINT.WIDTH - LEFT.COL.WIDTH - RIGHT.COL.WIDTH - 2
+      IF PRINT.PCT THEN
+         SPACES.FOR.STARS -= 6
+      END
+      CASES.PER.STAR = MAX.LEFT.FIELD.COUNT / SPACES.FOR.STARS
+      IF CASES.PER.STAR >= 1 THEN
+         HAVE.BLOCK = @FALSE
+         CASES.PER.STAR = INT(CASES.PER.STAR)
+         SCALE.FACTOR = 1 / CASES.PER.STAR
+         IF CASES.PER.STAR < 2 THEN
+            PRINT.LINE = 'EACH "*" REPRESENTS 1 CASE'
+         END ELSE
+            PRINT.LINE = 'EACH "*" REPRESENTS ':CASES.PER.STAR:' CASES'
+         END
+      END ELSE
+         HAVE.BLOCK = @TRUE
+         SCALE.FACTOR = INT(1 / CASES.PER.STAR)
+         CASES.PER.STAR = 1 / SCALE.FACTOR
+         IF SCALE.FACTOR > 1 THEN
+            HISTOGRAM.BLOCK = STR('*',SCALE.FACTOR-1):'+'
+         END ELSE
+            HISTOGRAM.BLOCK = '*'
+         END
+         PRINT.LINE = 'EACH "':HISTOGRAM.BLOCK:'" REPRESENTS ONE CASE'
+      END
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = ' '
+      GOSUB PRINT.PRINT.LINE
+
+      NULL.COUNT = CROSS.COUNTS(1)
+      IF NULL.COUNT > 0 THEN
+         START.POSITION = 1
+      END ELSE
+         START.POSITION = 2
+      END
+
+      LEFT.COL.FMT = LEFT.COL.WIDTH:'L'
+      RIGHT.COL.FMT = RIGHT.COL.WIDTH:'R'
+      GOSUB PRINT.DETAIL.TEXT
+      GOSUB PRINT.SUMMARY.TEXT
+      RETURN
+
+
+
+PRINT.HTML.RESULTS: 
+      PRINT.LINE = '<HTML>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '<HEAD>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '<TITLE>'
+      GOSUB PRINT.PRINT.LINE
+      IF TITLE.TEXT = '' THEN
+         PRINT.LINE = 'HISTOGRAM OF "':LEFT.FIELD:'" FOR FILE ':SRC.FILENAME
+      END ELSE
+         PRINT.LINE = TITLE.TEXT
+      END
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '</TITLE>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '</HEAD>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '<BODY>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '<TABLE BORDER="1">'
+      GOSUB PRINT.PRINT.LINE
+
+      TOT.COUNTS = 0
+      FOR I = 1 TO NUM.LEFT.FIELD
+         TOT.COUNTS += CROSS.COUNTS(I)
+         IF CROSS.COUNTS(I) > MAX.LEFT.FIELD.COUNT THEN
+            MAX.LEFT.FIELD.COUNT = CROSS.COUNTS(I)
+         END
+      NEXT I
+      SPACES.FOR.STARS = PRINT.WIDTH - LEFT.COL.WIDTH - RIGHT.COL.WIDTH - 2
+      IF PRINT.PCT THEN
+         SPACES.FOR.STARS -= 6
+      END
+      CASES.PER.STAR = MAX.LEFT.FIELD.COUNT / SPACES.FOR.STARS
+      IF CASES.PER.STAR >= 1 THEN
+         HAVE.BLOCK = @FALSE
+         CASES.PER.STAR = INT(CASES.PER.STAR)
+         SCALE.FACTOR = 1 / CASES.PER.STAR
+      END ELSE
+         HAVE.BLOCK = @TRUE
+         SCALE.FACTOR = INT(1 / CASES.PER.STAR)
+         CASES.PER.STAR = 1 / SCALE.FACTOR
+      END
+
+      NULL.COUNT = CROSS.COUNTS(1)
+      IF NULL.COUNT > 0 THEN
+         START.POSITION = 1
+      END ELSE
+         START.POSITION = 2
+      END
+
+      LEFT.COL.FMT = LEFT.COL.WIDTH:'L'
+      RIGHT.COL.FMT = RIGHT.COL.WIDTH:'R'
+      GOSUB PRINT.DETAIL.HTML
+      PRINT.LINE = '</TABLE>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '</BODY>'
+      GOSUB PRINT.PRINT.LINE
+      PRINT.LINE = '</HTML>'
+      GOSUB PRINT.PRINT.LINE
+      RETURN
+
+
+
+PRINT.DETAIL.TEXT: 
+      FOR I = START.POSITION TO NUM.LEFT.FIELD
+         IF START.INTERVAL = '' THEN
+            IF I > 1 THEN
+               PRINT.LINE = FMT(LEFT.FIELD.LIST<1,LEFT.FIELD.INDEX(I)>,LEFT.COL.FMT)
+            END ELSE
+               PRINT.LINE = FMT('(null)',LEFT.COL.FMT)[1,LEFT.COL.WIDTH]
+            END
+            VALUE.TO.PRINT = CROSS.COUNTS(LEFT.FIELD.INDEX(I))
+         END ELSE
+            IF I > 1 THEN
+               TEMP.RIGHT = START.INTERVAL + I*INTERVAL.WIDTH - INTERVAL.WIDTH
+               TEMP.LEFT  = TEMP.RIGHT - INTERVAL.WIDTH
+               TEMP.TEXT = OCONV(TEMP.LEFT,LEFT.FIELD.CONV)
+               PRINT.LINE = FMT(TEMP.TEXT:'+',LEFT.COL.FMT)
+            END ELSE
+               PRINT.LINE = FMT('NULL',LEFT.COL.FMT)[1,LEFT.COL.WIDTH]
+            END
+            VALUE.TO.PRINT = CROSS.COUNTS(I)
+         END
+         PRINT.LINE := FMT(VALUE.TO.PRINT,RIGHT.COL.FMT)[RIGHT.COL.WIDTH]
+         IF PRINT.PCT AND TOT.COUNTS > 0 THEN
+            PCT.VALUE = 1000*VALUE.TO.PRINT / TOT.COUNTS
+            PRINT.LINE := FMT(OCONV(PCT.VALUE,'MD1'),'6R')
+         END
+         IF HAVE.BLOCK THEN
+            PRINT.LINE := ' '
+            FOR WHICH.BLOCK = 1 TO VALUE.TO.PRINT
+               PRINT.LINE := HISTOGRAM.BLOCK
+            NEXT WHICH.BLOCK
+         END ELSE
+            NUMBER.OF.STARS = INT(VALUE.TO.PRINT*SCALE.FACTOR+0.5)
+            IF NUMBER.OF.STARS > SPACES.FOR.STARS THEN
+               NUMBER.OF.STARS = SPACES.FOR.STARS
+            END
+            PRINT.LINE := ' ':STR('*',NUMBER.OF.STARS)
+         END
+         GOSUB PRINT.PRINT.LINE
+      NEXT I
+      RETURN
+
+PRINT.SUMMARY.TEXT: 
+      COUNTED.RECS = NUM.SRC.RECS - NOT.COUNTED
+      IF HAVE.LPTR THEN
+         PRINT.LINE = ' '
+         GOSUB PRINT.PRINT.LINE
+         PRINT.LINE = COUNTED.RECS:' SOURCE RECORDS INCLUDED ON THE REPORT'
+         GOSUB PRINT.PRINT.LINE
+         IF NOT.COUNTED > 0 THEN
+            PRINT.LINE = NOT.COUNTED:' SOURCE RECORDS EXCLUDED FROM THE REPORT'
+            GOSUB PRINT.PRINT.LINE
+         END
+      END
+      CRT
+      CRT NUM.SRC.KEYS:' SOURCE KEYS READ FROM SELECT LIST'
+      CRT COUNTED.RECS:' SOURCE RECORDS INCLUDED ON THE REPORT'
+      CRT NOT.COUNTED:' SOURCE RECORDS EXCLUDED FROM THE REPORT'
+      RETURN
+
+
+PRINT.DETAIL.HTML: 
+      FOR I = START.POSITION TO NUM.LEFT.FIELD
+         PRINT.LINE = '<TR>'
+         IF START.INTERVAL = '' THEN
+            IF I > 1 THEN
+               PRINT.LINE := '<TD>':LEFT.FIELD.LIST<1,LEFT.FIELD.INDEX(I)>:'</TD>'
+            END ELSE
+               PRINT.LINE = '<TD>(null)</TD>'
+            END
+            VALUE.TO.PRINT = CROSS.COUNTS(LEFT.FIELD.INDEX(I))
+         END ELSE
+            IF I > 1 THEN
+               TEMP.RIGHT = START.INTERVAL + I*INTERVAL.WIDTH - INTERVAL.WIDTH
+               TEMP.LEFT  = TEMP.RIGHT - INTERVAL.WIDTH
+               TEMP.TEXT = OCONV(TEMP.LEFT,LEFT.FIELD.CONV)
+               PRINT.LINE := '<TD>':TEMP.TEXT:'+</TD>'
+            END ELSE
+               PRINT.LINE := '<TD>NULL</TD>'
+            END
+            VALUE.TO.PRINT = CROSS.COUNTS(I)
+         END
+         PRINT.LINE := '<TD>':VALUE.TO.PRINT:'<TD>'
+         IF PRINT.PCT AND TOT.COUNTS > 0 THEN
+            PCT.VALUE = 1000*VALUE.TO.PRINT / TOT.COUNTS
+            PRINT.LINE := '<TD>':OCONV(PCT.VALUE,'MD1'):'</TD>'
+         END
+         PRINT.LINE := '<TD>'
+         IF HAVE.BLOCK THEN
+            FOR WHICH.BLOCK = 1 TO VALUE.TO.PRINT
+               PRINT.LINE := HISTOGRAM.BLOCK
+            NEXT WHICH.BLOCK
+         END ELSE
+            NUMBER.OF.STARS = INT(VALUE.TO.PRINT*SCALE.FACTOR+0.5)
+            IF NUMBER.OF.STARS > SPACES.FOR.STARS THEN
+               NUMBER.OF.STARS = SPACES.FOR.STARS
+            END
+            PRINT.LINE := STR('*',NUMBER.OF.STARS)
+         END
+         PRINT.LINE := '</TD>'
+         PRINT.LINE := '</TR>'
+         GOSUB PRINT.PRINT.LINE
+      NEXT I
+      RETURN
+
+GET.TERMINAL.WIDTH: 
+      TERMINAL.WIDTH = @CRTWIDE
+      RETURN
+
+
+LOAD.PARAMETERS: 
+      ERRMSG = ''
+      NUM.ERRORS = 0
+      HAVE.CELL.OPTION = @FALSE
+      PARAM.STR = ''
+      PARAM.QUOTED = ''
+      NUM.PARAMS = 0
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      MATPARSE PARAM FROM PARAM.STR,@FM
+      NPARAM = INMAT()
+      IF NUM.PARAMS # NPARAM THEN
+         PRINT 'FATAL ERROR PARSING COMMAND LINE'
+         PRINT 'PARSE.LINE RETURNED ':NUM.PARAMS:' PARAMETERS'
+         PRINT 'MATPARSE   RETURNED ':NPARAM:' PARAMETERS'
+         STOP
+      END
+      IF NUM.PARAMS < 3 THEN
+         GOSUB PRINT.HELP
+         STOP
+      END
+
+      SRC.FILENAME = PARAM(2)
+      LEFT.FIELD = PARAM(3)
+
+      PARAM.STR = FIELD(PARAM.STR,@FM,4,9999)
+
+      LOCATE '-SELECT' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'SELECT' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         MAKE.SELECT = @TRUE
+         DEL PARAM.STR<POS>
+      END ELSE
+         MAKE.SELECT = @FALSE
+      END
+
+      LOCATE '-PREFIX' IN PARAM.STR<1> SETTING POS THEN
+         LIST.PREFIX = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END ELSE
+         LOCATE 'PREFIX' IN PARAM.STR<1> SETTING POS THEN
+            LIST.PREFIX = PARAM.STR<POS+1>
+            DEL PARAM.STR<POS>
+            DEL PARAM.STR<POS>
+         END ELSE
+            LIST.PREFIX = DEFAULT.PREFIX
+         END
+      END
+
+      LOCATE '-REQUIRE.SELECT' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'REQUIRE.SELECT' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         REQUIRE.SELECT = @TRUE
+         DEL PARAM.STR<POS>
+      END ELSE
+         REQUIRE.SELECT = @FALSE
+      END
+
+      LOCATE '-PCT' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'PCT' IN PARAM.STR<1> SETTING POS ELSE
+            LOCATE '-PERCENT' IN PARAM.STR<1> SETTING POS ELSE
+               LOCATE 'PERCENT' IN PARAM.STR<1> SETTING POS ELSE
+                  POS = 0
+               END
+            END
+         END
+      END
+      IF POS THEN
+         PRINT.PCT = @TRUE
+         DEL PARAM.STR<POS>
+      END ELSE
+         PRINT.PCT = @FALSE
+      END
+
+      LOCATE '-LPTR' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'LPTR' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         HAVE.LPTR = @TRUE
+         DEL PARAM.STR<POS>
+      END ELSE
+         HAVE.LPTR = @FALSE
+      END
+
+      LOCATE '-FILE' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'FILE' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         HAVE.OUTPUT.FILE = @TRUE
+         OUTPUT.DIR.NAME = PARAM.STR<POS+1>
+         OUTPUT.RECORD.NAME = PARAM.STR<POS+2>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+         OPEN '',OUTPUT.DIR.NAME TO F.OUTPUT.DIR.NAME ELSE
+            CRT 'UNABLE TO OPEN ':OUTPUT.DIR.NAME
+            STOP
+         END
+      END ELSE
+         HAVE.OUTPUT.FILE = @FALSE
+      END
+
+      LOCATE '-FORMAT' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'FORMAT' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         OUTPUT.FORMAT = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+      CRT 'OUTPUT.FORMAT ':OUTPUT.FORMAT
+
+      LOCATE '-CODE' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'CODE' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         CODE.FILE1 = PARAM.STR<POS+1>
+         OPEN '',CODE.FILE1 TO F.CODE.FILE1 ELSE
+            ERRMSG<-1> = 'UNABLE TO OPEN FILE ':CODE.FILE1
+            NUM.ERRORS += 1
+         END
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END ELSE
+         CODE.FILE1 = ''
+      END
+
+      LOCATE '-RANGE' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'RANGE' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         RANGE1.LOW = PARAM.STR<POS+1>
+         RANGE1.HIGH = PARAM.STR<POS+2>
+         TEST.LOW = RANGE1.LOW
+         TEST.HIGH = RANGE1.HIGH
+         GOSUB VALIDATE.RANGE
+         IF NUM.ERRORS = 0 THEN
+            MAX.LEFT.FIELD = RANGE1.HIGH - RANGE1.LOW + 2
+            START.INTERVAL = RANGE1.LOW
+         END ELSE
+            RANGE1.LOW = ''
+            RANGE1.HIGH = ''
+         END
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END ELSE
+         RANGE1.LOW = ''
+         RANGE1.HIGH = ''
+      END
+
+      IF RANGE1.LOW # '' AND CODE.FILE1 # '' THEN
+         CRT 'RANGE and CODE options conflict...CODE option ignored.'
+         CODE.FILE1 = ''
+      END
+
+      LOCATE '-DIM' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'DIM' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         MAX.LEFT.FIELD = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+
+      LOCATE '-START' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'START' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         START.INTERVAL = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+      LOCATE '-INTERVAL' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'INTERVAL' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         INTERVAL.WIDTH = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+      IF START.INTERVAL = '' THEN
+         IF INTERVAL.WIDTH = '' THEN
+            NULL
+         END ELSE
+            START.INTERVAL = INTERVAL.WIDTH
+         END
+      END ELSE
+         IF INTERVAL.WIDTH = '' THEN
+            INTERVAL.WIDTH = START.INTERVAL
+         END ELSE
+            NULL
+         END
+      END
+
+      IF START.INTERVAL THEN
+         IF NOT(NUM(START.INTERVAL)) THEN
+            ERRMSG<-1> = 'NON-NUMERIC STARTING POINT ':START.INTERVAL
+            NUM.ERRORS += 1
+         END
+         IF NOT(NUM(INTERVAL.WIDTH)) THEN
+            ERRMSG<-1> = 'NON-NUMERIC INTERVAL WIDTH ':INTERVAL.WIDTH
+            NUM.ERRORS += 1
+         END
+         IF INTERVAL.WIDTH <= 0 THEN
+            ERRMSG<-1> = 'INTERVAL WIDTH IS NOT GREATER THAN ZERO'
+            NUM.ERRORS += 1
+         END
+      END
+
+      LOCATE '-HEAD' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE '-HEADING' IN PARAM.STR<1> SETTING POS ELSE
+            LOCATE 'HEADING' IN PARAM.STR<1> SETTING POS ELSE
+               LOCATE 'HEAD' IN PARAM.STR<1> SETTING POS ELSE
+                  POS = 0
+               END
+            END
+         END
+      END
+      IF POS THEN
+         TITLE.TEXT = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END ELSE
+         TITLE.TEXT = ''
+      END
+
+* We don't use the -FORM token anymore, but we'll process it
+* enough to get rid of the tokens
+      LOCATE '-FORM' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'FORM' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+      LOCATE '-WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         PRINT.WIDTH = PARAM.STR<POS+1>
+         IF PRINT.WIDTH = '' OR NOT(NUM(PRINT.WIDTH)) THEN
+            CRT 'Illegal print width specified...default used.'
+         END
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+      LOCATE '-LEFT.COL.WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'LEFT.COL.WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         LEFT.COL.WIDTH = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+      LOCATE '-RIGHT.COL.WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+         LOCATE 'RIGHT.COL.WIDTH' IN PARAM.STR<1> SETTING POS ELSE
+            POS = 0
+         END
+      END
+      IF POS THEN
+         RIGHT.COL.WIDTH = PARAM.STR<POS+1>
+         DEL PARAM.STR<POS>
+         DEL PARAM.STR<POS>
+      END
+
+
+      REQUESTED.ARRAY.SIZE = MAX.LEFT.FIELD
+      IF REQUESTED.ARRAY.SIZE > MAX.ARRAY.SIZE THEN
+         ERRMSG<-1> = 'Illegal DIM values:  maximum array size is ':MAX.ARRAY.SIZE:'.'
+         ERRMSG<-1> = '     DIM            ':MAX.LEFT.FIELD
+         ERRMSG<-1> = '     Requested size ':REQUESTED.ARRAY.SIZE
+         NUM.ERRORS += 1
+         RETURN
+      END
+
+
+      IF PARAM.STR # '' THEN
+         ERRMSG<-1> = 'Unrecognized options in command:'
+         COUNT.PARAM = COUNT(PARAM.STR,@FM) + 1
+         FOR WHICH.PARAM = 1 TO COUNT.PARAM
+            ERRMSG<-1> = '     ':PARAM.STR<WHICH.PARAM>
+         NEXT WHICH.PARAM
+         NUM.ERRORS += 1
+         RETURN
+      END
+
+      DIM CROSS.COUNTS(MAX.LEFT.FIELD)
+      MAT CROSS.COUNTS = 0
+      RETURN
+
+
+
+PRINT.HELP: 
+      PRINT 'HISTOGRAM, version 2.0'
+      PRINT
+      PRINT 'You must supply a file name and a field name in your command:'
+      PRINT '   histogram applicants ethnic'
+      PRINT
+
+      PRINT 'You may also specify any of several options:'
+      PRINT '   -CODE xxx                  to pre-load values of variable from a code file'
+      PRINT '   -DIM nnn                   to set maximum number of values for variable'
+      PRINT '   -RANGE xxx yyy             to specify range of integer values to tabulate'
+      PRINT '   -START xxx                 to specify the starting value for non-integer'
+      PRINT '                                 numeric variables'
+      PRINT '   -INTERVAL yyy              to specify the interval width for non-integer'
+      PRINT '                                 numeric variables'
+      PRINT '   -PCT                       to request printing of percentages'
+
+      PRINT
+      PRINT '   -HEADING "heading text"    to specify a page heading (use the same'
+      PRINT '                                 syntax as Uniquery, unless output is to a'
+      PRINT '                                 file in which case title is copied literally)'
+      PRINT '   -LEFT.COL.WIDTH nnn        to set the width of the left column'
+      PRINT '   -RIGHT.COL.WIDTH nnn       to set the width of the right column(s)'
+      PRINT '   -LPTR                      to send output to print file'
+      PRINT '   -FORM xxx                  to set the print file form name'
+      PRINT '   -WIDTH nnn                 to set the width of printed output'
+      PRINT '   -FILE DirName RecordName   redirect output to a file'
+      PRINT '   -FORMAT [TEXT|HTML]        set output format (default is TEXT)'
+      PRINT
+      PRINT '   -SELECT                    to create a new SAVE.LIST for each cell'
+      PRINT '   -PREFIX aaaa               to use this prefix for each of the SAVE.LISTs'
+      PRINT '                                 created.'
+      PRINT
+      PRINT '   -REQUIRE.SELECT            to halt execution if a select list is not active'
+      PRINT
+      PRINT
+      PRINT 'Sample commands:'
+      PRINT
+      PRINT '   histogram applicants source.code -select -prefix app.'
+      PRINT '       -heading "Histogram of Applicants by Source Code"'
+      PRINT
+      PRINT '   histogram students state -code states'
+      PRINT.LINE = '       -heading "Students by State'
+      PRINT.LINE := "'"
+      PRINT.LINE := 'LTL'
+      PRINT.LINE := "'"
+      PRINT.LINE := '"'
+      PRINT PRINT.LINE
+      PRINT
+      PRINT '   histogram students gpa -start 0.0 -interval 0.2'
+      PRINT
+      PRINT
+      PRINT 'Defaults are:'
+      PRINT '   DIM              ':DEFAULT.DIM1
+      PRINT '   LEFT.COL.WIDTH   ':DEFAULT.LEFT.COL.WIDTH
+      PRINT '   RIGHT.COL.WIDTH  ':DEFAULT.RIGHT.COL.WIDTH
+      PRINT '   FORMAT           ':DEFAULT.FORMAT
+      STOP
+
+
+
+
+VALIDATE.RANGE: 
+      IF NOT(NUM(TEST.LOW)) OR NOT(NUM(TEST.HIGH)) THEN
+         ERRMSG<-1> = 'Range values must be numeric, found: ':TEST.LOW:' ':TEST.HIGH
+         NUM.ERRORS += 1
+         RETURN
+      END
+      IF TEST.LOW # INT(TEST.LOW) OR TEST.HIGH # INT(TEST.HIGH) THEN
+         ERRMSG<-1> = 'Range values must be integer, found: ':TEST.LOW:' ':TEST.HIGH
+         NUM.ERRORS += 1
+         RETURN
+      END
+      IF TEST.HIGH < TEST.LOW THEN
+         ERRMSG<-1> = 'Second range must be less than first, found: ':TEST.LOW:' ':TEST.HIGH
+         NUM.ERRORS += 1
+         RETURN
+      END
+      RETURN
+
+
+OPEN.FILES: 
+      OPEN '',SRC.FILENAME TO F.SRC ELSE
+         PRINT 'Unable to open ':SRC.FILENAME
+         STOP
+      END
+      OPEN 'DICT',SRC.FILENAME TO D.SRC ELSE
+         PRINT 'UNABLE TO OPEN DICTIONARY FOR ':SRC.FILENAME
+         STOP
+      END
+      OPEN 'DICT','VOC' TO D.VOC ELSE
+         PRINT 'UNABLE TO OPEN DICT VOC FILE'
+         STOP
+      END
+      READ LEFT.FIELD.DICT.REC FROM D.SRC,LEFT.FIELD ELSE
+         READ LEFT.FIELD.DICT.REC FROM D.VOC, LEFT.FIELD ELSE
+            PRINT 'DICTIONARY RECORD NOT FOUND FOR ':LEFT.FIELD
+            STOP
+         END
+      END
+      LEFT.FIELD.TYPE = LEFT.FIELD.DICT.REC<1>[1,1]
+      IF LEFT.FIELD.TYPE # 'D' AND LEFT.FIELD.TYPE # 'I' THEN
+         PRINT 'CAN HANDLE ONLY D- AND I-DESCRIPTORS ':LEFT.FIELD
+         STOP
+      END
+      LEFT.FIELD.LOC = LEFT.FIELD.DICT.REC<2>
+      LEFT.FIELD.CONV = LEFT.FIELD.DICT.REC<3>
+      LEFT.FIELD.FMT = LEFT.FIELD.DICT.REC<5>
+      LEFT.FIELD.SM = LEFT.FIELD.DICT.REC<6>
+
+      IF START.INTERVAL # '' THEN
+         START.INTERVAL = ICONV(START.INTERVAL,LEFT.FIELD.CONV)
+         INTERVAL.WIDTH = ICONV(INTERVAL.WIDTH,LEFT.FIELD.CONV)
+      END
+
+      RETURN
+
+
+FORM.SELECT.LISTS: 
+      FOR I = 1 TO NUM.LEFT.FIELD
+         IF SELECT.LISTS(I) # '' THEN
+            COMMAND =  'SAVE.LIST ':LIST.PREFIX
+            COMMAND := LEFT.FIELD.LIST<1,I>:' FROM 10'
+            FORMLIST SELECT.LISTS(I) TO 10
+            EXECUTE COMMAND
+         END
+      NEXT I
+      RETURN
+
+
+PRINT.ERRORS: 
+      HEADING "'C'HISTOGRAM Error Listing'LL'"
+      DELIM = 999
+      LOOP
+      UNTIL DELIM = 0
+         MSG = REMOVE(ERRMSG,DELIM)
+         PRINT MSG
+      REPEAT
+      RETURN
+
+
+PRINT.PRINT.LINE: 
+      IF HAVE.OUTPUT.FILE THEN
+         R.OUTPUT.FILE<-1> = PRINT.LINE
+      END ELSE
+         PRINT PRINT.LINE
+      END
+      RETURN
+
+
+
+   END

@@ -1,0 +1,138 @@
+      SUBROUTINE COMPARE.LISTS(RETURN.LIST,LIST1,OPERATOR,LIST2)
+*
+* INFO/BASIC SUBROUTINE
+* 2/25/88
+* DWS
+* TITLE ----- COMPARE.LISTS
+*
+*
+* PURPOSE: COMPARE 2 MV LISTS USING NOT,AND,OR,XOR OPERATORS
+*
+*     Last updated by LIVE (SJOQUIST) at 14:16:30 on 02/25/1988.
+*
+********************************************************************
+*
+*
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+      RETURN.LIST = ''
+      NUM1 = COUNT(LIST1,@VM) + (LIST1 # '')
+      NUM2 = COUNT(LIST2,@VM) + (LIST2 # '')
+*
+      BEGIN CASE
+*
+* ORDER IS IMPORTANT FOR THE 'NOT' CHECKING
+*  EG.   LIST.A NOT LIST.B   IS NOT THE SAME AS    LIST.B NOT LIST.A
+*
+         CASE OPERATOR = 'NOT'
+            GOSUB CHECK.NOT
+         CASE OPERATOR = 'AND'
+            GOSUB CHECK.AND
+         CASE OPERATOR = 'OR'
+            GOSUB CHECK.OR
+         CASE OPERATOR = 'XOR'
+            GOSUB CHECK.XOR
+         CASE 1
+            CRT
+            CRT '"':OPERATOR:'" IS UNKNOWN TO THE SUBROUTINE "COMPARE.LISTS"'
+            CRT 'VALID OPERATORS ARE "NOT","AND","OR","XOR"'
+            STOP
+      END CASE
+      RETURN
+
+
+*
+*
+* CHECK 'NOT' OPERATOR
+*   RETURN A LIST OF VALUES IN THE LIST1, BUT NOT IN LIST2
+*
+CHECK.NOT:
+      FOR I=1 TO NUM1
+         LOCATE LIST1<1,I> IN LIST2<1,1> SETTING POS ELSE
+            POS = 0
+         END
+         IF NOT(POS) THEN
+            RETURN.LIST<1,-1> = LIST1<1,I>
+         END
+      NEXT I
+      RETURN
+
+
+*
+*
+* CHECK 'AND' OPERATOR
+*   RETURN A LIST OF VALUES IN THE LIST1 AND IN LIST2
+*
+CHECK.AND:
+      FOR I=1 TO NUM1
+         LOCATE LIST1<1,I> IN LIST2<1,1> SETTING POS ELSE
+            POS = 0
+         END
+         IF POS THEN
+            RETURN.LIST<1,-1> = LIST1<1,I>
+         END
+      NEXT I
+      RETURN
+
+
+*
+*
+* CHECK 'OR' OPERATOR
+*   RETURN A LIST OF VALUES IN THE LIST1 OR IN LIST2
+*
+CHECK.OR:
+      RETURN.LIST = LIST2
+      FOR I=1 TO NUM1
+         LOCATE LIST1<1,I> IN LIST2<1,1> SETTING POS ELSE
+            POS = 0
+         END
+         IF NOT(POS) THEN
+            RETURN.LIST<1,-1> = LIST1<1,I>
+         END
+      NEXT I
+      RETURN
+
+
+*
+*
+* CHECK 'XOR' OPERATOR
+*   RETURN A LIST OF VALUES IN THE LIST1 XOR IN LIST2
+*
+CHECK.XOR:
+      FOR I=1 TO NUM1
+         LOCATE LIST1<1,I> IN LIST2<1,1> SETTING POS ELSE
+            POS = 0
+         END
+         IF NOT(POS) THEN
+            RETURN.LIST<1,-1> = LIST1<1,I>
+         END
+      NEXT I
+      FOR I=1 TO NUM2
+         LOCATE LIST2<1,I> IN LIST1<1,1> SETTING POS ELSE
+            POS = 0
+         END
+         IF NOT(POS) THEN
+            RETURN.LIST<1,-1> = LIST2<1,I>
+         END
+      NEXT I
+      RETURN
+
+   END

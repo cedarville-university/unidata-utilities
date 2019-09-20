@@ -1,0 +1,888 @@
+*
+* INFO/BASIC PROGRAM
+* 11/6/87
+* DWS
+* TITLE ----- RUN.REPORT
+*
+*
+* PURPOSE: PROCESS PARAGRAPHS FROM A FILE
+*
+* Stamped: pts_2 rotmand, /datatel/coll18/live/apphome, user #16628, 14 Aug 14, 02:00PM.
+*    Display help if parameters are not entered on the command line.
+*    Implement local custom variables.
+*    Implement %@MONTHAGO% option.
+* Stamped: pts_1 rotmand, /datatel/coll18/live/apphome, user #28101, 17 Jul 12, 06:53AM.
+*    Unidata now limits "sentences" to 9247 characters, so we cannot
+*    directly execute a paragraph larger than that.  Large paragraphs
+*    are now written to temporary VOC items and executed there.
+* Stamped: pts_64 rotmand, /datatel/coll18/live/apphome, user #7610, 21 Dec 11, 10:57AM.
+*    For phantom jobs, display the paragraph and file names
+* Stamped: pts_1 rotmand, /datatel/live/collive, user #18092, 20 Feb 06, 02:44PM.
+*    Add custom variable %@DEPT.CHAIR.SECURITY%@ (somewhat ignored here, but
+*    utilized in the CALLUB version.
+* Stamped: pts_3 rotmand, /datatel/live/collive, user #13035, 06 Dec 05, 08:31AM.
+*    Change 'Cedarville College' to 'Cedarville University' (five years late)
+* Stamped: p2 rotmand, /datatel/live/collive, user #13422, 11 Jun 05, 06:33AM.
+*    Remove BATCH option (we no longer use it since we have
+*    fast CPUs).
+* Stamped: p1 rotmand, /datatel/live/collive, user #24168, 03 Mar 05, 10:35AM.
+*    Add custom variable %@ACAD.DEPT.SECURITY%@ (somewhat ignored here, but
+*    utilized in the CALLUB version.
+* Stamped: p8 rotmand, /disk1/collive, user #22410, 17 Jul 98, 03:39PM.
+*    Improve handling of command-line options (making order independent)
+*    Remove support for '-APPEND' option
+* Stamped: p9 rotmand, /disk1/collive, user #16526, 21 Nov 97, 09:48AM.
+*    Allow use of custom variables in source paragraphs:
+*       %@LOGNAME%@
+*       %@OFFICE%@
+*       %@TODAY%@
+*       %@NOW%@
+*       %@YESTERDAY%@
+*       %@WEEKAGO%@
+*       %@DATE%@      (internal format)
+*       %@TIME%@      (internal format)
+* Stamped: p3 rotmand, /disk1/collive, user #5565, 29 Jan 97, 07:57AM.
+*    Keep history in (optional) log file.
+* Stamped: pty/ttyp3 rotmand, /disk1/collive, user #3268, 09 Sep 96, 03:11PM.
+*    Leave the DISPLAY statements in the remote paragraph
+* Stamped: pty/ttyp2 rotmand, /disk1/collive, user #23305, 04 Jul 94, 09:06AM.
+*     Last updated by LIVE (SJOQUIST) at 09:46:09 on 12/06/1989.
+*    PUT IN DISPLAY STATEMENTS FOR COMOS
+*     Last updated by LIVE (ROTMAN) at 12:56:57 on 03/08/1989.
+*    ALLOW 'MODE' COMMAND WITHIN THE PARAGRAPH
+*    MAKE DISPLAY STATEMENTS COMMENTS IN THE REMOTE PARAGRAPH
+*     Last updated by LIVE (ROTMAN) at 09:21:18 on 10/17/1988.
+*    ALLOW USE OF MATCHFIELD
+*     Last updated by LIVE (SJOQUIST) at 13:04:23 on 04/07/1988.
+*    Allow command line options (-NOW,-BATCH,-PHANTOM)
+*     Last updated by LIVE (SJOQUIST) at 09:06:50 on 03/29/1988.
+*    Look for DISPLAY statements
+*     Last updated by LIVE (SJOQUIST) at 16:00:00 on 11/06/1987.
+*
+********************************************************************
+*
+
+
+
+
+*
+* COMMAND LINE SYNTAX
+*  RUN LOCAL.SOURCE RUN.REPORT FILENAME REPORTNAME
+* options on the command line:
+*  -BATCH   run this as a batch job
+*  -NOW     run this paragraph 'at' the terminal
+*  -PHANTOM run this as a Primos phantom
+*  -SAVE    save the resulting paragraph in the VOC file (used in testing)
+*
+
+
+* SITE-SPECIFIC OPTIONS
+
+      LOG.FILE.IS.ACTIVE = @TRUE
+      LOG.FILE.NAME = 'RUN.REPORT.LOG'
+      HAVE.LOCAL.CUSTOM.VARIABLES = @TRUE
+      CUSTOM.VARIABLE.FILE.NAME = 'VOC'
+      CUSTOM.VARIABLE.REC.NAME = 'RUN.REPORT.VARIABLES'
+
+* END SITE-SPECIFIC OPTIONS
+
+      X.DEBUG = @FALSE
+
+
+      X.SYSTEM.SENTENCE.LIMIT = 9247
+      X.RUN.REPORT.SENTENCE.LIMIT = INT(0.8*X.SYSTEM.SENTENCE.LIMIT)
+      IF X.DEBUG THEN
+         X.RUN.REPORT.SENTENCE.LIMIT = 50
+      END
+
+*
+*
+* MAIN CONTROL
+*
+
+      IF HAVE.LOCAL.CUSTOM.VARIABLES THEN
+         GOSUB LOAD.LOCAL.CUSTOM.VARIABLES
+      END
+
+      GOSUB SET.UP
+      GOSUB LOAD.PARAMETERS
+      GOSUB BUILD.NEW.PARAGRAPH
+      GOSUB RUN.OR.PHANTOM
+      STOP
+
+
+
+*
+*
+* SET UP
+*
+SET.UP: 
+      ERROR.RET = ''
+      ERROR.MSG = ''
+      IF LOG.FILE.IS.ACTIVE THEN
+         F.RUN.REPORT.LOG = ''
+         CALL OPEN.FILE(F.RUN.REPORT.LOG,LOG.FILE.NAME,ERROR.RET,ERROR.MSG)
+      END
+      MAX.PROMPTS = 50
+      DIM PROMPT.NAME(MAX.PROMPTS)
+      DIM PROMPT.VALUE(MAX.PROMPTS)
+      DIM PARAM(50)
+      LOWER.CASE = 'abcdefghijklmnopqrstuvwxyz'
+      UPPER.CASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      PROMPT ''
+      COMMAND.LINE = @SENTENCE
+      CLEARED.SCREEN = ''
+      NUM.PROMPTS = 0
+      MAT PROMPT.NAME = ''
+      MAT PROMPT.VALUE = ''
+      VALID.PHANTOM.USERS = ''
+      VALID.PHANTOM.USERS := @FM:'rotmand'
+      VALID.PHANTOM.USERS := @FM:'bowenr'
+      VALID.PHANTOM.USERS := @FM:'mmccoy'
+      VALID.PHANTOM.USERS := @FM:'root'
+      VALID.PHANTOM.USERS := @FM:'howders'
+      VALID.PHANTOM.USERS := @FM:'lscott9999zzzz'
+      VALID.PHANTOM.USERS := @FM:'dmccarty'
+      VALID.PHANTOM.USERS := @FM:'jdmack'
+      PRIVILEGED.USERS = VALID.PHANTOM.USERS
+      LOCATE @LOGNAME IN PRIVILEGED.USERS<1> SETTING POS THEN
+         PRIVILEGED = 1
+      END ELSE
+         PRIVILEGED = 0
+      END
+      RETURN
+
+
+
+*
+*
+* LOAD PARAMETERS
+*
+
+LOAD.PARAMETERS: 
+      COMMAND.LINE.PARAMETERS = ''
+      NUM.PARAMS = 0
+      PARAM.STR = ''
+      PARAM.QUOTED = ''
+      CALL PARSE.LINE(COMMAND.LINE,PARAM.STR,PARAM.QUOTED,NUM.PARAMS)
+      IF PARAM.STR<1> = 'RUN' THEN
+         STARTING.PARAM = 4
+      END ELSE
+         STARTING.PARAM = 2
+      END
+      IF NUM.PARAMS < STARTING.PARAM THEN
+         GOSUB DISPLAY.HELP
+         STOP
+      END
+
+      FILE.NAME = PARAM.STR<STARTING.PARAM>
+      PARA.NAME = PARAM.STR<STARTING.PARAM+1>
+*      IF NUM(FILE.NAME) AND NUM(PARA.NAME) AND FILE.NAME # '' AND PARA.NAME # '' THEN
+*         BEG.STACK.POS = FILE.NAME + 1
+*         END.STACK.POS = PARA.NAME + 1
+*         PROGRAM = 'STACK'
+*         PARAGRAPH = @COMMAND.STACK<BEG.STACK.POS>
+*         FOR STACK.POS=(BEG.STACK.POS-1) TO END.STACK.POS STEP -1
+*            PARAGRAPH := @FM:@COMMAND.STACK<STACK.POS>
+*         NEXT STACK.POS
+*      END ELSE
+      PROGRAM = FILE.NAME:'.':PARA.NAME
+      OPEN '',FILE.NAME TO F.FILE ELSE
+         FILE.NAME = FILE.NAME:'.REP'
+         OPEN '',FILE.NAME TO F.FILE ELSE
+            CRT FILE.NAME:' not found or not accessible.'
+            STOP
+         END
+      END
+      READ PARAGRAPH FROM F.FILE, PARA.NAME ELSE
+         CRT PARA.NAME:' not found on file ':FILE.NAME:'.'
+         STOP
+      END
+      IF LOG.FILE.IS.ACTIVE THEN
+         GOSUB WRITE.LOG
+      END
+      DEL PARAGRAPH<1>
+      CLOSE F.FILE
+      NUM.LINES = COUNT(PARAGRAPH,@FM) + 1
+      OPEN '','VOC' TO F.VOC ELSE
+         CALL FATAL.ERROR('NO.FILE','VOC')
+      END
+      GOSUB CHECK.OPTIONS
+      RETURN
+
+
+*
+*
+* CHECK OPTIONS
+*
+CHECK.OPTIONS: 
+      CURRENT.PARAM = STARTING.PARAM + 2
+      REMAINING.TOKENS = FIELD(PARAM.STR,@FM,CURRENT.PARAM,999)
+      GOSUB GET.COMMAND.LINE.MODE
+*DLR*      GOSUB GET.PASSED.QUEUE
+      HAVE.PARAMETERS = @FALSE
+      LOCATE '-PARAMETERS' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+         HAVE.PARAMETERS = @TRUE
+      END ELSE
+         LOCATE 'PARAMETERS' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+            HAVE.PARAMETERS = @TRUE
+         END ELSE
+            LOCATE '-PARAM' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+               HAVE.PARAMETERS = @TRUE
+            END ELSE
+               LOCATE 'PARAM' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+                  HAVE.PARAMETERS = @TRUE
+               END
+            END
+         END
+      END
+      IF HAVE.PARAMETERS THEN
+         COMMAND.LINE.PARAMETERS = PARAM.STR<STARTING.PARAM>:'_':PARAM.STR<STARTING.PARAM+1>:@FM:FIELD(REMAINING.TOKENS,@FM,TOKEN.POS+1,9999)
+         LINE = COMMAND.LINE.PARAMETERS
+         GOSUB REPLACE.CUSTOM.VARIABLES
+         COMMAND.LINE.PARAMETERS = LINE
+      END
+      RETURN
+
+
+
+GET.PASSED.QUEUE: 
+      PASSED.QUEUE = ''
+      LOCATE '-QUEUE' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+         PASSED.QUEUE = REMAINING.TOKENS<TOKEN.POS+1>
+      END ELSE
+         LOCATE 'QUEUE' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+            PASSED.QUEUE = REMAINING.TOKENS<TOKEN.POS+1>
+         END
+      END
+      IF PASSED.QUEUE THEN
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         COMMAND.LINE.MODE = 'BATCH'
+         RETURN
+      END
+      RETURN
+
+
+
+GET.COMMAND.LINE.MODE: 
+      COMMAND.LINE.MODE = ''
+*DLR*      LOCATE '-BATCH' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+*DLR*         COMMAND.LINE.MODE = 'BATCH'
+*DLR*      END ELSE
+*DLR*         LOCATE 'BATCH' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+*DLR*            COMMAND.LINE.MODE = 'BATCH'
+*DLR*         END
+*DLR*      END
+      IF COMMAND.LINE.MODE THEN
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         RETURN
+      END
+      LOCATE '-NOW' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+         COMMAND.LINE.MODE = 'NOW'
+      END ELSE
+         LOCATE 'NOW' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+            COMMAND.LINE.MODE = 'NOW'
+         END
+      END
+      IF COMMAND.LINE.MODE THEN
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         RETURN
+      END
+      LOCATE '-PHANTOM' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+         COMMAND.LINE.MODE = 'PHANTOM'
+      END ELSE
+         LOCATE 'PHANTOM' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+            COMMAND.LINE.MODE = 'PHANTOM'
+         END
+      END
+      IF COMMAND.LINE.MODE THEN
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         RETURN
+      END
+      LOCATE '-SAVE' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+         COMMAND.LINE.MODE = 'SAVE'
+         SAVE.VOC.ITEM = REMAINING.TOKENS<TOKEN.POS+1>
+      END ELSE
+         LOCATE 'SAVE' IN REMAINING.TOKENS<1> SETTING TOKEN.POS THEN
+            COMMAND.LINE.MODE = 'SAVE'
+         END
+      END
+      IF COMMAND.LINE.MODE THEN
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         DEL REMAINING.TOKENS<TOKEN.POS>
+         RETURN
+      END
+      RETURN
+
+
+
+*
+*
+* SET.UP.SCREEN
+*
+
+SET.UP.SCREEN: 
+      PRINT @(-1)
+      PRINT @(20,0):'Cedarville University Paragraph Processor'
+      PRINT
+      PRINT 'Processing "':PARA.NAME:'" from "':FILE.NAME:'"'
+      PRINT
+      CLEARED.SCREEN = 1
+      RETURN
+
+
+
+
+*
+*
+* BUILD.NEW.PARAGRAPH
+*
+
+BUILD.NEW.PARAGRAPH: 
+      PARAGRAPH.MODE = ''
+      FOR LINE.NUM = 1 TO NUM.LINES
+         LINE = PARAGRAPH<LINE.NUM>
+         GOSUB REPLACE.CUSTOM.VARIABLES
+         PARAGRAPH<LINE.NUM> = LINE
+      NEXT LINE.NUM
+      FOR LINE.NUM = 1 TO NUM.LINES
+         LINE = PARAGRAPH<LINE.NUM>
+         TOKEN1 = OCONV(FIELD(TRIM(LINE),' ',1),'MCU')
+         TOKEN2 = OCONV(FIELD(TRIM(LINE),' ',2,1),'MCU')
+         IF TOKEN1 = '*' AND TOKEN2 = 'RUN.REPORT.MODE' THEN
+            IF PARAGRAPH.MODE = '' THEN
+               TOKEN = OCONV(FIELD(TRIM(LINE),' ',3,1),'MCU')
+               IF TOKEN[1] # '-' THEN
+                  TOKEN = '-':TOKEN
+               END
+*DLR*               IF TOKEN = '-BATCH' THEN PARAGRAPH.MODE = 'BATCH'
+               IF TOKEN = '-PHANTOM' THEN PARAGRAPH.MODE = 'PHANTOM'
+               IF TOKEN = '-NOW' THEN PARAGRAPH.MODE = 'NOW'
+            END
+         END ELSE
+            NEW.LINE = ''
+            LOOP
+               GOSUB FIND.PROMPT
+            UNTIL PARA.PROMPT = ''
+               GOSUB REPLACE.PROMPT
+            REPEAT
+            NEW.LINE := LINE
+*
+*  CHECK FOR DISPLAY
+*
+            CHECK.LINE = TRIMF(NEW.LINE)
+            COMMAND = FIELD(CHECK.LINE,' ',1,1)
+            CONVERT LOWER.CASE TO UPPER.CASE IN COMMAND
+            IF COMMAND = 'DISPLAY' THEN
+               IF NOT(CLEARED.SCREEN) THEN
+                  GOSUB SET.UP.SCREEN
+               END
+               DISPLAY.MESSAGE = FIELD(CHECK.LINE,' ',2,999)
+               CRT DISPLAY.MESSAGE
+*DLR*               PARAGRAPH<LINE.NUM> = '* ':NEW.LINE
+               PARAGRAPH<LINE.NUM> = NEW.LINE
+            END ELSE
+               PARAGRAPH<LINE.NUM> = NEW.LINE
+            END
+         END
+*
+      NEXT I
+      RETURN
+
+
+
+*
+*
+* FIND.PROMPT
+*
+
+FIND.PROMPT: 
+      PARA.PROMPT = ''
+      BEG.POS = INDEX(LINE,'<<',1)
+      IF BEG.POS THEN
+         LEN.LINE = LEN(LINE)
+         NEW.LINE := LINE[1,BEG.POS-1]
+         END.POS = INDEX(LINE,'>>',1)
+         IF END.POS > LEN.LINE THEN
+            END.POS = LEN.LINE + 1
+         END
+         B = BEG.POS + 2
+         L = END.POS - B
+         ORIGINAL.PROMPT = LINE[BEG.POS,END.POS-BEG.POS+2]
+         MATPARSE PARAM FROM LINE[B,L], ','
+         NUM.PARAM = INMAT()
+         FIRST.CHAR = ''
+         SECOND.CHAR = ''
+         REMAINDER = ''
+         CONTROL.STRING = ''
+         MATCH.FIELD.STRING = ''
+         BEGIN CASE
+            CASE NUM.PARAM = 1
+               PARA.PROMPT = PARAM(1)
+            CASE NUM.PARAM = 2
+               GOSUB CHECK.FOR.CONTROL
+               IF CONTROL.STRING THEN
+                  PARA.PROMPT = PARAM(2)
+               END ELSE
+                  PARA.PROMPT = PARAM(1)
+                  MATCH.FIELD.STRING = PARAM(2)
+               END
+            CASE 1
+               GOSUB CHECK.FOR.CONTROL
+               IF NOT(CONTROL.STRING) THEN
+                  MSG = 'UNRECOGNIZED CONTROL STRING IN PROMPT ':ORIGINAL.PROMPT
+                  CALL LINE.22(MSG)
+                  STOP
+               END
+               PARA.PROMPT = PARAM(2)
+               MATCH.FIELD.STRING = PARAM(3)
+         END CASE
+         LINE = LINE[END.POS+2,LEN.LINE]
+      END
+      RETURN
+
+
+
+***************************************************************************
+* LOOK FOR CONTROL OPTIONS IN THE PROMPT STRING
+***************************************************************************
+CHECK.FOR.CONTROL: 
+      FIRST.CHAR = PARAM(1)[1,1]
+      SECOND.CHAR = PARAM(1)[2,1]
+      REMAINDER = PARAM(1)[2,32000]
+      IF FIRST.CHAR = '@' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'A' AND SECOND.CHAR = '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'C' AND NUM(REMAINDER) AND REMAINDER # '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'F' AND SECOND.CHAR = '(' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'I' AND NUM(REMAINDER) AND REMAINDER # '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'R' AND SECOND.CHAR = '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'R' AND SECOND.CHAR = '(' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'P' AND SECOND.CHAR = '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      IF FIRST.CHAR = 'S' AND NUM(REMAINDER) AND REMAINDER # '' THEN
+         CONTROL.STRING = PARAM(1)
+         RETURN
+      END
+      RETURN
+
+
+
+
+*
+*
+* REPLACE.PROMPT
+*
+
+REPLACE.PROMPT: 
+      I = 1
+      LOOP
+      UNTIL PARA.PROMPT = PROMPT.NAME(I) OR I > NUM.PROMPTS
+         I += 1
+      REPEAT
+      IF I > NUM.PROMPTS THEN
+         NUM.PROMPTS += 1
+         PROMPT.NAME(NUM.PROMPTS) = PARA.PROMPT
+         GOSUB GET.PROMPT.VALUE
+      END
+
+      NEW.LINE := PROMPT.VALUE(I)
+      RETURN
+
+
+*
+*
+*
+* GET.PROMPT.VALUE
+*
+
+GET.PROMPT.VALUE: 
+*DLR*      IF FIRST.CHAR = 'I' OR FIRST.CHAR = 'C' AND CONTROL.STRING # '' THEN
+*DLR*         PROMPT.VALUE(I) = COMMAND.LINE.PARAMETERS<REMAINDER>
+      IF HAVE.PARAMETERS THEN
+         PROMPT.VALUE(I) = COMMAND.LINE.PARAMETERS<I+1>
+         IF PROMPT.VALUE(I) # '' OR FIRST.CHAR = 'C' THEN
+            RETURN
+         END
+      END
+      IF NOT(CLEARED.SCREEN) THEN
+         GOSUB SET.UP.SCREEN
+      END
+      TEMP.COMMAND = '* <<'
+      IF CONTROL.STRING AND FIRST.CHAR # 'I' THEN
+         TEMP.COMMAND := CONTROL.STRING:','
+      END
+      TEMP.COMMAND := PARA.PROMPT
+      IF MATCH.FIELD.STRING THEN
+         TEMP.COMMAND := ",":MATCH.FIELD.STRING
+      END
+      TEMP.COMMAND := '>>'
+      EXECUTE TEMP.COMMAND
+*      IF @ABORT.CODE THEN
+*         ABORT
+*      END
+      TEMP.SENTENCE = @SENTENCE
+      PROMPT.VALUE(I) = TEMP.SENTENCE[3,32000]
+      IF PROMPT.VALUE(I) = '' THEN
+         CRT 'Caution:  no value was entered for ':PARA.PROMPT:'.'
+      END
+      RETURN
+
+*
+*
+* DECIDE WHICH TO DO
+*
+RUN.OR.PHANTOM: 
+      MODE = COMMAND.LINE.MODE
+      IF NOT(MODE) THEN
+         MODE = PARAGRAPH.MODE
+      END
+*DLR*      IF MODE = 'NOW' OR MODE = 'PHANTOM' THEN
+*DLR*         IF PARAGRAPH.MODE = 'BATCH' AND NOT(PRIVILEGED) THEN
+*DLR*            MODE = PARAGRAPH.MODE
+*DLR*         END
+*DLR*      END
+      IF MODE = '' THEN
+         PROMPT.MSG = 'DO YOU WISH TO RUN THIS AS A PHANTOM ? (Y,[NL])'
+         CALL PROMPT.ANS(ANS,PROMPT.MSG,0,22,'Y,Y***,N,SAVE','N',2)
+         BEGIN CASE
+            CASE ANS = 'N'
+               MODE = 'NOW'
+            CASE ANS = 'SAVE'
+               MODE = 'SAVE'
+               PROMPT.MSG = 'VOC record name to save this in'
+               LOOP
+                  CALL PROMPT.ANS(SAVE.VOC.ITEM, PROMPT.MSG, 0, 22, '', '', 2)
+               UNTIL SAVE.VOC.ITEM # ''
+               REPEAT
+            CASE 1
+               MODE = ''
+         END CASE
+      END
+      BEGIN CASE
+         CASE MODE = ''
+            GOSUB ADD.DISPLAY.STATEMENTS
+            GOSUB RUN.PHANTOM.PROCESS
+         CASE MODE = 'PHANTOM'
+            GOSUB ADD.DISPLAY.STATEMENTS
+            GOSUB RUN.PHANTOM
+         CASE MODE = 'NOW'
+            GOSUB RUN.NOW
+         CASE MODE = 'SAVE'
+            GOSUB SAVE.VOC
+*DLR*         CASE MODE = 'BATCH'
+*DLR*            GOSUB ADD.DISPLAY.STATEMENTS
+*DLR*            GOSUB RUN.BATCH
+      END CASE
+      RETURN
+
+
+*
+*
+* ADD DISPLAY STATEMENTS (FOR COMOS ON BATCH & PHANTOMS)
+*
+ADD.DISPLAY.STATEMENTS: 
+      NUM.LINES = COUNT(PARAGRAPH,@FM) + 1
+      NEW.PARAGRAPH = ''
+      FOR LINE.CTR=1 TO NUM.LINES
+         NEW.PARAGRAPH<-1> = 'DISPLAY ':PARAGRAPH<LINE.CTR>
+      NEXT LINE.CTR
+      PARAGRAPH = NEW.PARAGRAPH:@FM:PARAGRAPH
+      RETURN
+
+
+*
+*
+* RUN BATCH
+*
+RUN.BATCH: 
+      PARAMETERS = ''
+      PASSED.OPTIONS = ''
+      CALL CREATE.BATCH.JOB(PARAGRAPH, PARAMETERS, PROGRAM, PASSED.QUEUE, PASSED.OPTIONS)
+      RETURN
+
+
+*
+* CALL PHANTOM.PROCESS
+*
+RUN.PHANTOM.PROCESS: 
+      CRT 'Processing "':PARA.NAME:'" from "':FILE.NAME:'"'
+      PARAMETERS = ''
+      CALL PHANTOM.PROCESS(PARAGRAPH, PARAMETERS, PROGRAM)
+      RETURN
+
+*
+* PHANTOM
+*
+RUN.PHANTOM: 
+      CRT 'Processing "':PARA.NAME:'" from "':FILE.NAME:'"'
+      LOCATE @LOGNAME IN VALID.PHANTOM.USERS<1> SETTING PHANTOM.OKAY ELSE
+         PHANTOM.OKAY = 0
+      END
+      IF PHANTOM.OKAY THEN
+         PHANTOM.PARA.NAME = PARA.NAME:'_':@DATE:'_':@TIME
+         PARAGRAPH = 'PA':@FM:PARAGRAPH
+         PARAGRAPH := @FM:'DELETE VOC ':PHANTOM.PARA.NAME
+         WRITE PARAGRAPH TO F.VOC, PHANTOM.PARA.NAME
+         EXECUTE 'PHANTOM ':PHANTOM.PARA.NAME
+      END ELSE
+         CRT 'Phantom is not available at this time'
+      END
+      RETURN
+
+*
+* NOW
+*
+RUN.NOW: 
+*DLR*      IF @LOGNAME = 'rotmand' THEN
+*DLR*         OPEN '','VOC' TO F.VOC THEN
+*DLR*            WRITE PARAGRAPH ON F.VOC,'DLR'
+*DLR*         END
+*DLR*         CRT 'PARAGRAPH ':PARAGRAPH
+*DLR*         INPUT CRTJUNK
+*DLR*      END
+      IF LEN(PARAGRAPH) GT X.RUN.REPORT.SENTENCE.LIMIT THEN
+         GOSUB RUN.AS.TEMP
+      END ELSE
+         EXECUTE PARAGRAPH
+      END
+      RETURN
+
+
+RUN.AS.TEMP: 
+      IF X.DEBUG THEN
+         CRT 'RUNNING AS TEMPORARY VOC ITEM'
+      END
+      X.HAVE.KV.VOC = @FALSE
+      BASE.KV.VOC = 'RUN.REPORT_':DATE():'_':TIME()
+      X.TEMP = 0
+      LOOP
+         KV.VOC = BASE.KV.VOC:'_':X.TEMP
+         READ R.VOC FROM F.VOC, KV.VOC ELSE
+            X.HAVE.KV.VOC = @TRUE
+         END
+      UNTIL X.HAVE.KV.VOC OR X.TEMP GT 999
+         X.TEMP += 1
+      REPEAT
+      IF NOT(X.HAVE.KV.VOC) THEN
+         CRT 'UNABLE TO GENERATE TEMPORARY KEY FOR VOC FILE'
+         CRT 'LAST ATTEMPT WAS ':KV.VOC
+         STOP
+      END
+      R.VOC = 'PA':@FM:PARAGRAPH
+      IF X.DEBUG THEN
+         CRT 'WRITING ':R.VOC
+         CRT 'TO KEY ':KV.VOC
+      END
+      WRITE R.VOC ON F.VOC, KV.VOC
+      EXECUTE KV.VOC
+      DELETE F.VOC, KV.VOC
+      IF X.DEBUG THEN
+         CRT 'DELETED ':KV.VOC
+      END
+      RETURN
+
+
+*
+* SAVE IN VOC FILE
+*
+SAVE.VOC: 
+      FOUND = 1
+      ANS = ''
+      LOOP
+         READ TEST FROM F.VOC, SAVE.VOC.ITEM ELSE FOUND = 0
+         IF FOUND THEN
+            CRT '"':SAVE.VOC.ITEM:'" is already in your vocabulary file.'
+            LOOP
+               CRT 'Do you wish to choose a New name, or Overwrite, or Quit? (N/O/Q): ':
+               INPUT ANS
+               CONVERT 'noq' TO 'NOQ' IN ANS
+            UNTIL ANS = 'N' OR ANS = 'O' OR ANS = 'Q'
+            REPEAT
+            IF ANS = 'Q' THEN STOP
+         END
+      UNTIL NOT(FOUND) OR ANS = 'O'
+         IF ANS = 'N' THEN
+            CRT 'New name: ':
+            INPUT SAVE.VOC.ITEM
+         END
+      REPEAT
+      VOC.REC = 'PA':@FM:PARAGRAPH
+      WRITE VOC.REC TO F.VOC, SAVE.VOC.ITEM
+      CRT '"':SAVE.VOC.ITEM:'" SAVED IN "VOC"'
+      RETURN
+
+
+WRITE.LOG: 
+      LOG.REC = ''
+      LOG.REC<1> = FILE.NAME
+      LOG.REC<2> = PARA.NAME
+      LOG.KEY = OCONV(@LOGNAME,'MCU'):'*':DATE():'*':TIME()
+      WRITE LOG.REC ON F.RUN.REPORT.LOG, LOG.KEY
+      RETURN
+
+
+
+REPLACE.CUSTOM.VARIABLES: 
+      NEW.LINE = ''
+      LOOP
+         VARIABLE.INDEX.1 = INDEX(LINE,'%@',1)
+      UNTIL VARIABLE.INDEX.1 = 0
+         VARIABLE.INDEX.2 = INDEX(LINE,'%@',2)
+         IF VARIABLE.INDEX.2 > 0 THEN
+            NEW.LINE := LINE[1,VARIABLE.INDEX.1-1]
+            CUSTOM.VARIABLE = OCONV(LINE[VARIABLE.INDEX.1+2,VARIABLE.INDEX.2-VARIABLE.INDEX.1-2],'MCU')
+            LOCATE CUSTOM.VARIABLE IN XL.CUSTOM.VARIABLE.NAME<1,1> SETTING X.POS THEN
+               NEW.LINE := XL.CUSTOM.VARIABLE.VALUE<1,X.POS>
+            END ELSE
+               BEGIN CASE
+                  CASE CUSTOM.VARIABLE = 'LOGNAME'
+                     NEW.LINE := OCONV(@LOGNAME,'MCU')
+                  CASE CUSTOM.VARIABLE = 'ACAD.DEPT.SECURITY'
+                     X.TEMP = "<<R(' '),ACADEMIC DEPARTMENT,1-4X>>"
+                     NEW.LINE := X.TEMP
+                  CASE CUSTOM.VARIABLE = 'DEPT.CHAIR.SECURITY'
+                     X.TEMP = "<<R(' '),ACADEMIC DEPARTMENT,1-4X>>"
+                     NEW.LINE := X.TEMP
+                  CASE CUSTOM.VARIABLE = 'OFFICE'
+                     X.PATH = @PATH
+                     NEW.LINE := OCONV(FIELD(X.PATH,'/',DCOUNT(X.PATH,'/'),1),'MCU')
+                  CASE CUSTOM.VARIABLE = 'TODAY'
+                     NEW.LINE := OCONV(@DATE,'D4/')
+                  CASE CUSTOM.VARIABLE = 'NOW'
+                     NEW.LINE := OCONV(@TIME,'MTH')
+                  CASE CUSTOM.VARIABLE = 'YESTERDAY'
+                     NEW.LINE := OCONV(DATE()-1,'D4/')
+                  CASE CUSTOM.VARIABLE = 'WEEKAGO'
+                     NEW.LINE := OCONV(DATE()-7,'D4/')
+                  CASE CUSTOM.VARIABLE = 'MONTHAGO'
+                     X.TEMP.DATE.OCONV = OCONV(DATE(),'D4/')
+                     X.TEMP.MONTH = X.TEMP.DATE.OCONV[1,2]
+                     X.TEMP.DATE = X.TEMP.DATE.OCONV[4,2]
+                     X.TEMP.YEAR = X.TEMP.DATE.OCONV[7,4]
+                     IF X.TEMP.MONTH+0 = '1' THEN
+                        X.TEMP.MONTH = 12
+                        X.TEMP.YEAR -= 1
+                     END ELSE
+                        X.TEMP.MONTH -= 1
+                     END
+                     NEW.LINE := FMT(X.TEMP.MONTH,'2"0"R'):'/':FMT(X.TEMP.DATE,'2"0"R'):'/':FMT(X.TEMP.YEAR,'4"0"R')
+                  CASE CUSTOM.VARIABLE = 'DATE'
+                     NEW.LINE := DATE()
+                  CASE CUSTOM.VARIABLE = 'TIME'
+                     NEW.LINE := TIME()
+                  CASE 1
+                     NULL
+               END CASE
+            END
+            LINE = LINE[VARIABLE.INDEX.2+2,LEN(LINE)]
+         END ELSE
+            NEW.LINE := LINE
+            LINE = ''
+         END
+      REPEAT
+      NEW.LINE := LINE
+      LINE = NEW.LINE
+      RETURN
+
+
+LOAD.LOCAL.CUSTOM.VARIABLES: 
+      OPEN '',CUSTOM.VARIABLE.FILE.NAME TO F.CUSTOM.VARIABLE.FILE.NAME ELSE
+         CRT 'UNABLE TO OPEN CUSTOM VARIABLE FILE NAME:  ':CUSTOM.VARIABLE.FILE.NAME
+         STOP
+      END
+      READ XL.TEMP FROM F.CUSTOM.VARIABLE.FILE.NAME, CUSTOM.VARIABLE.REC.NAME ELSE
+         CRT 'UNABLE TO READ CUSTOM VARIABLE RECORD ':CUSTOM.VARIABLE.REC.NAME:' FROM ':CUSTOM.VARIABLE.FILE.NAME
+         STOP
+      END
+      XL.CUSTOM.VARIABLE.NAME = ''
+      XL.CUSTOM.VARIABLE.VALUE = ''
+      NUM.XL.CUSTOM.VARIABLE.NAME = 0
+      NUM.XL.TEMP = DCOUNT(XL.TEMP,@FM)
+      FOR WHICH.XL.TEMP = 1 TO NUM.XL.TEMP
+         X.TEMP = XL.TEMP<WHICH.XL.TEMP>
+         IF INDEX(X.TEMP,'=',1) GT 0 THEN
+            X.VARIABLE.NAME = OCONV(FIELD(X.TEMP,'=',1,1),'MCU')
+            X.VARIABLE.VALUE = FIELD(X.TEMP,'=',2,1)
+            NUM.XL.CUSTOM.VARIABLE.NAME += 1
+            XL.CUSTOM.VARIABLE.NAME<1,NUM.XL.CUSTOM.VARIABLE.NAME> = X.VARIABLE.NAME
+            XL.CUSTOM.VARIABLE.VALUE<1,NUM.XL.CUSTOM.VARIABLE.NAME> = X.VARIABLE.VALUE
+         END
+      NEXT WHICH.XL.TEMP
+      RETURN
+
+
+
+DISPLAY.HELP: 
+      CRT
+      CRT "Syntax:"
+      CRT "RUN.REPORT FileName ParagraphName [-PARAMETERS param1 param2 ... paramN]"
+      CRT "    [-NOW] [-PHANTOM] [-SAVE VocNameToCreate]"
+      CRT
+      CRT "FileName is usually REG.REP, ADM.REP, NET.REP, etc.  In that case,"
+      CRT 'the ".REP" suffix may be omitted:'
+      CRT "     RUN.REPORT REG COUNT.STUDENTS"
+      CRT
+      CRT "Explanation of options:"
+      CRT "     -BATCH   run this as a batch job"
+      CRT "     -NOW     run this paragraph 'at' the terminal"
+      CRT "     -PHANTOM run this as a operating system phantom"
+      CRT "     -SAVE    save the resulting paragraph in the VOC file (used in testing)"
+      CRT
+      CRT "Parameters may be supplied by inline prompts or via custom variables."
+      CRT
+      CRT "   RUN.REPORT ADM GET.APPLICANTS -PHANTOM"
+      CRT "   DATA <<DATE TO USE,2N/2N/4N>>"
+      CRT
+      CRT "   RUN.REPORT ADM GET.APPLICANTS -PHANTOM -PARAMETERS %@YESTERDAY%@"
+      CRT
+      CRT "These custom variables are available:"
+      CRT "     %@LOGNAME%@              login name for person running the program"
+      CRT "     %@ACAD.DEPT.SECURITY%@   prompt for academic department"
+      CRT "                                  checking for departmental access"
+      CRT "     %@ACAD.CHAIR.SECURITY%@  prompt for academic department"
+      CRT "                                  checking for department chair access"
+      CRT "     %@OFFICE%@               obsolete"
+      CRT "     %@TODAY%@                date process began running, in D4/ format"
+      CRT "     %@NOW%@                  time process began running, in MTH format"
+      CRT "     %@YESTERDAY%@            yesterday's date, in D4/ format"
+      CRT "     %@WEEKAGO%@              date a week ago, in D4/ format"
+      CRT "     %@DATE%@                 today's date, in D4/ format"
+      CRT "     %@TIME%@                 current time, in MTH format"
+      IF HAVE.LOCAL.CUSTOM.VARIABLES THEN
+         CRT
+         CRT "These locally-defined custom variables are available.  Their values"
+         CRT "are set in ":CUSTOM.VARIABLE.FILE.NAME:" ":CUSTOM.VARIABLE.REC.NAME:'.'
+         NUM.XL.CUSTOM.VARIABLE.NAME = DCOUNT(XL.CUSTOM.VARIABLE.NAME,@VM)
+         FOR WHICH.XL.CUSTOM.VARIABLE.NAME = 1 TO NUM.XL.CUSTOM.VARIABLE.NAME
+            X.CUSTOM.VARIABLE.NAME = XL.CUSTOM.VARIABLE.NAME<1,WHICH.XL.CUSTOM.VARIABLE.NAME>
+            X.CUSTOM.VARIABLE.VALUE = XL.CUSTOM.VARIABLE.VALUE<1,WHICH.XL.CUSTOM.VARIABLE.NAME>
+            CRT "     ": FMT(X.CUSTOM.VARIABLE.NAME,'35L'):X.CUSTOM.VARIABLE.VALUE
+         NEXT WHICH.XL.CUSTOM.VARIABLE.NAME
+         RETURN
+
+
+      END

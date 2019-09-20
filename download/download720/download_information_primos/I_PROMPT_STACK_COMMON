@@ -1,0 +1,22 @@
+* I_PROMPT.STACK.COMMON
+*
+*
+*
+* Stamped: p3 rotmand, /usr/local/download, user #3461, 25 Apr 07, 07:48AM.
+* Version 7.20
+*
+*
+*
+*
+*
+*
+*************************************************************
+*
+ 
+      COMMON /PRSTACK/ PRSTACK.PROG.NAMES,
+         PRSTACK.NUM.PROG.STACK,
+         PRSTACK.PROG.STACK,
+         CURRENT.PROG.NAME,
+         CURRENT.PROG.POS,
+         NUM.PROG.STACK,
+         PROG.STACK

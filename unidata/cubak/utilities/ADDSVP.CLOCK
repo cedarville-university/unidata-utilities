@@ -1,0 +1,67 @@
+*
+*
+*
+*
+* ADDSVP.DATE.CLOCK
+* DW SJOQUIST
+*
+* 4-2-1987
+* SET DATE/CLOCK ON ADDS 2020 TERMINALS TO SYSTEM DATE/TIME & TURN ON DISPLAY
+*
+*     Last updated by LIVE (ROTMAN) at 10:22:53 on 09/08/1989.
+* Check term.type so we don't lock up a terminal like the VT101
+*
+*
+*************************************************************************
+*
+*  This program is provided 'as is' for your use by ROTMAN & SJOQUIST.
+*  You are encouraged to verify the accuracy of program functions prior
+*  to use with actual data files.
+*
+*  If you have questions about this program, or if you wish to obtain
+*  a list of programs available for purchase from ROTMAN & SJOQUIST,
+*  contact Dave Rotman or Doug Sjoquist:
+*
+*      Rotman and Sjoquist
+*      c/o Cedarville College
+*      PO Box 601
+*      Cedarville, OH 45314
+*      (513) 766-2211
+*
+*************************************************************************
+*
+
+      VALID.TERM.LIST = 'VP'
+      VALID.TERM.LIST<1,-1> = 'ad'
+      VALID.TERM.LIST<1,-1> = 'WY50'
+
+*PRIME*      EXECUTE 'HUSH ON'
+*PRIME*      EXECUTE 'GET.TERM.TYPE'
+*PRIME*      TERM.TYPE.STRING = @SYSTEM.RETURN.CODE
+EXECUTE 'GET.TERM.TYPE' CAPTURING TERM.TYPE.STRING
+*PRIME*      EXECUTE 'HUSH OFF'
+
+      TERM.TYPE = TERM.TYPE.STRING<1,1>
+      LOCATE TERM.TYPE IN VALID.TERM.LIST<1,1> SETTING POS ELSE
+         PRINT 'ADDSVP.CLOCK ignored for terminal type ':TERM.TYPE:'.'
+         RETURN
+      END
+
+      CURRENT.TIME = OCONV(TIME(),'MT')
+      HOURS = CURRENT.TIME[1,2]
+      MINUTES = CURRENT.TIME[4,2]
+      CURRENT.DATE = OCONV(DATE(),'D/E')
+      CENTURY = CURRENT.DATE[7,2]
+      YEAR = CURRENT.DATE[9,2]
+      MONTH = CURRENT.DATE[4,2]
+      DAY = CURRENT.DATE[1,2]
+
+
+* SET THE TERMINAL CLOCK/CALENDAR
+      S = CHAR(27):CHAR(1):CHAR(7):'03':CHAR(21):HOURS:CHAR(20):MINUTES:CHAR(15):CENTURY:CHAR(14):YEAR:CHAR(13):MONTH:CHAR(12):DAY:CHAR(19):'46':CHAR(31)
+      PRINT S:
+
+* DISPLAY THE INTERNAL DATE AND THE INFORMATION ACCOUNT
+      PRINT CHAR(27):'F':DATE():' ':@WHO:CHAR(13):
+
+   END
