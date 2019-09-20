@@ -1,4 +1,4 @@
-Cedarville DOWNLOAD
+# Cedarville DOWNLOAD
 
 
 Cedarville DOWNLOAD is a program which lets you create merge files, HTML files,
@@ -15,7 +15,7 @@ Installation instructions are in the file 000README.TXT within each
 directory.
 
 
-Available versions:
+## Available versions:
 
 download801        Current version of DOWNLOAD (released September 2015)
 download800        Earlier version of DOWNLOAD (released November 2013)
