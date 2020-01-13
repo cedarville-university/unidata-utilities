@@ -1,9 +1,0 @@
-/ftp/unidata/voc/readme                                 2004/11/29
-
-
-CLEAR.FILE                   Safe version of CLEAR.FILE verb
-                               (rename Unidata CLEAR.FILE to ORIG.CLEAR.FILE)
-DELETE.FILE                  Safe version of DELETE.FILE verb
-                               (rename Unidata DELETE.FILE to ORIG.DELETE.FILE)
-
-

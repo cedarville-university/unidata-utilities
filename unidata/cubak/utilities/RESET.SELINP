@@ -1,6 +1,0 @@
-      MAX.VAR = 25
-      COMMON /SELINP/ NUM.VAR,
-         VAR.NAME(MAX.VAR),
-         VAR.VALUE(MAX.VAR)
-NUM.VAR = 0
-END

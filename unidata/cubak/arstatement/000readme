@@ -1,9 +1,0 @@
-Because of the proprietary nature of the subroutines used to
-print a/r statements, the files have been moved to:
-   /datatel/cedarville/arstatement
-
-
-To access these files, you will need to connect to the ftp
-site and login as 'datatel'.  The password can be obtained
-from other users, from Dave Rotman, or from Datatel, Inc.
-
