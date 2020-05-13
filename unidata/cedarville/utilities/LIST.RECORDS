@@ -7,6 +7,9 @@
 *
 * PURPOSE: LIST RECORDS SIDE BY SIDE FOR A VISUAL COMPARISON
 *
+*     Last updated by howders at 9:54am on 05/07/2020.
+* Commented out BPIOCP.  UniData command to turn on pagination.
+* Fixed FOR/NEXT loop issue.
 *     Last updated by LIVE (ROTMAN) at 08:25:06 on 11/07/1988.
 * DISPLAY '(Not on file)' WHEN RECORD IS NOT ON FILE
 *     Last updated by LIVE (SJOQUIST) at 14:03:15 on 10/18/1988.
@@ -525,7 +528,9 @@ SET.COL.WIDTH:
 *     (COMPARE & PRINT BY VALUE, NOT JUST FIELD)
 *
 LIST.RECORDS: 
-      BPIOCP
+*  The following command is UniData specific and it turns on pagination.
+*  Commented out but can be used if needed.
+*      BPIOCP
       GOSUB SET.UP.FIELDS
       FIRST.FIELD.FOR.LOOP = 1
       IF USE.DICT THEN
@@ -626,7 +631,7 @@ SET.UP.FIELDS:
          IF N > NUM.FIELDS THEN
             NUM.FIELDS = N
          END
-      NEXT I
+      NEXT REC.CTR
       NL = "'L'"
       HEADING H1:NL:H2
       RETURN
